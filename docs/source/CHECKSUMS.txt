@@ -1,0 +1,5 @@
+40191802f48c47ad3e047ed3af1a2379a1492a6c984fb989dfd536585d698982  docs/source/01-flight-simulator-brief-v0.1.md
+59375e8d18f8004a6280854e19c292e076e9d6d29925f7085ecf2f42410f4fd4  docs/source/02-START_HERE.md
+59191b0a04353c9d8b43f8a05f6dcf3f01559ddcf0b387b31589b97a1aad0534  docs/source/03-PROJECT_HANDOFF.md
+b1a3945bc5d83399aab624b8d8df203e3eb37e8156e0b10736f967a89f0cb787  docs/source/04-CHATGPT_PROJECT_INSTRUCTIONS.md
+92b3b91d8cf26a713a96473a4f75bfe3325ebe836cc044775cdfa47293a3b5be  docs/source/agentic-automation-portfolio-handoff.zip
