@@ -1,26 +1,162 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+/*
+ * TWO LAYERS, ONE SYSTEM.
+ *
+ * Buyer-facing surfaces are editorial: serif display, generous measure, hairline rules,
+ * almost no colour. Inspection surfaces drop into instrument density: mono, tighter
+ * leading, tinted panels. Colour is reserved almost entirely for provenance and state,
+ * so that when something IS coloured it means something.
+ */
+
+@theme {
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-serif: var(--font-newsreader), ui-serif, Georgia, "Times New Roman", serif;
+  --font-mono: var(--font-plex-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+:root {
+  --paper: #fbfaf8;
+  --paper-raised: #ffffff;
+  --panel: #f4f2ee;
+  --ink: #15181c;
+  --ink-muted: #565d66;
+  --ink-faint: #868d97;
+  --rule: #e2ded7;
+  --rule-strong: #cdc7bd;
+  --accent: #1d5c56;
+
+  /* Provenance */
+  --prov-evidence: #1d5c56;
+  --prov-evidence-bg: #e8f1ef;
+  --prov-policy: #2c4a7c;
+  --prov-policy-bg: #e9eef6;
+  --prov-lab: #5b3a78;
+  --prov-lab-bg: #f0eaf5;
+  --prov-fixture: #6b6257;
+  --prov-fixture-bg: #efece6;
+
+  /* Verification qualifiers */
+  --warn: #8a5a12;
+  --warn-bg: #fbf1de;
+
+  /* Runtime status */
+  --ok: #1d5c56;
+  --suppressed: #8a5a12;
+  --blocked: #8f3a3a;
+  --waiting: #4a5568;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --paper: #0e1013;
+    --paper-raised: #15181d;
+    --panel: #1a1e24;
+    --ink: #e8e6e1;
+    --ink-muted: #9aa2ad;
+    --ink-faint: #6b747f;
+    --rule: #262b32;
+    --rule-strong: #3a4149;
+    --accent: #6fb5aa;
+
+    --prov-evidence: #6fb5aa;
+    --prov-evidence-bg: #12241f;
+    --prov-policy: #8fb2e8;
+    --prov-policy-bg: #141c2b;
+    --prov-lab: #bda0d8;
+    --prov-lab-bg: #201a29;
+    --prov-fixture: #b0a698;
+    --prov-fixture-bg: #1e1c18;
+
+    --warn: #d9a441;
+    --warn-bg: #2a2011;
+
+    --ok: #6fb5aa;
+    --suppressed: #d9a441;
+    --blocked: #d98080;
+    --waiting: #9aa2ad;
   }
 }
 
+html {
+  background: var(--paper);
+  color: var(--ink);
+}
+
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans);
+  font-feature-settings: "cv05" 1, "ss01" 1;
+  text-rendering: optimizeLegibility;
+}
+
+/* --- Editorial layer ---------------------------------------------------- */
+
+.display {
+  font-family: var(--font-serif);
+  font-weight: 400;
+  letter-spacing: -0.018em;
+  line-height: 1.08;
+}
+
+.lede {
+  font-family: var(--font-serif);
+  font-size: 1.2rem;
+  line-height: 1.55;
+  color: var(--ink-muted);
+}
+
+.prose-measure {
+  max-width: 68ch;
+}
+
+/* --- Instrument layer --------------------------------------------------- */
+
+.instrument {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  line-height: 1.5;
+  letter-spacing: -0.01em;
+}
+
+.label {
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+
+.rule {
+  border-color: var(--rule);
+}
+
+/* --- Badges ------------------------------------------------------------- */
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  letter-spacing: 0.055em;
+  text-transform: uppercase;
+  padding: 0.1875rem 0.4375rem;
+  border-radius: 3px;
+  white-space: nowrap;
+  border: 1px solid transparent;
+}
+
+/* --- Focus -------------------------------------------------------------- */
+
+a:focus-visible,
+button:focus-visible,
+summary:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+::selection {
+  background: var(--accent);
+  color: var(--paper);
 }
