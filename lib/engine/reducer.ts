@@ -4,12 +4,14 @@ import type {
   SideEffect,
   SideEffectStatus,
   StateTransition,
+  TechnicalExecution,
   TimelineEntry,
   VerificationRecord,
 } from '@/lib/model/runtime';
 import type { AuthorityLevel, SystemDefinition } from '@/lib/model/system';
 import type { BusinessProfile } from '@/lib/model/profile';
 import type { ResolvedJudgment } from '@/lib/ports/decision-provider';
+import type { ResolvedSend, ResolvedVerify } from '@/lib/ports/side-effect-executor';
 import type {
   EngineInternals,
   EngineState,
@@ -24,7 +26,7 @@ import type {
  * `applyEvent` is synchronous, total, and free of clocks and randomness. Given the same
  * state, event, and resolved judgments it produces byte-identical output forever.
  *
- * Three guarantees live HERE rather than in per-system handlers, so all six systems
+ * Four guarantees live HERE rather than in per-system handlers, so all six systems
  * inherit them and no handler can opt out:
  *
  *   1. TRANSITION LEGALITY — a handler may *request* a lifecycle move; only a declared
@@ -34,10 +36,19 @@ import type {
  *      recorded as SUPPRESSED_DUPLICATE.
  *   3. AUTHORITY — the ladder is enforced uniformly. Levels 0-1 never act externally,
  *      level 2 parks for approval, levels 3-4 may execute.
+ *   4. RETRY SAFETY — an effect opted into execution tracking (`execution.kind === 'SEND'`)
+ *      whose outcome came back OUTCOME_UNKNOWN cannot be retried by a later attempt on
+ *      the same key unless an independent VERIFY attempt proved non-execution, or the
+ *      provider itself is known to honour the idempotency key. See `ExecutionLedger`.
  *
- * A handler cannot bypass any of the three, which is what makes the reliability claims
+ * A handler cannot bypass any of the four, which is what makes the reliability claims
  * structural rather than decorative.
  */
+
+export interface ExecutionOutcomes {
+  readonly send: ReadonlyMap<string, ResolvedSend>;
+  readonly verify: ReadonlyMap<string, ResolvedVerify>;
+}
 
 export interface StepDeps {
   readonly system: SystemDefinition;
@@ -45,7 +56,14 @@ export interface StepDeps {
   readonly handlers: SystemHandlers;
   readonly judgments: ReadonlyMap<string, ResolvedJudgment>;
   readonly internals: EngineInternals;
+  /**
+   * Pre-resolved send/verify outcomes, keyed by attemptId. Resolved async, before this
+   * runs. Optional: most call sites propose no execution-tracked effects and never need it.
+   */
+  readonly executionOutcomes?: ExecutionOutcomes;
 }
+
+const EMPTY_EXECUTION_OUTCOMES: ExecutionOutcomes = { send: new Map(), verify: new Map() };
 
 export interface ApplyResult {
   readonly state: EngineState;
@@ -67,6 +85,7 @@ export function applyEvent(
   deps: StepDeps,
 ): ApplyResult {
   const { system, profile, handlers, judgments, internals } = deps;
+  const executionOutcomes = deps.executionOutcomes ?? EMPTY_EXECUTION_OUTCOMES;
 
   const observation = internals.events.observe(event.source, event.sourceEventId, event.eventId);
   const isDuplicateEvent = observation === 'DUPLICATE';
@@ -90,7 +109,7 @@ export function applyEvent(
   let current = state;
 
   for (const handlerStep of outcome.steps) {
-    const result = applyStep(current, event, handlerStep, system, internals);
+    const result = applyStep(current, event, handlerStep, system, internals, executionOutcomes);
     current = result.state;
     entries.push(result.entry);
   }
@@ -104,13 +123,14 @@ function applyStep(
   handlerStep: HandlerStep,
   system: SystemDefinition,
   internals: EngineInternals,
+  executionOutcomes: ExecutionOutcomes,
 ): { state: EngineState; entry: TimelineEntry } {
-  // --- Side effects: policy gate, then authority gate, then idempotency ledger ---
+  // --- Side effects: policy gate, then authority gate, then ledger admission ---
   const sideEffects: SideEffect[] = [];
   const verifications: VerificationRecord[] = [...handlerStep.verifications];
 
   for (const proposed of handlerStep.effects) {
-    const { status, detail } = resolveEffect(proposed, event, internals);
+    const { status, detail, technical } = resolveEffect(proposed, event, internals, executionOutcomes);
     sideEffects.push({
       id: proposed.id,
       eventId: event.eventId,
@@ -123,6 +143,7 @@ function applyStep(
       // Nothing in this build leaves the process. Asserted in tests/engine.test.ts.
       executionMode: 'SIMULATED',
       ...(detail === undefined ? {} : { detail }),
+      ...(technical === undefined ? {} : { technical }),
     });
 
     if (proposed.verification !== undefined) {
@@ -199,11 +220,18 @@ function applyStep(
   };
 }
 
+interface EffectResolution {
+  readonly status: SideEffectStatus;
+  readonly detail?: string;
+  readonly technical?: TechnicalExecution;
+}
+
 function resolveEffect(
   proposed: ProposedEffect,
   event: CanonicalEvent,
   internals: EngineInternals,
-): { status: SideEffectStatus; detail?: string } {
+  executionOutcomes: ExecutionOutcomes,
+): EffectResolution {
   if (!proposed.policyPermits) {
     return { status: 'BLOCKED_BY_POLICY', detail: proposed.policyReason ?? 'Blocked by policy.' };
   }
@@ -222,15 +250,211 @@ function resolveEffect(
     };
   }
 
-  const attempt = internals.effects.claim(proposed.idempotencyKey, proposed.id, event.eventId);
-  if (attempt.outcome === 'DUPLICATE') {
+  // No execution-tracking requested: the existing always-succeeds path, unchanged.
+  if (proposed.execution === undefined) {
+    const attempt = internals.effects.claim(proposed.idempotencyKey, proposed.id, event.eventId);
+    if (attempt.outcome === 'DUPLICATE') {
+      return {
+        status: 'SUPPRESSED_DUPLICATE',
+        detail: `Idempotency key "${proposed.idempotencyKey}" was already claimed by side effect ${attempt.original.sideEffectId} on event ${attempt.original.eventId}. No second action was taken.`,
+      };
+    }
+    return { status: 'EXECUTED' };
+  }
+
+  if (proposed.execution.kind === 'VERIFY') {
+    return resolveVerifyEffect(proposed, event, internals, executionOutcomes.verify);
+  }
+
+  return resolveSendEffect(proposed, event, internals, executionOutcomes.send);
+}
+
+function resolveSendEffect(
+  proposed: ProposedEffect,
+  event: CanonicalEvent,
+  internals: EngineInternals,
+  sendOutcomes: ReadonlyMap<string, ResolvedSend>,
+): EffectResolution {
+  const execution = proposed.execution;
+  if (execution === undefined || execution.kind !== 'SEND') {
+    throw new Error(`resolveSendEffect called on effect "${proposed.id}" without a SEND execution`);
+  }
+
+  const claim = internals.executions.evaluate(proposed.idempotencyKey, execution.honorsIdempotencyKey);
+
+  if (claim.decision === 'ALREADY_SUCCEEDED') {
+    const last = claim.history[claim.history.length - 1];
     return {
       status: 'SUPPRESSED_DUPLICATE',
-      detail: `Idempotency key "${proposed.idempotencyKey}" was already claimed by side effect ${attempt.original.sideEffectId} on event ${attempt.original.eventId}. No second action was taken.`,
+      detail: `A prior attempt on idempotency key "${proposed.idempotencyKey}" already confirmed success${last?.outcome.kind === 'SUCCEEDED' && last.outcome.externalId !== undefined ? ` (external id ${last.outcome.externalId})` : ''}. No second attempt was made.`,
     };
   }
 
-  return { status: 'EXECUTED' };
+  if (claim.decision === 'BLOCKED_PENDING_VERIFICATION') {
+    return {
+      status: 'OUTCOME_UNKNOWN',
+      detail: `A prior attempt on idempotency key "${proposed.idempotencyKey}" returned no confirmation, and the provider does not guarantee idempotent processing of this key. Retrying blindly could duplicate a customer-facing effect, so this attempt was refused pending independent verification.`,
+      technical: {
+        attempt: claim.history.length,
+        provider: 'unknown — attempt refused before a provider was contacted',
+        attemptedAt: event.occurredAt,
+        outcomeKind: 'RETRY_BLOCKED_PENDING_VERIFICATION',
+        retrySafety: 'UNSAFE',
+        verificationStatus: internals.executions.verificationStatusFor(proposed.idempotencyKey),
+      },
+    };
+  }
+
+  const resolved = sendOutcomes.get(execution.attemptId);
+  if (resolved === undefined || resolved.status !== 'OK') {
+    const reason =
+      resolved === undefined ? 'No send outcome was resolved for this attempt.' : resolved.reason;
+    return {
+      status: 'FAILED',
+      detail: `Send attempt contract violation or unavailable outcome: ${reason}`,
+      technical: {
+        attempt: claim.attempt,
+        provider: 'unknown',
+        attemptedAt: event.occurredAt,
+        outcomeKind: 'CONTRACT_VIOLATION',
+        retrySafety: 'SAFE',
+        verificationStatus: 'NOT_APPLICABLE',
+      },
+    };
+  }
+
+  const outcome = resolved.result;
+  internals.executions.record(proposed.idempotencyKey, {
+    attempt: claim.attempt,
+    outcome,
+    sideEffectId: proposed.id,
+    eventId: event.eventId,
+  });
+
+  const baseTechnical = {
+    attempt: claim.attempt,
+    attemptedAt: event.occurredAt,
+  };
+
+  switch (outcome.kind) {
+    case 'SUCCEEDED':
+      return {
+        status: 'EXECUTED',
+        detail:
+          outcome.externalId === undefined
+            ? undefined
+            : `Provider confirmed receipt. External id: ${outcome.externalId}.`,
+        technical: {
+          ...baseTechnical,
+          provider: proposed.target,
+          outcomeKind: 'SUCCEEDED',
+          ...(outcome.externalId === undefined ? {} : { externalId: outcome.externalId }),
+          retrySafety: 'NOT_APPLICABLE',
+          verificationStatus: 'NOT_APPLICABLE',
+        },
+      };
+    case 'FAILED_BEFORE_EFFECT':
+      return {
+        status: 'FAILED',
+        detail: outcome.reason,
+        technical: {
+          ...baseTechnical,
+          provider: proposed.target,
+          outcomeKind: 'FAILED_BEFORE_EFFECT',
+          retrySafety: 'SAFE',
+          verificationStatus: 'NOT_APPLICABLE',
+        },
+      };
+    case 'RATE_LIMITED':
+      return {
+        status: 'RATE_LIMITED',
+        detail: `${outcome.reason} Retry after ${outcome.retryAfterSeconds}s.`,
+        technical: {
+          ...baseTechnical,
+          provider: proposed.target,
+          outcomeKind: 'RATE_LIMITED',
+          retrySafety: 'SAFE',
+          verificationStatus: 'NOT_APPLICABLE',
+        },
+      };
+    case 'OUTCOME_UNKNOWN':
+      return {
+        status: 'OUTCOME_UNKNOWN',
+        detail: outcome.reason,
+        technical: {
+          ...baseTechnical,
+          provider: proposed.target,
+          outcomeKind: 'OUTCOME_UNKNOWN',
+          retrySafety: execution.honorsIdempotencyKey ? 'SAFE' : 'UNSAFE',
+          verificationStatus: execution.honorsIdempotencyKey ? 'NOT_APPLICABLE' : 'PENDING',
+        },
+      };
+  }
+}
+
+function resolveVerifyEffect(
+  proposed: ProposedEffect,
+  event: CanonicalEvent,
+  internals: EngineInternals,
+  verifyOutcomes: ReadonlyMap<string, ResolvedVerify>,
+): EffectResolution {
+  const execution = proposed.execution;
+  if (execution === undefined || execution.kind !== 'VERIFY') {
+    throw new Error(`resolveVerifyEffect called on effect "${proposed.id}" without a VERIFY execution`);
+  }
+
+  const resolved = verifyOutcomes.get(execution.attemptId);
+  if (resolved === undefined || resolved.status !== 'OK') {
+    const reason =
+      resolved === undefined ? 'No verify outcome was resolved for this attempt.' : resolved.reason;
+    return { status: 'FAILED', detail: `Verification attempt unavailable: ${reason}` };
+  }
+
+  const outcome = resolved.result;
+  const baseTechnical = {
+    attempt: 1,
+    provider: proposed.target,
+    attemptedAt: event.occurredAt,
+    retrySafety: 'NOT_APPLICABLE' as const,
+  };
+
+  switch (outcome.kind) {
+    case 'CONFIRMED_NOT_EXECUTED':
+      internals.executions.verify(execution.targetIdempotencyKey, 'NOT_EXECUTED');
+      return {
+        status: 'EXECUTED',
+        detail: outcome.reason,
+        technical: {
+          ...baseTechnical,
+          outcomeKind: 'CONFIRMED_NOT_EXECUTED',
+          verificationStatus: 'CONFIRMED_NOT_EXECUTED',
+        },
+      };
+    case 'CONFIRMED_EXECUTED':
+      internals.executions.verify(execution.targetIdempotencyKey, 'EXECUTED');
+      return {
+        status: 'EXECUTED',
+        detail: outcome.reason,
+        technical: {
+          ...baseTechnical,
+          outcomeKind: 'CONFIRMED_EXECUTED',
+          ...(outcome.externalId === undefined ? {} : { externalId: outcome.externalId }),
+          verificationStatus: 'CONFIRMED_EXECUTED',
+        },
+      };
+    case 'STILL_UNKNOWN':
+      // Deliberately does not call internals.executions.verify() — leaves the target key
+      // exactly as unresolved as it was. A check that learns nothing changes nothing.
+      return {
+        status: 'OUTCOME_UNKNOWN',
+        detail: outcome.reason,
+        technical: {
+          ...baseTechnical,
+          outcomeKind: 'STILL_UNKNOWN',
+          verificationStatus: 'PENDING',
+        },
+      };
+  }
 }
 
 /** An event type with no operating logic is recorded honestly rather than ignored. */

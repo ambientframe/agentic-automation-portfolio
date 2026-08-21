@@ -101,6 +101,8 @@ export const SIDE_EFFECT_KINDS = [
   'NOTIFICATION',
   'RESOURCE_PROVISION',
   'SCHEDULE',
+  /** A read-only query against a provider's authoritative status, never a customer-facing action. */
+  'VERIFICATION_CHECK',
 ] as const;
 export const SideEffectKindSchema = z.enum(SIDE_EFFECT_KINDS);
 export type SideEffectKind = z.infer<typeof SideEffectKindSchema>;
@@ -111,10 +113,83 @@ export const SIDE_EFFECT_STATUSES = [
   'SUPPRESSED_DUPLICATE',
   'BLOCKED_BY_POLICY',
   'AWAITING_APPROVAL',
+  /** Confirmed, before any external effect occurred, that the attempt did not go through. Retry-safe. */
   'FAILED',
+  /** Confirmed non-execution due to provider throttling. Retry-safe, after the given backoff. */
+  'RATE_LIMITED',
+  /**
+   * The provider gave no confirmation either way. NOT the same as FAILED: the action may
+   * have reached the customer. A second attempt is refused here in the engine core unless
+   * either an independent check later proves non-execution, or the provider is known to
+   * honour the idempotency key (see `ExecutionAttemptSchema.honorsIdempotencyKey`).
+   */
+  'OUTCOME_UNKNOWN',
 ] as const;
 export const SideEffectStatusSchema = z.enum(SIDE_EFFECT_STATUSES);
 export type SideEffectStatus = z.infer<typeof SideEffectStatusSchema>;
+
+/**
+ * THE SEND/VERIFY EXECUTION CONTRACT.
+ *
+ * Two distinct questions, deliberately kept apart:
+ *
+ *   SendOutcome  — what happened when we tried to perform a customer-facing action.
+ *   VerifyOutcome — what an independent, read-only check later discovered about whether
+ *                   an earlier uncertain attempt actually reached the customer.
+ *
+ * A verify outcome is never itself a send — it can only ever narrow OUTCOME_UNKNOWN
+ * toward one of the two definite answers, or leave it exactly as unresolved as before.
+ * That asymmetry is what keeps a status check from ever being mistaken for an action.
+ */
+export const SendOutcomeSchema = z.discriminatedUnion('kind', [
+  z.strictObject({ kind: z.literal('SUCCEEDED'), externalId: z.string().min(1).optional() }),
+  z.strictObject({ kind: z.literal('FAILED_BEFORE_EFFECT'), reason: z.string().min(1) }),
+  z.strictObject({
+    kind: z.literal('RATE_LIMITED'),
+    reason: z.string().min(1),
+    retryAfterSeconds: z.number().positive(),
+  }),
+  z.strictObject({ kind: z.literal('OUTCOME_UNKNOWN'), reason: z.string().min(1) }),
+]);
+export type SendOutcome = z.infer<typeof SendOutcomeSchema>;
+
+export const VerifyOutcomeSchema = z.discriminatedUnion('kind', [
+  z.strictObject({ kind: z.literal('CONFIRMED_NOT_EXECUTED'), reason: z.string().min(1) }),
+  z.strictObject({
+    kind: z.literal('CONFIRMED_EXECUTED'),
+    reason: z.string().min(1),
+    externalId: z.string().min(1).optional(),
+  }),
+  /** The check itself was inconclusive. Leaves the prior OUTCOME_UNKNOWN exactly as unresolved. */
+  z.strictObject({ kind: z.literal('STILL_UNKNOWN'), reason: z.string().min(1) }),
+]);
+export type VerifyOutcome = z.infer<typeof VerifyOutcomeSchema>;
+
+export const RETRY_SAFETY_VALUES = ['SAFE', 'UNSAFE', 'NOT_APPLICABLE'] as const;
+export const RetrySafetySchema = z.enum(RETRY_SAFETY_VALUES);
+export type RetrySafety = z.infer<typeof RetrySafetySchema>;
+
+/**
+ * The technical execution record for one send or verify attempt. Present only on side
+ * effects that went through the execution ledger (see `lib/engine/ledger.ts`); absent for
+ * the simpler always-succeeds effects that never needed it.
+ *
+ * This is deliberately a SEPARATE object from the business `SideEffect` fields around it,
+ * not a further business lifecycle state. A lead can sit in `WAITING_FOR_REPLY` while its
+ * acknowledgement's technical execution is `OUTCOME_UNKNOWN` — the two are orthogonal.
+ */
+export const TechnicalExecutionSchema = z.strictObject({
+  attempt: z.number().int().positive(),
+  provider: z.string().min(1),
+  /** The event's `occurredAt`. Never a clock read — determinism depends on this. */
+  attemptedAt: z.string().min(1),
+  outcomeKind: z.string().min(1),
+  /** Never fabricated. Present only when the simulated provider actually returned one. */
+  externalId: z.string().min(1).optional(),
+  retrySafety: RetrySafetySchema,
+  verificationStatus: z.enum(['NOT_APPLICABLE', 'PENDING', 'CONFIRMED_NOT_EXECUTED', 'CONFIRMED_EXECUTED']),
+});
+export type TechnicalExecution = z.infer<typeof TechnicalExecutionSchema>;
 
 export const SideEffectSchema = z.strictObject({
   id: z.string().min(1),
@@ -132,6 +207,8 @@ export const SideEffectSchema = z.strictObject({
   /** SIMULATED here means: nothing left this process. Never rendered as if it did. */
   executionMode: ExecutionModeSchema,
   detail: z.string().optional(),
+  /** Present only for effects routed through the execution ledger. See `TechnicalExecutionSchema`. */
+  technical: TechnicalExecutionSchema.optional(),
 });
 
 export type SideEffect = z.infer<typeof SideEffectSchema>;

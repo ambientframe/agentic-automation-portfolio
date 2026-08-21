@@ -11,7 +11,7 @@ import type {
 } from '@/lib/model/runtime';
 import type { AuthorityLevel } from '@/lib/model/system';
 import type { ResolvedJudgment } from '@/lib/ports/decision-provider';
-import type { EventLedger, SideEffectLedger } from './ledger';
+import type { EventLedger, ExecutionLedger, SideEffectLedger } from './ledger';
 
 /**
  * Authoritative business state for one incident.
@@ -42,6 +42,19 @@ export function initialState(lifecycleState: string): EngineState {
   };
 }
 
+/**
+ * What kind of admission the core should apply once policy and authority pass.
+ *
+ * Absent: the existing always-succeeds path (`SideEffectLedger.claim`), byte-identical
+ * to how every effect worked before this file existed. Present with kind `SEND`: routed
+ * through the `ExecutionLedger` and the pre-resolved outcome for `attemptId`, which may
+ * come back uncertain. Present with kind `VERIFY`: a read-only check that can only narrow
+ * a prior `SEND`'s uncertainty, never itself admitted as a customer-facing action.
+ */
+export type EffectExecution =
+  | { readonly kind: 'SEND'; readonly attemptId: string; readonly honorsIdempotencyKey: boolean }
+  | { readonly kind: 'VERIFY'; readonly attemptId: string; readonly targetIdempotencyKey: string };
+
 /** A side effect a handler WANTS. The core decides whether it actually happens. */
 export interface ProposedEffect {
   readonly id: string;
@@ -55,6 +68,8 @@ export interface ProposedEffect {
   readonly policyReason?: string;
   /** Check to run after the effect resolves, producing a VerificationRecord. */
   readonly verification?: { readonly check: string; readonly expect: string };
+  /** Opts this effect into execution-outcome tracking. See `EffectExecution`. */
+  readonly execution?: EffectExecution;
 }
 
 export interface HandlerContext {
@@ -120,4 +135,5 @@ export interface EngineRun {
 export interface EngineInternals {
   readonly effects: SideEffectLedger;
   readonly events: EventLedger;
+  readonly executions: ExecutionLedger;
 }

@@ -138,6 +138,10 @@ const EFFECT_STYLE: Record<SideEffectStatus, CSSProperties> = {
   BLOCKED_BY_POLICY: { color: 'var(--blocked)', borderColor: 'var(--blocked)' },
   AWAITING_APPROVAL: { color: 'var(--waiting)', borderColor: 'var(--waiting)' },
   FAILED: { color: 'var(--blocked)', borderColor: 'var(--blocked)' },
+  // Confirmed non-execution, safe to retry — same register as a suppressed duplicate.
+  RATE_LIMITED: { color: 'var(--suppressed)', background: 'var(--warn-bg)', borderColor: 'var(--suppressed)' },
+  // Deliberately the "bounded judgment" hue: an epistemic state, not a failure or a block.
+  OUTCOME_UNKNOWN: { color: 'var(--prov-lab)', background: 'var(--prov-lab-bg)', borderColor: 'var(--prov-lab)' },
 };
 
 export function EffectStatusBadge({ status }: { status: SideEffectStatus }) {
