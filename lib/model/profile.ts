@@ -160,6 +160,27 @@ export const BusinessProfileSchema = z.strictObject({
 
   /** Organisation-specific values: SLAs, cadences, thresholds. All CLIENT_POLICY. */
   policies: z.array(OperatingStandardSchema).min(1),
+
+  /**
+   * The machine-readable half of the policies above.
+   *
+   * Every threshold the engine actually compares against lives here, and every one
+   * carries `policyId` back to the prose policy it implements. That link is what lets a
+   * visitor ask "why 0.70?" and get an answer, and it is what keeps thresholds out of
+   * the code where they would silently become universal truths.
+   */
+  operatingParameters: z
+    .array(
+      z.strictObject({
+        key: z.string().min(1),
+        label: z.string().min(1),
+        value: z.union([z.number(), z.string()]),
+        unit: z.string().min(1),
+        /** Must resolve to an id in `policies`. Enforced by validateProfileConsistency. */
+        policyId: z.string().min(1),
+      }),
+    )
+    .min(1),
 });
 
 export type BusinessProfile = z.infer<typeof BusinessProfileSchema>;
@@ -275,5 +296,57 @@ export function validateProfileConsistency(profile: BusinessProfile): ProfileIss
     }
   }
 
+  // 11. Every operating parameter must trace to a stated policy, and keys must be unique.
+  const policyIds = new Set(profile.policies.map((p) => p.id));
+  const seenKeys = new Set<string>();
+  for (const parameter of profile.operatingParameters) {
+    if (!policyIds.has(parameter.policyId)) {
+      push(
+        'PARAMETER_POLICY_REF',
+        `operating parameter "${parameter.key}" references policy "${parameter.policyId}", which does not exist. A threshold with no stated policy is a hard-coded assumption.`,
+      );
+    }
+    if (seenKeys.has(parameter.key)) {
+      push('PARAMETER_DUPLICATE', `operating parameter key "${parameter.key}" is declared twice`);
+    }
+    seenKeys.add(parameter.key);
+  }
+
   return issues;
+}
+
+// ---------------------------------------------------------------------------
+// Parameter lookup
+// ---------------------------------------------------------------------------
+
+export interface OperatingParameter {
+  readonly key: string;
+  readonly label: string;
+  readonly value: number | string;
+  readonly unit: string;
+  readonly policyId: string;
+}
+
+export function findParameter(
+  profile: BusinessProfile,
+  key: string,
+): OperatingParameter | undefined {
+  return profile.operatingParameters.find((p) => p.key === key);
+}
+
+/**
+ * Reads a numeric threshold. Throws rather than defaulting: a missing threshold means
+ * the engine would silently invent one, which is the exact failure this layer prevents.
+ */
+export function numberParam(profile: BusinessProfile, key: string): number {
+  const parameter = findParameter(profile, key);
+  if (parameter === undefined) {
+    throw new Error(
+      `Operating parameter "${key}" is not defined on profile "${profile.id}". Add it with the policy it implements rather than hard-coding a value.`,
+    );
+  }
+  if (typeof parameter.value !== 'number') {
+    throw new Error(`Operating parameter "${key}" is not numeric (got ${typeof parameter.value}).`);
+  }
+  return parameter.value;
 }

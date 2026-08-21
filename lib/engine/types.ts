@@ -69,7 +69,20 @@ export interface HandlerContext {
   readonly isDuplicateEvent: boolean;
 }
 
-export interface HandlerOutcome {
+/**
+ * One processing step within an event.
+ *
+ * Handlers decompose their work into steps because a single inbound event genuinely
+ * involves several distinct decisions — validation, identity, consent, classification,
+ * completeness, policy, action — and collapsing them into one timeline row would hide
+ * exactly the reasoning the portfolio exists to expose.
+ */
+export interface HandlerStep {
+  readonly id: string;
+  /** Short label for the timeline rail. */
+  readonly label: string;
+  /** Seconds after event receipt. Authored, deterministic, never a clock read. */
+  readonly atOffsetSeconds: number;
   readonly decisions: readonly DecisionRecord[];
   readonly effects: readonly ProposedEffect[];
   readonly verifications: readonly VerificationRecord[];
@@ -77,6 +90,10 @@ export interface HandlerOutcome {
   readonly transitionTo?: string;
   readonly statePatch?: Partial<Omit<EngineState, 'lifecycleState'>>;
   readonly summary: string;
+}
+
+export interface HandlerOutcome {
+  readonly steps: readonly HandlerStep[];
 }
 
 export type EventHandler = (ctx: HandlerContext) => HandlerOutcome;

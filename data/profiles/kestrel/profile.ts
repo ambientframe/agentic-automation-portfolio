@@ -525,6 +525,18 @@ const RAW = {
         'Client Onboarding Operator access provisioning. Implements the secrets-handling evidence standard as a concrete firm rule.',
     },
   ],
+
+  operatingParameters: [
+    { key: 'confidenceFloor', label: 'Bounded judgment confidence floor', value: 0.7, unit: 'probability', policyId: 'kestrel-confidence-floor' },
+    { key: 'acknowledgementTargetSeconds', label: 'Acknowledgement target', value: 300, unit: 'seconds', policyId: 'kestrel-ack-window' },
+    { key: 'routingTargetMinutes', label: 'Routing target, business hours', value: 30, unit: 'minutes', policyId: 'kestrel-routing-window' },
+    { key: 'maxInformationQuestions', label: 'Maximum clarifying questions before human review', value: 2, unit: 'questions', policyId: 'kestrel-routing-window' },
+    { key: 'dormantMaxAttempts', label: 'Maximum reactivation attempts', value: 3, unit: 'attempts', policyId: 'kestrel-outreach-cadence' },
+    { key: 'dormantWindowDays', label: 'Reactivation sequence window', value: 21, unit: 'days', policyId: 'kestrel-outreach-cadence' },
+    { key: 'dormantCoolingOffDays', label: 'Cooling-off before re-entry', value: 90, unit: 'days', policyId: 'kestrel-outreach-cadence' },
+    { key: 'collectionEscalationDays', label: 'Escalation to founder past due', value: 45, unit: 'days past due', policyId: 'kestrel-collection-cadence' },
+    { key: 'proposalAuthorityCeiling', label: 'Maximum authority for outbound commercial documents', value: 2, unit: 'authority level', policyId: 'kestrel-proposal-authority' },
+  ],
 } satisfies Parameters<typeof BusinessProfileSchema.parse>[0];
 
 export const KESTREL: BusinessProfile = BusinessProfileSchema.parse(RAW);

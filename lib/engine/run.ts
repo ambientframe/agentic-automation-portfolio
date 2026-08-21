@@ -9,7 +9,7 @@ import {
   type ResolvedJudgment,
 } from '@/lib/ports/decision-provider';
 import { EventLedger, SideEffectLedger } from './ledger';
-import { step } from './reducer';
+import { applyEvent } from './reducer';
 import { initialState, type EngineRun, type EngineState, type SystemHandlers } from './types';
 
 /**
@@ -78,9 +78,9 @@ export function reduceScenario(
   let state: EngineState = initialState(deps.handlers.initialState);
 
   for (const event of scenario.events) {
-    const result = step(state, event, { ...deps, judgments, internals });
+    const result = applyEvent(state, event, { ...deps, judgments, internals });
     state = result.state;
-    timeline.push(result.entry);
+    timeline.push(...result.entries);
   }
 
   return {

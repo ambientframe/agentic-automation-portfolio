@@ -206,15 +206,27 @@ export type ClassificationResult = z.infer<typeof ClassificationResultSchema>;
 // Timeline
 // ---------------------------------------------------------------------------
 
+/**
+ * One processing step.
+ *
+ * A single business event usually produces SEVERAL entries — validate, normalise,
+ * deduplicate, classify, check policy, act, verify — because that is what actually
+ * happens and what a reader needs to see. Entries sharing an `event.eventId` belong to
+ * the same inbound event.
+ */
 export interface TimelineEntry {
+  readonly id: string;
   readonly event: CanonicalEvent;
+  /** Short label for the timeline rail, e.g. "Duplicate check". */
+  readonly stepLabel: string;
+  /** Seconds after event receipt. Authored in fixtures, never read from a clock. */
+  readonly atOffsetSeconds: number;
   readonly transitions: readonly StateTransition[];
   readonly decisions: readonly DecisionRecord[];
   readonly sideEffects: readonly SideEffect[];
   readonly verifications: readonly VerificationRecord[];
-  /** Lifecycle state id after this event was fully processed. */
+  /** Lifecycle state id after this step was applied. */
   readonly stateAfter: string;
-  /** Human-readable one-line summary for the timeline rail. */
   readonly summary: string;
 }
 
