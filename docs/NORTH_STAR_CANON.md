@@ -76,7 +76,7 @@ Maturity is descriptive, not aspirational.
 - 134 declared lifecycle transitions
 - 60 metric definitions, each with an explicit formula and a named system of record
 - 34 operating standards, of which 16 assert external evidence
-- 39 named failure modes
+- 42 named failure modes
 - 15 sources in the ledger
 
 ## The demonstration environment
@@ -324,7 +324,7 @@ Regardless of confidence, the system may never:
 
 ### Known failure modes
 
-See [FAILURE_MODE_REGISTER.md](FAILURE_MODE_REGISTER.md) for the full entries. This system declares 13: `DUPLICATE_EVENT`, `RETRY_DUPLICATE_SIDE_EFFECT`, `MALFORMED_PAYLOAD`, `MISSING_REQUIRED_FIELD`, `AI_LOW_CONFIDENCE`, `AI_MALFORMED_OUTPUT`, `AI_UNSUPPORTED_INFERENCE`, `SUPPRESSION_STATE`, `DOWNSTREAM_API_FAILURE`, `HUMAN_APPROVAL_TIMEOUT`, `UNEXPECTED_HUMAN_REPLY`, `STATE_TRANSITION_CONFLICT`, `REPLAY_AFTER_COMPLETION`.
+See [FAILURE_MODE_REGISTER.md](FAILURE_MODE_REGISTER.md) for the full entries. This system declares 14: `DUPLICATE_EVENT`, `RETRY_DUPLICATE_SIDE_EFFECT`, `MALFORMED_PAYLOAD`, `MISSING_REQUIRED_FIELD`, `AI_LOW_CONFIDENCE`, `AI_MALFORMED_OUTPUT`, `AI_UNSUPPORTED_INFERENCE`, `SUPPRESSION_STATE`, `DOWNSTREAM_API_FAILURE`, `HUMAN_APPROVAL_TIMEOUT`, `UNEXPECTED_HUMAN_REPLY`, `STATE_TRANSITION_CONFLICT`, `REPLAY_AFTER_COMPLETION`, `OUT_OF_ORDER_EVENT`.
 
 ---
 
@@ -512,7 +512,7 @@ Regardless of confidence, the system may never:
 
 ### Known failure modes
 
-See [FAILURE_MODE_REGISTER.md](FAILURE_MODE_REGISTER.md) for the full entries. This system declares 5: `SUPPRESSION_STATE`, `RETRY_DUPLICATE_SIDE_EFFECT`, `STALE_DATA`, `WRONG_ENTITY_MATCH`, `POLICY_VIOLATION`.
+See [FAILURE_MODE_REGISTER.md](FAILURE_MODE_REGISTER.md) for the full entries. This system declares 6: `SUPPRESSION_STATE`, `RETRY_DUPLICATE_SIDE_EFFECT`, `STALE_DATA`, `WRONG_ENTITY_MATCH`, `POLICY_VIOLATION`, `RATE_LIMITED`.
 
 ---
 
@@ -880,7 +880,7 @@ Regardless of confidence, the system may never:
 
 ### Known failure modes
 
-See [FAILURE_MODE_REGISTER.md](FAILURE_MODE_REGISTER.md) for the full entries. This system declares 5: `CREDENTIAL_FAILURE`, `RETRY_DUPLICATE_SIDE_EFFECT`, `CONTRADICTORY_DATA`, `POLICY_VIOLATION`, `PARTIAL_SIDE_EFFECT`.
+See [FAILURE_MODE_REGISTER.md](FAILURE_MODE_REGISTER.md) for the full entries. This system declares 6: `CREDENTIAL_FAILURE`, `RETRY_DUPLICATE_SIDE_EFFECT`, `CONTRADICTORY_DATA`, `POLICY_VIOLATION`, `PARTIAL_SIDE_EFFECT`, `TIMEOUT`.
 
 ---
 

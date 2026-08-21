@@ -22,18 +22,21 @@ recorded rather than hidden: an unverified recovery path is a claim, not a capab
 - `HUMAN_APPROVAL_TIMEOUT`
 - `MALFORMED_PAYLOAD`
 - `MISSING_REQUIRED_FIELD`
+- `OUT_OF_ORDER_EVENT`
 - `PARTIAL_SIDE_EFFECT`
 - `POLICY_VIOLATION`
+- `RATE_LIMITED`
 - `REPLAY_AFTER_COMPLETION`
 - `RETRY_DUPLICATE_SIDE_EFFECT`
 - `SOURCE_SYSTEM_OUTAGE`
 - `STALE_DATA`
 - `STATE_TRANSITION_CONFLICT`
 - `SUPPRESSION_STATE`
+- `TIMEOUT`
 - `UNEXPECTED_HUMAN_REPLY`
 - `WRONG_ENTITY_MATCH`
 
-Coverage: 20 distinct failure classes across 39 entries.
+Coverage: 23 distinct failure classes across 42 entries.
 
 ---
 
@@ -227,6 +230,20 @@ Coverage: 20 distinct failure classes across 39 entries.
 | **Resolves into** | Terminal state preserved. |
 | **Verification** | tests/engine.test.ts — no transition may leave a terminal state |
 
+### OUT OF ORDER EVENT — A reply is delivered and processed before the outbound message that prompted it has been recorded.
+
+| Field | Value |
+| --- | --- |
+| **Cause** | Inbound and outbound travel independent paths with no ordering guarantee; the inbound channel can be faster than the side-effect write. |
+| **Business impact** | The reply correlates to nothing, so a genuinely engaged prospect is treated as an unsolicited message and risks being misclassified or dropped. |
+| **Prevention** | Correlate on the conversation identifier carried by the event rather than on the presence of a prior recorded send, and claim the side-effect key before acting so the ledger stays authoritative for what was sent. |
+| **Detection signal** | A reply whose correlation identifier resolves to an entity with no recorded outbound effect. |
+| **Recovery** | Process the reply against the entity’s current state and reconcile the outbound record from the ledger, rather than rejecting the reply for arriving early. |
+| **Escalates when** | The correlation identifier cannot be resolved to any known entity. |
+| **Authority required** | 2 · PREPARE / HUMAN APPROVES |
+| **Resolves into** | Current lifecycle state preserved; the reply is processed, or routed to NEEDS_HUMAN. |
+| **Verification** | Pending — out-of-order scenario not yet authored. |
+
 ---
 
 ## Dormant Pipeline Recovery
@@ -300,6 +317,21 @@ Coverage: 20 distinct failure classes across 39 entries.
 | **Escalates when** | Any executed attempt to an active customer. |
 | **Authority required** | 3 · EXECUTE UNDER EXPLICIT POLICY |
 | **Resolves into** | ARCHIVED. |
+| **Verification** | Pending — scenario not yet authored. |
+
+### RATE LIMITED — The outreach provider refuses further sends partway through a cycle.
+
+| Field | Value |
+| --- | --- |
+| **Cause** | A cycle evaluates a large segment and despatches faster than the provider’s published limit allows. |
+| **Business impact** | Part of a campaign silently fails to send while the run records the whole batch as processed, so the shortfall is invisible. |
+| **Prevention** | Despatch is paced against the declared provider limit, and every attempt is keyed so a resumed batch cannot resend what already went. |
+| **Detection signal** | A rate-limit response from the provider, or a send-rate breach detected before the call is made. |
+| **Recovery** | Pause the batch, honour the provider’s retry-after interval, and resume from the ledger rather than from the top of the segment. |
+| **Retry policy** | Honour the provider’s retry-after; bounded attempts with increasing delay. |
+| **Escalates when** | The limit is reached on consecutive cycles, indicating the segment is too large for the window. |
+| **Authority required** | 2 · PREPARE / HUMAN APPROVES |
+| **Resolves into** | SCHEDULED — unsent records return to the queue rather than being marked attempted. |
 | **Verification** | Pending — scenario not yet authored. |
 
 ---
@@ -451,6 +483,21 @@ Coverage: 20 distinct failure classes across 39 entries.
 | **Escalates when** | Reconciliation unable to determine what exists. |
 | **Authority required** | 2 · PREPARE / HUMAN APPROVES |
 | **Resolves into** | NEEDS_HUMAN. |
+| **Verification** | Pending — scenario not yet authored. |
+
+### TIMEOUT — A resource-creation call times out without returning, leaving it unknown whether the resource was created.
+
+| Field | Value |
+| --- | --- |
+| **Cause** | A slow downstream system. The request may well have succeeded after the caller gave up waiting. |
+| **Business impact** | A blind retry duplicates the resource; no retry leaves the engagement half-provisioned. Both fail quietly, which is what makes this worse than an outright error. |
+| **Prevention** | The idempotency key is claimed before the call, so a retry is safe regardless of which side of the timeout the original call actually landed on. |
+| **Detection signal** | No response within the configured deadline. |
+| **Recovery** | Reconcile by reading the resource back by its key before retrying, and retry only when the read confirms absence. |
+| **Retry policy** | Bounded attempts, each reconciling before acting. |
+| **Escalates when** | Reconciliation cannot determine whether the resource exists. |
+| **Authority required** | 2 · PREPARE / HUMAN APPROVES |
+| **Resolves into** | PROVISIONING retained, or NEEDS_HUMAN when reconciliation is inconclusive. |
 | **Verification** | Pending — scenario not yet authored. |
 
 ---
