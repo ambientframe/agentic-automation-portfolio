@@ -346,7 +346,7 @@ function resolveSendEffect(
             : `Provider confirmed receipt. External id: ${outcome.externalId}.`,
         technical: {
           ...baseTechnical,
-          provider: proposed.target,
+          provider: execution.provider,
           outcomeKind: 'SUCCEEDED',
           ...(outcome.externalId === undefined ? {} : { externalId: outcome.externalId }),
           retrySafety: 'NOT_APPLICABLE',
@@ -359,7 +359,7 @@ function resolveSendEffect(
         detail: outcome.reason,
         technical: {
           ...baseTechnical,
-          provider: proposed.target,
+          provider: execution.provider,
           outcomeKind: 'FAILED_BEFORE_EFFECT',
           retrySafety: 'SAFE',
           verificationStatus: 'NOT_APPLICABLE',
@@ -371,7 +371,7 @@ function resolveSendEffect(
         detail: `${outcome.reason} Retry after ${outcome.retryAfterSeconds}s.`,
         technical: {
           ...baseTechnical,
-          provider: proposed.target,
+          provider: execution.provider,
           outcomeKind: 'RATE_LIMITED',
           retrySafety: 'SAFE',
           verificationStatus: 'NOT_APPLICABLE',
@@ -383,7 +383,7 @@ function resolveSendEffect(
         detail: outcome.reason,
         technical: {
           ...baseTechnical,
-          provider: proposed.target,
+          provider: execution.provider,
           outcomeKind: 'OUTCOME_UNKNOWN',
           retrySafety: execution.honorsIdempotencyKey ? 'SAFE' : 'UNSAFE',
           verificationStatus: execution.honorsIdempotencyKey ? 'NOT_APPLICABLE' : 'PENDING',
@@ -413,7 +413,7 @@ function resolveVerifyEffect(
   const outcome = resolved.result;
   const baseTechnical = {
     attempt: 1,
-    provider: proposed.target,
+    provider: execution.provider,
     attemptedAt: event.occurredAt,
     retrySafety: 'NOT_APPLICABLE' as const,
   };

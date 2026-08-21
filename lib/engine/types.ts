@@ -52,8 +52,19 @@ export function initialState(lifecycleState: string): EngineState {
  * a prior `SEND`'s uncertainty, never itself admitted as a customer-facing action.
  */
 export type EffectExecution =
-  | { readonly kind: 'SEND'; readonly attemptId: string; readonly honorsIdempotencyKey: boolean }
-  | { readonly kind: 'VERIFY'; readonly attemptId: string; readonly targetIdempotencyKey: string };
+  | {
+      readonly kind: 'SEND';
+      readonly attemptId: string;
+      readonly honorsIdempotencyKey: boolean;
+      /** The channel/provider actually performing the send. Distinct from `target`, the recipient. */
+      readonly provider: string;
+    }
+  | {
+      readonly kind: 'VERIFY';
+      readonly attemptId: string;
+      readonly targetIdempotencyKey: string;
+      readonly provider: string;
+    };
 
 /** A side effect a handler WANTS. The core decides whether it actually happens. */
 export interface ProposedEffect {

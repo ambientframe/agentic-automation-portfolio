@@ -145,34 +145,34 @@ Coverage: 23 distinct failure classes across 42 entries.
 | **Resolves into** | NEEDS_INFORMATION. |
 | **Verification** | tests/lead-rescue.test.ts — declined inferences never enter engine facts |
 
-### SUPPRESSION STATE — A contact under suppression or opt-out receives commercial outreach.
+### SUPPRESSION STATE — A contact under suppression, opt-out, or restricted-review state receives commercial outreach without a person deciding it should.
 
 | Field | Value |
 | --- | --- |
-| **Cause** | Suppression checked after commercial routing, or held in a system that was not consulted. |
+| **Cause** | Suppression checked after commercial routing, held in a system that was not consulted, or classification/confidence mistaken for authority to act. |
 | **Business impact** | Legal exposure and permanent relationship damage; the single highest-severity failure in this system. |
-| **Prevention** | Suppression is screened before commercial intent is evaluated, and the check is a transition guard rather than a step in a message template. |
+| **Prevention** | Suppression is screened before commercial intent is evaluated, as a transition guard rather than a step in a message template. A hard opt-out moves straight to DO_NOT_CONTACT; a restricted-but-not-confirmed state still lets classification run, then blocks the candidate action at the policy gate and routes to a person — the classification result and its confidence cannot override that gate. |
 | **Detection signal** | Consent state on the resolved entity in the customer system of record. |
-| **Recovery** | Move to DO_NOT_CONTACT immediately and permanently. Block every pending effect for the entity. |
-| **Escalates when** | Any executed outbound effect to a suppressed entity. Treated as an incident, not a metric. |
+| **Recovery** | Hard opt-out: move to DO_NOT_CONTACT immediately and permanently, blocking every pending effect. Restricted-pending-review: hold the candidate action as BLOCKED_BY_POLICY and enter SUPPRESSION_REVIEW for a named person to decide. |
+| **Escalates when** | Any executed outbound effect to a suppressed or unreviewed-restricted entity. Treated as an incident, not a metric. |
 | **Authority required** | 4 · EXECUTE AND MANAGE BOUNDED DOWNSTREAM CONSEQUENCES |
-| **Resolves into** | DO_NOT_CONTACT. |
-| **Verification** | Pending — suppression scenario not yet authored. |
+| **Resolves into** | DO_NOT_CONTACT, or SUPPRESSION_REVIEW resolved by a person to BOOKING_READY, CLOSED_BAD_FIT, DO_NOT_CONTACT, or ESCALATED. |
+| **Verification** | tests/lead-rescue.test.ts — restricted-contact scenario: candidate action blocked by policy, zero prohibited sends, human authority verified before clearance. |
 
-### DOWNSTREAM API FAILURE — The channel or system of record rejects an action or times out.
+### DOWNSTREAM API FAILURE — The channel or system of record rejects an action, or returns no confirmation at all.
 
 | Field | Value |
 | --- | --- |
-| **Cause** | Provider outage, rate limiting, or credential expiry. |
-| **Business impact** | The prospect receives nothing while internal state may claim they were contacted. |
-| **Prevention** | Claim the idempotency key first, then act, then verify, then record. |
-| **Detection signal** | Non-success response or absent verification record. |
-| **Recovery** | Bounded retry with backoff; on exhaustion enter FAILED_RECOVERABLE and notify a person. |
-| **Retry policy** | Bounded attempts with increasing delay, as provided by the runtime. |
-| **Escalates when** | Retry budget exhausted, or the failure affects more than one entity. |
-| **Authority required** | 2 · PREPARE / HUMAN APPROVES |
-| **Resolves into** | FAILED_RECOVERABLE, then NEEDS_HUMAN or FAILED_TERMINAL. |
-| **Verification** | Pending — downstream failure scenario not yet authored. |
+| **Cause** | Provider outage, rate limiting, credential expiry, or a dropped connection after the request already left this system. |
+| **Business impact** | The prospect receives nothing while internal state may claim they were contacted — or, worse, they DID receive it and a naive retry contacts them again. |
+| **Prevention** | Every execution-tracked send is claimed against the execution ledger first. A definite pre-effect failure or rate limit is retried immediately, since nothing happened. A response with no confirmation is recorded as OUTCOME_UNKNOWN and blocks further attempts on that key until independent verification resolves it, unless the provider itself guarantees idempotent processing. |
+| **Detection signal** | Non-success response, an explicit rate-limit response, or the absence of any confirmation within the attempt. |
+| **Recovery** | FAILED_BEFORE_EFFECT or RATE_LIMITED: retry is safe and permitted immediately. OUTCOME_UNKNOWN: blocked until a verification attempt confirms non-execution, at which point exactly one retry is permitted. |
+| **Retry policy** | Retry-safe outcomes retry immediately; unknown outcomes retry only after verification. See lr-lab-retry-safety. |
+| **Escalates when** | Verification itself returns STILL_UNKNOWN, leaving the key permanently blocked pending manual investigation. |
+| **Authority required** | 3 · EXECUTE UNDER EXPLICIT POLICY |
+| **Resolves into** | Business lifecycle state is unaffected — this failure lives entirely at the side-effect level, inspectable on the affected SideEffect record. |
+| **Verification** | tests/lead-rescue.test.ts — uncertain-outcome scenario: exactly one customer-facing send across attempt, blocked naive retry, and verified retry. |
 
 ### HUMAN APPROVAL TIMEOUT — A case held for human approval is never actioned.
 

@@ -51,6 +51,7 @@ const RAW = {
       { id: 'CLOSED_BAD_FIT', label: 'Closed — not a fit', kind: 'TERMINAL_NEUTRAL', description: 'Genuine enquiry, outside the served segment. Closed correctly rather than pursued.' },
       { id: 'CLOSED_SPAM', label: 'Closed — not an enquiry', kind: 'TERMINAL_NEUTRAL', description: 'Automated, solicitation, or otherwise not a buying enquiry.' },
       { id: 'DO_NOT_CONTACT', label: 'Do not contact', kind: 'TERMINAL_NEUTRAL', description: 'Suppression or opt-out state applies. Overrides commercial intent permanently.' },
+      { id: 'SUPPRESSION_REVIEW', label: 'Suppression review', kind: 'HUMAN_REVIEW', description: 'A candidate action was computed and blocked by policy because the resolved entity carries restricted consent state. Distinct from DO_NOT_CONTACT: the outcome here is not yet decided — a person determines whether this specific inquiry may be answered.' },
       { id: 'ESCALATED', label: 'Escalated', kind: 'HUMAN_REVIEW', description: 'Raised above the first human owner because of risk, value, or an unresolved review.' },
       { id: 'FAILED_RECOVERABLE', label: 'Failed — recoverable', kind: 'ACTIVE', description: 'Processing failed in a way that a retry may resolve. Retry budget is bounded and visible.' },
       { id: 'FAILED_TERMINAL', label: 'Failed — terminal', kind: 'TERMINAL_FAILURE', description: 'Processing failed and no retry can resolve it. Recorded explicitly so it is countable, never a silent drop.' },
@@ -88,6 +89,11 @@ const RAW = {
       { id: 'lr-t30', from: 'FAILED_RECOVERABLE', to: 'NORMALIZED', trigger: 'Retry', mechanism: 'DETERMINISTIC_RULE', guard: 'A retry within the bounded budget produced a valid normalised payload.', authority: 3 },
       { id: 'lr-t31', from: 'FAILED_RECOVERABLE', to: 'FAILED_TERMINAL', trigger: 'Retry budget exhausted', mechanism: 'DETERMINISTIC_RULE', guard: 'Maximum attempts reached without success.', authority: 0 },
       { id: 'lr-t32', from: 'FAILED_RECOVERABLE', to: 'NEEDS_HUMAN', trigger: 'Retry budget exhausted', mechanism: 'DETERMINISTIC_RULE', guard: 'Maximum attempts reached and the payload retains enough signal for a person to act on.', authority: 2 },
+      { id: 'lr-t33', from: 'CLASSIFIED', to: 'SUPPRESSION_REVIEW', trigger: 'Policy evaluation', mechanism: 'DETERMINISTIC_RULE', guard: 'Authoritative consent state on the resolved entity is restricted pending review; the candidate action is blocked regardless of classification or confidence.', authority: 2 },
+      { id: 'lr-t34', from: 'SUPPRESSION_REVIEW', to: 'BOOKING_READY', trigger: 'Human decision', mechanism: 'HUMAN_DECISION', guard: 'A person determined this specific inquiry may be answered and cleared it to proceed.', authority: 2 },
+      { id: 'lr-t35', from: 'SUPPRESSION_REVIEW', to: 'CLOSED_BAD_FIT', trigger: 'Human decision', mechanism: 'HUMAN_DECISION', guard: 'A person judged the enquiry out of segment.', authority: 2 },
+      { id: 'lr-t36', from: 'SUPPRESSION_REVIEW', to: 'DO_NOT_CONTACT', trigger: 'Human decision', mechanism: 'HUMAN_DECISION', guard: 'A person confirmed the restriction stands.', authority: 2 },
+      { id: 'lr-t37', from: 'SUPPRESSION_REVIEW', to: 'ESCALATED', trigger: 'Human decision', mechanism: 'HUMAN_DECISION', guard: 'The first reviewer raised the case rather than deciding it.', authority: 2 },
     ],
   },
 
@@ -143,9 +149,11 @@ const RAW = {
     'Every external action is keyed and claimed before it executes, so replay cannot duplicate it',
     'Confidence below the configured floor routes to a person rather than to an action',
     'Suppression state is evaluated before commercial intent, never after',
+    'Restricted consent state blocks the candidate action regardless of classification or confidence, and routes to a named person rather than resolving itself either way',
     'Lifecycle movement requires a declared transition; an undeclared move is rejected and recorded',
     'Facts the input did not establish are carried as missing information, never filled in',
     'Authority is attached to the action, not to the actor’s confidence',
+    'A side effect whose execution outcome is unknown is never retried without independent verification that it did not occur, unless the provider itself guarantees idempotent processing of the same key',
   ],
 
   metrics: [
@@ -253,6 +261,16 @@ const RAW = {
       sourceIds: [],
       appliesTo:
         'Keeps the latency objective configurable per operator rather than hard-coded, and keeps the portfolio from restating vendor benchmarks as fact.',
+    },
+    {
+      id: 'lr-lab-retry-safety',
+      statement:
+        'A side effect whose outcome is unknown is retried only after independent verification proves it did not occur, or when the provider itself guarantees idempotent processing of the same key. It is never retried on the strength of an assumption.',
+      provenance: 'LAB_TARGET',
+      verification: 'NOT_APPLICABLE',
+      sourceIds: [],
+      appliesTo:
+        'The execution ledger’s retry-safety gate. Tested for both the verification-gated case and the provider-idempotent case separately, since the two must not share a code path by accident.',
     },
   ],
 
@@ -363,31 +381,31 @@ const RAW = {
     {
       id: 'lr-fm-suppression',
       class: 'SUPPRESSION_STATE',
-      failure: 'A contact under suppression or opt-out receives commercial outreach.',
-      cause: 'Suppression checked after commercial routing, or held in a system that was not consulted.',
+      failure: 'A contact under suppression, opt-out, or restricted-review state receives commercial outreach without a person deciding it should.',
+      cause: 'Suppression checked after commercial routing, held in a system that was not consulted, or classification/confidence mistaken for authority to act.',
       businessImpact: 'Legal exposure and permanent relationship damage; the single highest-severity failure in this system.',
-      prevention: 'Suppression is screened before commercial intent is evaluated, and the check is a transition guard rather than a step in a message template.',
+      prevention: 'Suppression is screened before commercial intent is evaluated, as a transition guard rather than a step in a message template. A hard opt-out moves straight to DO_NOT_CONTACT; a restricted-but-not-confirmed state still lets classification run, then blocks the candidate action at the policy gate and routes to a person — the classification result and its confidence cannot override that gate.',
       detection: 'Consent state on the resolved entity in the customer system of record.',
-      recovery: 'Move to DO_NOT_CONTACT immediately and permanently. Block every pending effect for the entity.',
-      escalationCondition: 'Any executed outbound effect to a suppressed entity. Treated as an incident, not a metric.',
+      recovery: 'Hard opt-out: move to DO_NOT_CONTACT immediately and permanently, blocking every pending effect. Restricted-pending-review: hold the candidate action as BLOCKED_BY_POLICY and enter SUPPRESSION_REVIEW for a named person to decide.',
+      escalationCondition: 'Any executed outbound effect to a suppressed or unreviewed-restricted entity. Treated as an incident, not a metric.',
       authorityRequired: 4,
-      terminalState: 'DO_NOT_CONTACT.',
-      verificationTest: 'Pending — suppression scenario not yet authored.',
+      terminalState: 'DO_NOT_CONTACT, or SUPPRESSION_REVIEW resolved by a person to BOOKING_READY, CLOSED_BAD_FIT, DO_NOT_CONTACT, or ESCALATED.',
+      verificationTest: 'tests/lead-rescue.test.ts — restricted-contact scenario: candidate action blocked by policy, zero prohibited sends, human authority verified before clearance.',
     },
     {
       id: 'lr-fm-downstream-api',
       class: 'DOWNSTREAM_API_FAILURE',
-      failure: 'The channel or system of record rejects an action or times out.',
-      cause: 'Provider outage, rate limiting, or credential expiry.',
-      businessImpact: 'The prospect receives nothing while internal state may claim they were contacted.',
-      prevention: 'Claim the idempotency key first, then act, then verify, then record.',
-      detection: 'Non-success response or absent verification record.',
-      recovery: 'Bounded retry with backoff; on exhaustion enter FAILED_RECOVERABLE and notify a person.',
-      retryPolicy: 'Bounded attempts with increasing delay, as provided by the runtime.',
-      escalationCondition: 'Retry budget exhausted, or the failure affects more than one entity.',
-      authorityRequired: 2,
-      terminalState: 'FAILED_RECOVERABLE, then NEEDS_HUMAN or FAILED_TERMINAL.',
-      verificationTest: 'Pending — downstream failure scenario not yet authored.',
+      failure: 'The channel or system of record rejects an action, or returns no confirmation at all.',
+      cause: 'Provider outage, rate limiting, credential expiry, or a dropped connection after the request already left this system.',
+      businessImpact: 'The prospect receives nothing while internal state may claim they were contacted — or, worse, they DID receive it and a naive retry contacts them again.',
+      prevention: 'Every execution-tracked send is claimed against the execution ledger first. A definite pre-effect failure or rate limit is retried immediately, since nothing happened. A response with no confirmation is recorded as OUTCOME_UNKNOWN and blocks further attempts on that key until independent verification resolves it, unless the provider itself guarantees idempotent processing.',
+      detection: 'Non-success response, an explicit rate-limit response, or the absence of any confirmation within the attempt.',
+      recovery: 'FAILED_BEFORE_EFFECT or RATE_LIMITED: retry is safe and permitted immediately. OUTCOME_UNKNOWN: blocked until a verification attempt confirms non-execution, at which point exactly one retry is permitted.',
+      retryPolicy: 'Retry-safe outcomes retry immediately; unknown outcomes retry only after verification. See lr-lab-retry-safety.',
+      escalationCondition: 'Verification itself returns STILL_UNKNOWN, leaving the key permanently blocked pending manual investigation.',
+      authorityRequired: 3,
+      terminalState: 'Business lifecycle state is unaffected — this failure lives entirely at the side-effect level, inspectable on the affected SideEffect record.',
+      verificationTest: 'tests/lead-rescue.test.ts — uncertain-outcome scenario: exactly one customer-facing send across attempt, blocked naive retry, and verified retry.',
     },
     {
       id: 'lr-fm-approval-timeout',
@@ -463,7 +481,7 @@ const RAW = {
 
   maturity: 'SIMULATED',
   fidelityNote:
-    'Runs end to end as a deterministic simulation. The lifecycle graph, duplicate suppression, confidence floor, policy gates, and authority ladder genuinely execute. Bounded judgments are replayed from authored fixtures rather than produced by a model, and no message, record write, or notification leaves the process. There is no live integration of any kind.',
+    'Runs end to end as a deterministic simulation. The lifecycle graph, duplicate suppression, confidence floor, policy gates, authority ladder, and retry-safety gating for uncertain provider outcomes all genuinely execute. Bounded judgments and provider send/verify outcomes are replayed from authored fixtures rather than produced by a model or a real provider, and no message, record write, or notification leaves the process. There is no live integration, and no state persists beyond a single request.',
 } satisfies Parameters<typeof SystemDefinitionSchema.parse>[0];
 
 export const LEAD_RESCUE: SystemDefinition = SystemDefinitionSchema.parse(RAW);

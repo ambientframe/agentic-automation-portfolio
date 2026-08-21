@@ -16,12 +16,16 @@ npm install
 npm run dev
 ```
 
-Then open the printed URL. Three Lead Rescue incidents replay through the engine:
+Then open the printed URL. Five Lead Rescue incidents replay through the engine:
 
 - `/simulator/after-hours-enquiry` — an incomplete enquiry at 20:47, worked to a booking
 - `/simulator/duplicate-delivery` — the same event delivered twice, refused twice
 - `/simulator/ambiguous-high-risk` — a 0.52-confidence case that reaches a person instead
   of an inbox
+- `/simulator/restricted-contact-review` — a high-confidence, well-qualified enquiry, still
+  blocked at the policy gate because the contact carries restricted consent state
+- `/simulator/uncertain-downstream-outcome` — an acknowledgement whose outcome comes back
+  unknown; a naive retry is refused, and exactly one send succeeds after verification
 
 ## Verify it
 
@@ -29,12 +33,13 @@ Then open the printed URL. Three Lead Rescue incidents replay through the engine
 npm run verify
 ```
 
-Typecheck, lint, and 140 tests. The interesting ones are not smoke tests:
+Typecheck, lint, and 180 tests. The interesting ones are not smoke tests:
 
 | Test | Asserts |
 | --- | --- |
-| `tests/lead-rescue.test.ts` | A replayed duplicate produces **zero** duplicate external actions, and a low-confidence judgment sends **nothing** |
-| `tests/engine.test.ts` | An undeclared transition is rejected and the state does not move; no transition can leave a terminal state |
+| `tests/lead-rescue.test.ts` | A replayed duplicate produces **zero** duplicate external actions; a low-confidence judgment sends **nothing**; a restricted contact's candidate action is blocked regardless of classification confidence; an uncertain send outcome permits exactly **one** customer-facing effect across the whole run |
+| `tests/engine.test.ts` | An undeclared transition is rejected and the state does not move; no transition can leave a terminal state; a naive retry on an unresolved uncertain outcome is refused by the core |
+| `tests/side-effect-executor.test.ts` | The provider port never fabricates an external id, and converts every provider failure into data rather than throwing |
 | `tests/replay.test.ts` | Two runs of the same scenario are byte-identical, and every timestamp traces to an authored fixture |
 | `tests/seam.test.ts` | No business vocabulary has leaked into a vertical-agnostic system definition |
 | `tests/provenance.test.ts` | An uncited evidence claim fails validation; an unverified claim can never render as settled fact |
@@ -44,7 +49,7 @@ Typecheck, lint, and 140 tests. The interesting ones are not smoke tests:
 Other commands:
 
 ```bash
-npm run build      # 13 pages prerender — the engine executes at build time
+npm run build      # 15 pages prerender — the engine executes at build time
 npm run docs       # regenerate the canon documents from the typed model
 ```
 
@@ -53,8 +58,8 @@ npm run docs       # regenerate the canon documents from the typed model
 ```
 docs/           canon (normative) + source/ (historical inputs, byte-preserved)
 lib/model/      provenance, system, runtime, profile — the typed vocabulary
-lib/engine/     pure reducer, idempotency + event ledgers, two-phase runner
-lib/ports/      DecisionProvider contract + its one fixture-backed implementation
+lib/engine/     pure reducer, idempotency + event + execution ledgers, two-phase runner
+lib/ports/      DecisionProvider + SideEffectExecutor contracts, fixture-backed
 data/systems/   the six systems — vertical-agnostic, no business vocabulary
 data/profiles/  Kestrel Compliance Group — the swappable fictional business
 data/research/  the source ledger

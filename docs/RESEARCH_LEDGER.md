@@ -30,7 +30,7 @@ Research pass: **2026-08-21**.
 | Unverified (pending) | 2 |
 | Weak or disputed support | 1 |
 | Superseded | 0 |
-| Not applicable (policy / lab target) | 18 |
+| Not applicable (policy / lab target) | 19 |
 
 Primary, official, or standards-body sources: 12 of 15.
 
@@ -262,6 +262,7 @@ Automation vendors frequently present FDCPA-style constraints as universally app
 | Lead Rescue | Replayed duplicate events produce zero duplicate external actions. | LAB_TARGET | NOT_APPLICABLE | — |
 | Lead Rescue | Every low-confidence or policy-sensitive case has a safe path to a person, and takes it rather than acting. | LAB_TARGET | NOT_APPLICABLE | — |
 | Lead Rescue | The simulated acknowledgement and routing paths are designed around a configurable speed-to-lead objective. The specific interval is a client policy value and is not asserted as a universal benchmark. | LAB_TARGET | NOT_APPLICABLE | — |
+| Lead Rescue | A side effect whose outcome is unknown is retried only after independent verification proves it did not occur, or when the provider itself guarantees idempotent processing of the same key. It is never retried on the strength of an assumption. | LAB_TARGET | NOT_APPLICABLE | — |
 | Dormant Pipeline Recovery | Commercial email requires a working opt-out honoured within 10 business days, and addresses that have opted out may not be sold or transferred. Permission is a property of the contact, not of the campaign. | EVIDENCE | VERIFIED | ftc-can-spam |
 | Dormant Pipeline Recovery | Email open tracking is unreliable as a signal of recipient attention. Apple Mail preloads remote content on receipt rather than on open and prevents senders from seeing whether a message was opened, so tracking pixels fire regardless of whether anyone read the message. | EVIDENCE | VERIFIED | apple-mpp |
 | Dormant Pipeline Recovery | Event and job delivery is at-least-once, so a reactivation attempt can be triggered more than once for the same record unless external actions are keyed and deduplicated. | EVIDENCE | VERIFIED | stripe-webhooks |

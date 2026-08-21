@@ -359,12 +359,255 @@ const AMBIGUOUS_HIGH_RISK = {
 } satisfies Parameters<typeof ScenarioSchema.parse>[0];
 
 // ===========================================================================
+// Scenario 4 — Restricted contact, policy blocks the candidate action
+// ===========================================================================
+
+const RESTRICTED_CONTACT = {
+  id: 'lr-scenario-restricted-contact',
+  slug: 'restricted-contact-review',
+  systemId: 'lead-rescue',
+  title: 'A contact who unsubscribed, now writing directly',
+  summary:
+    'Eight months ago, Renata Kessler unsubscribed from the quarterly compliance-trends newsletter — a marketing opt-out, nothing more. Today she emails the shared inbox directly: her company has a live SOC 2 blocker. The enquiry classifies as clean and well-qualified at high confidence. None of that matters — restricted consent state on file means the acknowledgement is computed, then blocked at the policy gate, and the case goes to a person rather than resolving itself either way.',
+  demonstrates: [
+    'The full pipeline runs — validation, normalisation, consent load, classification, completeness — before policy is ever evaluated',
+    'A high-confidence, well-qualified classification does not unlock the action; the policy gate does not consult confidence at all',
+    'The candidate action is computed and shown as blocked, not silently skipped — inspectable, not hidden',
+    'DO_NOT_CONTACT and SUPPRESSION_REVIEW are genuinely different states: one is a closed question, the other is an open one held for a person',
+    'The system does not assert an answer to a genuinely ambiguous business question — it routes the question to a person instead',
+    'Replay cannot accidentally produce a message: the blocked effect never claims the send ledger',
+  ],
+  expectedFinalState: 'BOOKING_READY',
+
+  judgments: {
+    'jd-solstice-intake': {
+      judgmentId: 'jd-solstice-intake',
+      classification: 'QUALIFIED_ENQUIRY',
+      confidence: 0.9,
+      missingInformation: [],
+      evidenceRefs: [
+        '"we need SOC 2 Type II before our enterprise renewal closes"',
+        '"about 90 people, 30 of those engineering"',
+        '"targeting the audit window for Q1"',
+      ],
+      declinedToInfer: [
+        'Whether the renewal is contractually time-boxed or merely a soft target',
+        'Who else at Solstice is aware of this outreach',
+      ],
+      rationaleSummary:
+        'Names framework, headcount, and timing explicitly. Every policy-required field is established by the text. Nothing in the message itself is ambiguous.',
+    },
+  },
+
+  events: [
+    {
+      eventId: 'evt-solstice-001',
+      correlationId: 'inc-lr-solstice',
+      entityId: 'lead-solstice',
+      type: 'inbound.enquiry.received',
+      source: 'shared-inbox',
+      sourceEventId: 'inbox-2026-08-17-2214',
+      occurredAt: '2026-08-17T13:12:04-04:00',
+      receivedAt: '2026-08-17T13:12:04-04:00',
+      schemaVersion: SCHEMA_VERSION,
+      actor: 'EXTERNAL_PARTY',
+      executionMode: 'SIMULATED',
+      payload: {
+        contactName: 'Renata Kessler',
+        contactEmail: 'r.kessler@solsticeuw.example',
+        company: 'Solstice Underwriting',
+        channel: 'shared-inbox',
+        consentState: 'RESTRICTED_PENDING_REVIEW',
+        requiredFields: ['framework', 'target_audit_window', 'headcount'],
+        message:
+          "Hi — we need SOC 2 Type II before our enterprise renewal closes. About 90 people, 30 of those engineering, and we're targeting the audit window for Q1. Can we talk this week?",
+        judgment: {
+          judgmentId: 'jd-solstice-intake',
+          objective:
+            'Classify an inbound enquiry into the permitted set and report which policy-required facts the text does not establish.',
+          input:
+            "Hi — we need SOC 2 Type II before our enterprise renewal closes. About 90 people, 30 of those engineering, and we're targeting the audit window for Q1. Can we talk this week?",
+          permittedClassifications: [...ENQUIRY_CLASSES],
+          requiredFields: ['framework', 'target_audit_window', 'headcount'],
+        },
+      },
+    },
+    {
+      eventId: 'evt-solstice-002',
+      correlationId: 'inc-lr-solstice',
+      entityId: 'lead-solstice',
+      type: 'human.decision.recorded',
+      source: 'operator-console',
+      sourceEventId: 'console-2026-08-17-1350',
+      occurredAt: '2026-08-17T13:50:00-04:00',
+      receivedAt: '2026-08-17T13:50:00-04:00',
+      schemaVersion: SCHEMA_VERSION,
+      actor: 'HUMAN',
+      executionMode: 'SIMULATED',
+      payload: {
+        decidedBy: 'client-partner',
+        decision: 'CLEARED_TO_PROCEED',
+        rationale:
+          'Checked the CRM: Renata unsubscribed from the quarterly newsletter in January, a marketing-nurture opt-out — nothing about direct business contact. This is a separately-initiated enquiry with a real, time-boxed need. Replied to her personally, confirmed we can talk this week, and I am clearing this to proceed as a normal qualified enquiry. If a similar case comes in with any ambiguity about scope, it goes to a person again — this decision does not set a standing rule.',
+      },
+    },
+  ],
+} satisfies Parameters<typeof ScenarioSchema.parse>[0];
+
+// ===========================================================================
+// Scenario 5 — Uncertain downstream outcome
+// ===========================================================================
+
+const UNCERTAIN_OUTCOME = {
+  id: 'lr-scenario-uncertain-outcome',
+  slug: 'uncertain-downstream-outcome',
+  systemId: 'lead-rescue',
+  title: 'The acknowledgement provider went quiet',
+  summary:
+    'Loom Analytics writes in with a complete, qualified enquiry. The acknowledgement is submitted to the transactional email provider — and the connection drops before any delivery confirmation comes back. The provider may have sent it. It may not have. Forty minutes later an automated reconciliation pass queries the provider’s own status log, confirms nothing was ever delivered, and retries on the exact same idempotency key. Devon receives exactly one acknowledgement, not zero and not two.',
+  demonstrates: [
+    'An uncertain outcome is recorded as its own status, OUTCOME_UNKNOWN — never silently folded into FAILED or into EXECUTED',
+    'The business lifecycle proceeds normally regardless — a lead is not stuck because ONE side effect is uncertain; the uncertainty lives on that side effect record, not on the business state',
+    'A naive second attempt on the same key is refused by the engine core before it ever reaches a provider, whether or not the fixture would have made it succeed',
+    'Verification is read-only: it can only narrow the uncertainty toward a definite answer, and it does — never causing a send itself',
+    'Exactly one customer-facing send succeeds across the entire run, with one real external id — never a fabricated one, and never a second one',
+    'The retry runs the same execution ledger check as any other attempt; nothing about this being "the reconciliation job" grants it a bypass',
+  ],
+  expectedFinalState: 'BOOKING_READY',
+
+  judgments: {
+    'jd-loom-intake': {
+      judgmentId: 'jd-loom-intake',
+      classification: 'QUALIFIED_ENQUIRY',
+      confidence: 0.87,
+      missingInformation: [],
+      evidenceRefs: [
+        '"we need ISO 27001 before we can close two UK deals sitting in procurement"',
+        '"58 people, most of engineering"',
+        '"hoping to have the audit booked by end of Q4"',
+      ],
+      declinedToInfer: ['Which two deals specifically, and their contract values'],
+      rationaleSummary:
+        'Framework, headcount, and timing are all stated plainly. A clean, complete, qualified enquiry with nothing ambiguous in the text itself.',
+    },
+  },
+
+  events: [
+    {
+      eventId: 'evt-loom-001',
+      correlationId: 'inc-lr-loom',
+      entityId: 'lead-loom',
+      type: 'inbound.enquiry.received',
+      source: 'website-form',
+      sourceEventId: 'wf-2026-08-19-3387',
+      occurredAt: '2026-08-19T10:04:12-04:00',
+      receivedAt: '2026-08-19T10:04:12-04:00',
+      schemaVersion: SCHEMA_VERSION,
+      actor: 'EXTERNAL_PARTY',
+      executionMode: 'SIMULATED',
+      payload: {
+        contactName: 'Devon Achebe',
+        contactEmail: 'd.achebe@loomanalytics.example',
+        company: 'Loom Analytics',
+        channel: 'website-form',
+        consentState: 'PERMITTED',
+        requiredFields: ['framework', 'target_audit_window', 'headcount'],
+        message:
+          "We need ISO 27001 before we can close two UK deals sitting in procurement. 58 people, most of engineering, hoping to have the audit booked by end of Q4. What's the fastest realistic path?",
+        judgment: {
+          judgmentId: 'jd-loom-intake',
+          objective:
+            'Classify an inbound enquiry into the permitted set and report which policy-required facts the text does not establish.',
+          input:
+            "We need ISO 27001 before we can close two UK deals sitting in procurement. 58 people, most of engineering, hoping to have the audit booked by end of Q4. What's the fastest realistic path?",
+          permittedClassifications: [...ENQUIRY_CLASSES],
+          requiredFields: ['framework', 'target_audit_window', 'headcount'],
+        },
+        // Opts the acknowledgement into execution-outcome tracking instead of the
+        // always-succeeds path. Consumed two ways: the pre-pass resolves the outcome
+        // via the executor (lib/engine/run.ts), and the handler reads attemptId +
+        // honorsIdempotencyKey straight off this same entry to build the proposed effect.
+        sendAttempts: [
+          {
+            attemptId: 'jd-loom-ack-attempt-1',
+            idempotencyKey: 'ack:lead-loom',
+            provider: 'transactional-email',
+            description: 'Acknowledgement to the enquirer confirming receipt and naming the next step.',
+            honorsIdempotencyKey: false,
+          },
+        ],
+      },
+    },
+    {
+      eventId: 'evt-loom-002',
+      correlationId: 'inc-lr-loom',
+      entityId: 'lead-loom',
+      type: 'side_effect.reconciliation.attempted',
+      source: 'reconciliation-job',
+      sourceEventId: 'reconcile-2026-08-19-1044',
+      occurredAt: '2026-08-19T10:44:12-04:00',
+      receivedAt: '2026-08-19T10:44:12-04:00',
+      schemaVersion: SCHEMA_VERSION,
+      actor: 'SYSTEM',
+      executionMode: 'SIMULATED',
+      payload: {
+        verifyAttempts: [
+          {
+            attemptId: 'jd-loom-verify-attempt-1',
+            targetIdempotencyKey: 'ack:lead-loom',
+            provider: 'transactional-email',
+          },
+        ],
+        sendAttempts: [
+          {
+            attemptId: 'jd-loom-ack-attempt-2',
+            idempotencyKey: 'ack:lead-loom',
+            provider: 'transactional-email',
+            description: 'Retry: acknowledgement to the enquirer confirming receipt and naming the next step.',
+            target: 'd.achebe@loomanalytics.example',
+            honorsIdempotencyKey: false,
+          },
+        ],
+      },
+    },
+  ],
+} satisfies Parameters<typeof ScenarioSchema.parse>[0];
+
+// ===========================================================================
 
 export const LEAD_RESCUE_SCENARIOS: readonly Scenario[] = [
   ScenarioSchema.parse(AFTER_HOURS),
   ScenarioSchema.parse(DUPLICATE_DELIVERY),
   ScenarioSchema.parse(AMBIGUOUS_HIGH_RISK),
+  ScenarioSchema.parse(RESTRICTED_CONTACT),
+  ScenarioSchema.parse(UNCERTAIN_OUTCOME),
 ];
+
+/**
+ * Fixture-backed send/verify outcomes for scenarios that declare `sendAttempts` /
+ * `verifyAttempts`. Only `uncertain-downstream-outcome` needs these today; every other
+ * scenario's `runScenario` call omits an executor entirely, and the pre-pass never
+ * touches it because it never finds an attempt to resolve.
+ */
+export const LEAD_RESCUE_SEND_OUTCOMES = {
+  'jd-loom-ack-attempt-1': {
+    kind: 'OUTCOME_UNKNOWN' as const,
+    reason:
+      'The request reached the transactional email provider, but the connection dropped before any delivery confirmation returned. The provider may or may not have processed it.',
+  },
+  'jd-loom-ack-attempt-2': {
+    kind: 'SUCCEEDED' as const,
+    externalId: 'msg_7f2ac91d',
+  },
+};
+
+export const LEAD_RESCUE_VERIFY_OUTCOMES = {
+  'jd-loom-verify-attempt-1': {
+    kind: 'CONFIRMED_NOT_EXECUTED' as const,
+    reason:
+      'Provider delivery log for this idempotency key shows no record of an outbound send. The dropped connection means nothing ever left the provider’s outbound queue.',
+  },
+};
 
 export function leadRescueScenarioBySlug(slug: string): Scenario | undefined {
   return LEAD_RESCUE_SCENARIOS.find((s) => s.slug === slug);

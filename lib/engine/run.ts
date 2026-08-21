@@ -61,13 +61,20 @@ export function extractJudgmentRequest(event: CanonicalEvent): ClassificationReq
  * declares one send; the reconciliation event that follows it declares one verify and one
  * retry send, since a single automated pass both checks and (if safe) acts on what it finds.
  */
-const SendRequestPayloadSchema = z.strictObject({
+// Non-strict deliberately: a handler may need a field on the same array entry that this
+// pre-pass does not (e.g. the retry-despatch handler reads `target` off its send request).
+// A strict schema here would silently drop a handler's own attempt — exactly the failure
+// that shipped once during this feature's own development, caught only because the core
+// reports an unresolved attemptId as a clear FAILED/OUTCOME_UNKNOWN rather than crashing.
+const SendRequestPayloadSchema = z.object({
   attemptId: z.string().min(1),
   idempotencyKey: z.string().min(1),
   provider: z.string().min(1),
   description: z.string().min(1),
+  /** Not read by the pre-pass or the executor — both only need `attemptId`. See above. */
+  honorsIdempotencyKey: z.boolean(),
 });
-const VerifyRequestPayloadSchema = z.strictObject({
+const VerifyRequestPayloadSchema = z.object({
   attemptId: z.string().min(1),
   targetIdempotencyKey: z.string().min(1),
   provider: z.string().min(1),

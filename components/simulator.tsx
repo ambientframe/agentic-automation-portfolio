@@ -217,6 +217,23 @@ function EntryInspector({ entry }: { entry: TimelineEntry }) {
                     {effect.detail}
                   </p>
                 )}
+                {effect.technical !== undefined && (
+                  <details className="group">
+                    <summary className="label cursor-pointer hover:opacity-70">
+                      Technical execution — attempt {effect.technical.attempt}
+                    </summary>
+                    <dl className="instrument grid gap-1.5 sm:grid-cols-2 mt-2" style={{ color: 'var(--ink-muted)' }}>
+                      <Row label="Provider" value={effect.technical.provider} />
+                      <Row label="Attempted" value={effect.technical.attemptedAt} />
+                      <Row label="Outcome" value={effect.technical.outcomeKind} />
+                      <Row label="Retry safety" value={effect.technical.retrySafety} />
+                      <Row label="Verification status" value={effect.technical.verificationStatus} />
+                      {effect.technical.externalId !== undefined && (
+                        <Row label="External id" value={effect.technical.externalId} />
+                      )}
+                    </dl>
+                  </details>
+                )}
               </li>
             ))}
           </ul>

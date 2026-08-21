@@ -9,11 +9,13 @@ function scenario(slug: string) {
 }
 
 describe('Lead Rescue scenarios', () => {
-  it('provides the three scenarios the brief requires', () => {
+  it('provides the three scenarios the brief requires, plus the two reliability-closure scenarios', () => {
     expect(LEAD_RESCUE_SCENARIOS.map((s) => s.slug)).toEqual([
       'after-hours-enquiry',
       'duplicate-delivery',
       'ambiguous-high-risk',
+      'restricted-contact-review',
+      'uncertain-downstream-outcome',
     ]);
   });
 
@@ -192,6 +194,185 @@ describe('Lead Rescue scenarios', () => {
   });
 
   // -------------------------------------------------------------------------
+  // Scenario 4 — suppression / authority gate
+  // -------------------------------------------------------------------------
+  describe('restricted contact review', () => {
+    it('genuinely executes the full pipeline before policy is evaluated', async () => {
+      const run = await runLeadRescue(scenario('restricted-contact-review'));
+      const order = run.timeline.map((e) => e.stepLabel);
+
+      expect(order).toEqual([
+        'Validation',
+        'Normalisation',
+        'Duplicate check',
+        'Consent screen',
+        'Bounded interpretation',
+        'Completeness check',
+        'Policy evaluation',
+        'Human decision',
+      ]);
+    });
+
+    it('classifies at high confidence, and the classification does not bypass the policy gate', async () => {
+      const run = await runLeadRescue(scenario('restricted-contact-review'));
+      const judgment = run.decisions.find((d) => d.mechanism === 'BOUNDED_AI_JUDGMENT');
+
+      expect(judgment?.classification).toBe('QUALIFIED_ENQUIRY');
+      expect(judgment?.confidence).toBeGreaterThanOrEqual(0.85);
+
+      const policyDecision = run.decisions.find((d) => d.id.endsWith('d-policy-review'));
+      expect(policyDecision?.mechanism).toBe('DETERMINISTIC_RULE');
+      expect(policyDecision?.forbiddenActions).toContain('act_on_classification_confidence_alone');
+    });
+
+    it('computes the candidate action and blocks it by policy — never silently skips it', async () => {
+      const run = await runLeadRescue(scenario('restricted-contact-review'));
+      const candidate = run.sideEffects.find((e) => e.id.endsWith('effect:ack-candidate'));
+
+      expect(candidate).toBeDefined();
+      expect(candidate?.status).toBe('BLOCKED_BY_POLICY');
+      expect(candidate?.detail).toContain('kestrel-restricted-contact-review');
+    });
+
+    it('names the applicable CLIENT_POLICY on the blocking decision, inspectably', async () => {
+      const run = await runLeadRescue(scenario('restricted-contact-review'));
+      const policyDecision = run.decisions.find((d) => d.id.endsWith('d-policy-review'));
+
+      expect(policyDecision?.applicablePolicy.join(' ')).toContain('kestrel-restricted-contact-review');
+      expect(policyDecision?.escalationReason).toContain('RESTRICTED_PENDING_REVIEW');
+      expect(policyDecision?.authority).toBe(2);
+    });
+
+    it('routes to SUPPRESSION_REVIEW — distinct from DO_NOT_CONTACT, an open question rather than a closed one', async () => {
+      const run = await runLeadRescue(scenario('restricted-contact-review'));
+      const states = run.timeline.map((e) => e.stateAfter);
+      expect(states).toContain('SUPPRESSION_REVIEW');
+      expect(states).not.toContain('DO_NOT_CONTACT');
+    });
+
+    it('sends zero prohibited outbound effects — no MESSAGE_SEND ever reaches EXECUTED', async () => {
+      const run = await runLeadRescue(scenario('restricted-contact-review'));
+      const sends = run.sideEffects.filter((e) => e.kind === 'MESSAGE_SEND');
+      expect(sends.every((e) => e.status !== 'EXECUTED')).toBe(true);
+    });
+
+    it('verifies the resolving role holds sufficient authority, rather than assuming it', async () => {
+      const run = await runLeadRescue(scenario('restricted-contact-review'));
+      const authorityCheck = run.verifications.find((v) => v.check.includes('authority'));
+      expect(authorityCheck?.result).toBe('PASS');
+    });
+
+    it('produces a valid, inspectable disposition after human review', async () => {
+      const run = await runLeadRescue(scenario('restricted-contact-review'));
+      expect(run.finalState.lifecycleState).toBe('BOOKING_READY');
+
+      const humanTransition = run.transitions.find((t) => t.from === 'SUPPRESSION_REVIEW');
+      expect(humanTransition?.accepted).toBe(true);
+      expect(humanTransition?.mechanism).toBe('HUMAN_DECISION');
+    });
+
+    it('replay produces the identical outcome — no accidental message on a second run', async () => {
+      const s = scenario('restricted-contact-review');
+      const first = await runLeadRescue(s);
+      const second = await runLeadRescue(s);
+
+      expect(JSON.stringify(second)).toBe(JSON.stringify(first));
+      const sends = second.sideEffects.filter((e) => e.kind === 'MESSAGE_SEND');
+      expect(sends.every((e) => e.status !== 'EXECUTED')).toBe(true);
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // Scenario 5 — uncertain downstream side effect
+  // -------------------------------------------------------------------------
+  describe('uncertain downstream outcome', () => {
+    it('genuinely attempts the send through the executor, rather than narrating a timeout', async () => {
+      const run = await runLeadRescue(scenario('uncertain-downstream-outcome'));
+      const firstAck = run.sideEffects.find((e) => e.idempotencyKey === 'ack:lead-loom');
+
+      expect(firstAck?.status).toBe('OUTCOME_UNKNOWN');
+      expect(firstAck?.technical?.outcomeKind).toBe('OUTCOME_UNKNOWN');
+      expect(firstAck?.technical?.provider).toBe('transactional-email');
+    });
+
+    it('is not automatically treated as a failure — distinct status from FAILED', async () => {
+      const run = await runLeadRescue(scenario('uncertain-downstream-outcome'));
+      const firstAck = run.sideEffects.find((e) => e.idempotencyKey === 'ack:lead-loom' && e.technical?.attempt === 1);
+
+      expect(firstAck?.status).not.toBe('FAILED');
+      expect(firstAck?.status).toBe('OUTCOME_UNKNOWN');
+      expect(firstAck?.technical?.retrySafety).toBe('UNSAFE');
+    });
+
+    it('leaves the business lifecycle unaffected by the technical uncertainty', async () => {
+      const run = await runLeadRescue(scenario('uncertain-downstream-outcome'));
+      // The lead reaches BOOKING_READY on the strength of classification and completeness
+      // alone — the acknowledgement's uncertain outcome never blocked or altered it.
+      const dispositionTransition = run.transitions.find((t) => t.to === 'BOOKING_READY');
+      expect(dispositionTransition?.accepted).toBe(true);
+      expect(run.finalState.lifecycleState).toBe('BOOKING_READY');
+    });
+
+    it('runs a genuine verification check that narrows the uncertainty', async () => {
+      const run = await runLeadRescue(scenario('uncertain-downstream-outcome'));
+      const check = run.sideEffects.find((e) => e.kind === 'VERIFICATION_CHECK');
+
+      expect(check?.status).toBe('EXECUTED');
+      expect(check?.technical?.verificationStatus).toBe('CONFIRMED_NOT_EXECUTED');
+    });
+
+    it('permits the retry only after verification, and the retry succeeds with a real external id', async () => {
+      const run = await runLeadRescue(scenario('uncertain-downstream-outcome'));
+      const retry = run.sideEffects.find((e) => e.idempotencyKey === 'ack:lead-loom' && e.technical?.attempt === 2);
+
+      expect(retry?.status).toBe('EXECUTED');
+      expect(retry?.technical?.externalId).toBe('msg_7f2ac91d');
+    });
+
+    it('sends the customer-facing acknowledgement exactly once across the whole run', async () => {
+      const run = await runLeadRescue(scenario('uncertain-downstream-outcome'));
+      const executedAcks = run.sideEffects.filter(
+        (e) => e.idempotencyKey === 'ack:lead-loom' && e.status === 'EXECUTED',
+      );
+      expect(executedAcks).toHaveLength(1);
+    });
+
+    it('never fabricates an external id — only the confirmed attempt carries one', async () => {
+      const run = await runLeadRescue(scenario('uncertain-downstream-outcome'));
+      const ackEffects = run.sideEffects.filter((e) => e.idempotencyKey === 'ack:lead-loom');
+
+      for (const effect of ackEffects) {
+        if (effect.status === 'EXECUTED') {
+          expect(effect.technical?.externalId).toBeDefined();
+        } else {
+          expect(effect.technical?.externalId).toBeUndefined();
+        }
+      }
+    });
+
+    it('a naive retry with no verification and no provider guarantee is refused by the core', async () => {
+      // Direct engine-level check, independent of this scenario's own (correct) fixture
+      // sequencing — proves the guarantee holds even if a future scenario gets it wrong.
+      const { ExecutionLedger } = await import('@/lib/engine/ledger');
+      const ledger = new ExecutionLedger();
+      ledger.record('k', {
+        attempt: 1,
+        outcome: { kind: 'OUTCOME_UNKNOWN', reason: 'no confirmation' },
+        sideEffectId: 'eff-1',
+        eventId: 'evt-1',
+      });
+      expect(ledger.evaluate('k', false).decision).toBe('BLOCKED_PENDING_VERIFICATION');
+    });
+
+    it('deterministic replay remains identical, including the retry’s external id', async () => {
+      const s = scenario('uncertain-downstream-outcome');
+      const first = await runLeadRescue(s);
+      const second = await runLeadRescue(s);
+      expect(JSON.stringify(second)).toBe(JSON.stringify(first));
+    });
+  });
+
+  // -------------------------------------------------------------------------
   // Cross-cutting: unsupported inference
   // -------------------------------------------------------------------------
   it('never promotes a declined inference into engine facts', async () => {
@@ -214,7 +395,18 @@ describe('Lead Rescue scenarios', () => {
       const run = await runLeadRescue(s);
       // Terminal, waiting, or with a person. Never mid-flight.
       expect(
-        ['BOOKED', 'BOOKING_READY', 'WAITING_FOR_REPLY', 'NEEDS_HUMAN', 'ESCALATED', 'CLOSED_BAD_FIT', 'CLOSED_SPAM', 'DO_NOT_CONTACT', 'DUPLICATE'],
+        [
+          'BOOKED',
+          'BOOKING_READY',
+          'WAITING_FOR_REPLY',
+          'NEEDS_HUMAN',
+          'ESCALATED',
+          'CLOSED_BAD_FIT',
+          'CLOSED_SPAM',
+          'DO_NOT_CONTACT',
+          'DUPLICATE',
+          'SUPPRESSION_REVIEW',
+        ],
         `${s.slug} ended at ${run.finalState.lifecycleState}`,
       ).toContain(run.finalState.lifecycleState);
     }

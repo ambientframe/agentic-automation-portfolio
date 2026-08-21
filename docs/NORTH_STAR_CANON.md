@@ -73,9 +73,9 @@ Maturity is descriptive, not aspirational.
 ## Canon at a glance
 
 - 6 systems
-- 134 declared lifecycle transitions
+- 139 declared lifecycle transitions
 - 60 metric definitions, each with an explicit formula and a named system of record
-- 34 operating standards, of which 16 assert external evidence
+- 35 operating standards, of which 16 assert external evidence
 - 42 named failure modes
 - 15 sources in the ledger
 
@@ -95,7 +95,7 @@ and it is enforced by `tests/seam.test.ts`.
 
 **Maturity: SIMULATED**
 
-Runs end to end as a deterministic simulation. The lifecycle graph, duplicate suppression, confidence floor, policy gates, and authority ladder genuinely execute. Bounded judgments are replayed from authored fixtures rather than produced by a model, and no message, record write, or notification leaves the process. There is no live integration of any kind.
+Runs end to end as a deterministic simulation. The lifecycle graph, duplicate suppression, confidence floor, policy gates, authority ladder, and retry-safety gating for uncertain provider outcomes all genuinely execute. Bounded judgments and provider send/verify outcomes are replayed from authored fixtures rather than produced by a model or a real provider, and no message, record write, or notification leaves the process. There is no live integration, and no state persists beyond a single request.
 
 ### Business problem
 
@@ -148,6 +148,7 @@ Every legitimate inbound enquiry reaches a known terminal or waiting state. Noth
 | `CLOSED_BAD_FIT` | TERMINAL NEUTRAL | Genuine enquiry, outside the served segment. Closed correctly rather than pursued. |
 | `CLOSED_SPAM` | TERMINAL NEUTRAL | Automated, solicitation, or otherwise not a buying enquiry. |
 | `DO_NOT_CONTACT` | TERMINAL NEUTRAL | Suppression or opt-out state applies. Overrides commercial intent permanently. |
+| `SUPPRESSION_REVIEW` | HUMAN REVIEW | A candidate action was computed and blocked by policy because the resolved entity carries restricted consent state. Distinct from DO_NOT_CONTACT: the outcome here is not yet decided — a person determines whether this specific inquiry may be answered. |
 | `ESCALATED` | HUMAN REVIEW | Raised above the first human owner because of risk, value, or an unresolved review. |
 | `FAILED_RECOVERABLE` | ACTIVE | Processing failed in a way that a retry may resolve. Retry budget is bounded and visible. |
 | `FAILED_TERMINAL` | TERMINAL FAILURE | Processing failed and no retry can resolve it. Recorded explicitly so it is countable, never a silent drop. |
@@ -190,6 +191,11 @@ Only these moves are permitted. The engine rejects anything else and records the
 | `FAILED_RECOVERABLE` | `NORMALIZED` | DETERMINISTIC RULE | A retry within the bounded budget produced a valid normalised payload. | 3 |
 | `FAILED_RECOVERABLE` | `FAILED_TERMINAL` | DETERMINISTIC RULE | Maximum attempts reached without success. | 0 |
 | `FAILED_RECOVERABLE` | `NEEDS_HUMAN` | DETERMINISTIC RULE | Maximum attempts reached and the payload retains enough signal for a person to act on. | 2 |
+| `CLASSIFIED` | `SUPPRESSION_REVIEW` | DETERMINISTIC RULE | Authoritative consent state on the resolved entity is restricted pending review; the candidate action is blocked regardless of classification or confidence. | 2 |
+| `SUPPRESSION_REVIEW` | `BOOKING_READY` | HUMAN DECISION | A person determined this specific inquiry may be answered and cleared it to proceed. | 2 |
+| `SUPPRESSION_REVIEW` | `CLOSED_BAD_FIT` | HUMAN DECISION | A person judged the enquiry out of segment. | 2 |
+| `SUPPRESSION_REVIEW` | `DO_NOT_CONTACT` | HUMAN DECISION | A person confirmed the restriction stands. | 2 |
+| `SUPPRESSION_REVIEW` | `ESCALATED` | HUMAN DECISION | The first reviewer raised the case rather than deciding it. | 2 |
 
 ### Deterministic decisions
 
@@ -246,9 +252,11 @@ Regardless of confidence, the system may never:
 - Every external action is keyed and claimed before it executes, so replay cannot duplicate it
 - Confidence below the configured floor routes to a person rather than to an action
 - Suppression state is evaluated before commercial intent, never after
+- Restricted consent state blocks the candidate action regardless of classification or confidence, and routes to a named person rather than resolving itself either way
 - Lifecycle movement requires a declared transition; an undeclared move is rejected and recorded
 - Facts the input did not establish are carried as missing information, never filled in
 - Authority is attached to the action, not to the actor’s confidence
+- A side effect whose execution outcome is unknown is never retried without independent verification that it did not occur, unless the provider itself guarantees idempotent processing of the same key
 
 ### Success and terminal states
 
@@ -321,6 +329,10 @@ Regardless of confidence, the system may never:
 **Lab target** — The simulated acknowledgement and routing paths are designed around a configurable speed-to-lead objective. The specific interval is a client policy value and is not asserted as a universal benchmark.
 
 - *Applies to:* Keeps the latency objective configurable per operator rather than hard-coded, and keeps the portfolio from restating vendor benchmarks as fact.
+
+**Lab target** — A side effect whose outcome is unknown is retried only after independent verification proves it did not occur, or when the provider itself guarantees idempotent processing of the same key. It is never retried on the strength of an assumption.
+
+- *Applies to:* The execution ledger’s retry-safety gate. Tested for both the verification-gated case and the provider-idempotent case separately, since the two must not share a code path by accident.
 
 ### Known failure modes
 

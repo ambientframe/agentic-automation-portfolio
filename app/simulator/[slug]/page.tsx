@@ -2,6 +2,8 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import {
   LEAD_RESCUE_SCENARIOS,
+  LEAD_RESCUE_SEND_OUTCOMES,
+  LEAD_RESCUE_VERIFY_OUTCOMES,
   leadRescueScenarioBySlug,
 } from '@/data/profiles/kestrel/scenarios/lead-rescue';
 import { KESTREL } from '@/data/profiles/kestrel/profile';
@@ -9,6 +11,7 @@ import { LEAD_RESCUE } from '@/data/systems';
 import { LEAD_RESCUE_HANDLERS } from '@/lib/engine/handlers/lead-rescue';
 import { runScenario } from '@/lib/engine/run';
 import { FixtureDecisionProvider } from '@/lib/ports/decision-provider';
+import { FixtureSideEffectExecutor } from '@/lib/ports/side-effect-executor';
 import { Simulator } from '@/components/simulator';
 
 export function generateStaticParams() {
@@ -26,6 +29,7 @@ export default async function SimulatorPage({ params }: PageProps<'/simulator/[s
     profile: KESTREL,
     handlers: LEAD_RESCUE_HANDLERS,
     provider: new FixtureDecisionProvider(scenario.judgments),
+    executor: new FixtureSideEffectExecutor(LEAD_RESCUE_SEND_OUTCOMES, LEAD_RESCUE_VERIFY_OUTCOMES),
   });
 
   const matchedExpectation = run.finalState.lifecycleState === scenario.expectedFinalState;
@@ -105,6 +109,7 @@ export default async function SimulatorPage({ params }: PageProps<'/simulator/[s
               <li>· Lifecycle transition legality</li>
               <li>· Idempotency ledger and duplicate suppression</li>
               <li>· Authority gate on every side effect</li>
+              <li>· Retry-safety gating for effects with an uncertain execution outcome</li>
             </ul>
           </div>
           <div className="space-y-2">
@@ -113,13 +118,15 @@ export default async function SimulatorPage({ params }: PageProps<'/simulator/[s
             </p>
             <ul className="instrument space-y-1" style={{ color: 'var(--ink-muted)' }}>
               <li>· Free-text interpretation, replayed from authored fixtures</li>
+              <li>· Provider send/verify outcomes, replayed from authored fixtures</li>
               <li>· Every side effect — nothing left this process</li>
               <li>· The business, its clients, and this incident</li>
               <li>· All timestamps, which are authored rather than observed</li>
             </ul>
             <p className="instrument pt-1" style={{ color: 'var(--ink-faint)' }}>
-              The judgment provider is a typed port. Replacing it with a live model changes one
-              implementation and nothing else on this page.
+              The judgment provider and the side-effect executor are both typed ports. Replacing
+              either with a live model or a real provider changes one implementation and nothing
+              else on this page.
             </p>
           </div>
         </div>

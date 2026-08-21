@@ -1,10 +1,15 @@
 import { KESTREL } from '@/data/profiles/kestrel/profile';
+import {
+  LEAD_RESCUE_SEND_OUTCOMES,
+  LEAD_RESCUE_VERIFY_OUTCOMES,
+} from '@/data/profiles/kestrel/scenarios/lead-rescue';
 import { LEAD_RESCUE } from '@/data/systems';
 import { LEAD_RESCUE_HANDLERS } from '@/lib/engine/handlers/lead-rescue';
 import { runScenario } from '@/lib/engine/run';
 import type { EngineRun } from '@/lib/engine/types';
 import type { Scenario } from '@/lib/model/runtime';
 import { FixtureDecisionProvider } from '@/lib/ports/decision-provider';
+import { FixtureSideEffectExecutor } from '@/lib/ports/side-effect-executor';
 
 /** Runs a Lead Rescue scenario exactly as the application does. */
 export async function runLeadRescue(scenario: Scenario): Promise<EngineRun> {
@@ -13,5 +18,6 @@ export async function runLeadRescue(scenario: Scenario): Promise<EngineRun> {
     profile: KESTREL,
     handlers: LEAD_RESCUE_HANDLERS,
     provider: new FixtureDecisionProvider(scenario.judgments),
+    executor: new FixtureSideEffectExecutor(LEAD_RESCUE_SEND_OUTCOMES, LEAD_RESCUE_VERIFY_OUTCOMES),
   });
 }

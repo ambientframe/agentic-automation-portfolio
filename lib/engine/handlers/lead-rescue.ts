@@ -26,7 +26,15 @@ import type { HandlerContext, HandlerOutcome, HandlerStep, ProposedEffect, Syste
 // Payload contracts
 // ---------------------------------------------------------------------------
 
-const ConsentState = z.enum(['PERMITTED', 'SUPPRESSED']);
+/**
+ * PERMITTED and SUPPRESSED are the hard cases: nothing to decide, act accordingly.
+ * RESTRICTED_PENDING_REVIEW is the interesting third state — the resolved entity carries
+ * prior consent-withdrawal on file, but this is a NEW, separately-initiated inquiry, and
+ * whether the withdrawal should extend to it is genuinely a judgement call. Classification
+ * still runs (the case in `handleEnquiry` cares what the enquiry says), but no candidate
+ * action may execute autonomously — see the policy-evaluation step below.
+ */
+const ConsentState = z.enum(['PERMITTED', 'SUPPRESSED', 'RESTRICTED_PENDING_REVIEW']);
 
 const EnquiryPayloadSchema = z.object({
   contactName: z.string().optional(),
@@ -322,11 +330,15 @@ function handleEnquiry(ctx: HandlerContext): HandlerOutcome {
     return { steps };
   }
 
+  const restrictedReview = enquiry.consentState === 'RESTRICTED_PENDING_REVIEW';
+
   steps.push({
     id: id('consent'),
     label: 'Consent screen',
     atOffsetSeconds: 3,
-    summary: 'Contact permitted. No suppression or opt-out state on the resolved entity.',
+    summary: restrictedReview
+      ? 'Restricted consent state on file for this contact. Classification will still run, but no candidate action may execute without human determination.'
+      : 'Contact permitted. No suppression or opt-out state on the resolved entity.',
     decisions: [
       decision({
         id: id('d-consent'),
@@ -337,10 +349,17 @@ function handleEnquiry(ctx: HandlerContext): HandlerOutcome {
         evidenceRefs: ['event.payload.consentState'],
         deterministicFacts: [{ label: 'Consent state', value: enquiry.consentState }],
         missingInformation: [],
-        permittedActions: ['classify'],
-        forbiddenActions: ['contact_before_consent_check'],
-        selectedAction: 'classify',
-        applicablePolicy: ['Suppression is evaluated before commercial intent, never after.'],
+        permittedActions: restrictedReview ? ['classify_but_hold_any_action'] : ['classify'],
+        forbiddenActions: restrictedReview
+          ? ['contact_before_consent_check', 'act_on_restricted_contact_without_review']
+          : ['contact_before_consent_check'],
+        selectedAction: restrictedReview ? 'classify_but_hold_any_action' : 'classify',
+        applicablePolicy: [
+          'Suppression is evaluated before commercial intent, never after.',
+          ...(restrictedReview
+            ? ['CLIENT_POLICY kestrel-restricted-contact-review: classification is permitted; autonomous action is not.']
+            : []),
+        ],
         authority: 3,
       }),
     ],
@@ -518,6 +537,76 @@ function handleEnquiry(ctx: HandlerContext): HandlerOutcome {
     verifications: [],
   });
 
+  // --- Step 6b: policy evaluation for a restricted contact -----------------
+  // The candidate action is computed exactly as it would be for a permitted contact, then
+  // blocked at the policy gate rather than despatched. High classification confidence does
+  // not shortcut this — the gate does not consult confidence at all.
+  if (restrictedReview) {
+    const wouldBe = dispositionFor(judgment.classification, missing.length > 0);
+    const candidateAction =
+      wouldBe.state === 'NEEDS_INFORMATION'
+        ? 'send acknowledgement, ask for missing information'
+        : 'send acknowledgement, route to owner';
+
+    steps.push({
+      id: id('policy-review'),
+      label: 'Policy evaluation',
+      atOffsetSeconds: 9,
+      transitionTo: 'SUPPRESSION_REVIEW',
+      summary: `Candidate action (${candidateAction}) blocked pending human determination of whether this contact may be answered.`,
+      statePatch: {
+        awaitingHuman: 'Restricted contact — human determination required before any outbound contact',
+      },
+      decisions: [
+        decision({
+          id: id('d-policy-review'),
+          eventId: event.eventId,
+          mechanism: 'DETERMINISTIC_RULE',
+          objective:
+            'Evaluate whether the candidate action may proceed, given the restricted consent state loaded during the consent screen step.',
+          relevantState: 'CLASSIFIED',
+          evidenceRefs: ['event.payload.consentState', 'judgment.classification'],
+          deterministicFacts: [
+            { label: 'Candidate action', value: candidateAction },
+            { label: 'Classification', value: judgment.classification },
+            { label: 'Classification confidence', value: judgment.confidence.toFixed(2) },
+            { label: 'Consent state', value: 'RESTRICTED_PENDING_REVIEW' },
+          ],
+          missingInformation: missing,
+          permittedActions: ['hold_for_human_review'],
+          forbiddenActions: [
+            'send_acknowledgement',
+            'notify_owner',
+            'ask_question',
+            'act_on_classification_confidence_alone',
+          ],
+          selectedAction: 'hold_for_human_review',
+          applicablePolicy: [
+            'CLIENT_POLICY kestrel-restricted-contact-review: a new inbound inquiry from a restricted contact is never acted on autonomously, regardless of classification or confidence.',
+          ],
+          escalationReason:
+            'Authoritative consent state is RESTRICTED_PENDING_REVIEW. A person must determine whether this specific inquiry may be answered before any outbound contact is made.',
+          authority: 2,
+        }),
+      ],
+      effects: [
+        {
+          id: id('effect:ack-candidate'),
+          kind: 'MESSAGE_SEND',
+          description: 'Acknowledgement that would ordinarily despatch for this enquiry.',
+          target: enquiry.contactEmail ?? 'enquirer',
+          idempotencyKey: `ack:${entityId}`,
+          authority: 3,
+          policyPermits: false,
+          policyReason:
+            'CLIENT_POLICY kestrel-restricted-contact-review: outbound contact to a restricted contact requires human determination before despatch.',
+        },
+      ],
+      verifications: [],
+    });
+    return { steps };
+  }
+
   // --- Step 7: disposition (DETERMINISTIC mapping of class to lifecycle) ---
   const target = dispositionFor(judgment.classification, missing.length > 0);
 
@@ -561,13 +650,20 @@ function handleEnquiry(ctx: HandlerContext): HandlerOutcome {
   }
 
   // --- Step 8: acknowledgement (external action, keyed) -------------------
+  // Most enquiries take the always-succeeds path. A scenario that needs to demonstrate
+  // an uncertain provider outcome declares a `sendAttempts[0]` entry, which routes this
+  // effect through the execution ledger instead — see `lr-fm-downstream-api`.
+  const ackAttempt = readAckSendAttempt(event.payload);
+
   steps.push({
     id: id('acknowledge'),
     label: 'Acknowledgement',
     atOffsetSeconds: 9,
     summary: isDuplicateEvent
       ? 'Acknowledgement attempted and refused by the idempotency ledger. Nothing was sent.'
-      : 'Acknowledgement despatched.',
+      : ackAttempt !== null
+        ? 'Acknowledgement attempted through the execution-tracked send path.'
+        : 'Acknowledgement despatched.',
     decisions: [
       decision({
         id: id('d-acknowledge'),
@@ -600,10 +696,21 @@ function handleEnquiry(ctx: HandlerContext): HandlerOutcome {
         idempotencyKey: `ack:${entityId}`,
         authority: 3,
         policyPermits: true,
-        verification: {
-          check: 'Confirm exactly one acknowledgement exists for this entity.',
-          expect: 'One acknowledgement recorded against the entity.',
-        },
+        ...(ackAttempt === null
+          ? {
+              verification: {
+                check: 'Confirm exactly one acknowledgement exists for this entity.',
+                expect: 'One acknowledgement recorded against the entity.',
+              },
+            }
+          : {
+              execution: {
+                kind: 'SEND' as const,
+                attemptId: ackAttempt.attemptId,
+                provider: ackAttempt.provider,
+                honorsIdempotencyKey: ackAttempt.honorsIdempotencyKey,
+              },
+            }),
       },
     ],
     verifications: [],
@@ -1089,12 +1196,214 @@ function humanTarget(decisionKind: string): string {
 }
 
 // ---------------------------------------------------------------------------
+// side_effect.reconciliation.attempted
+// ---------------------------------------------------------------------------
+
+/**
+ * A single automated reconciliation pass: query the provider's own authoritative status
+ * for an earlier uncertain send, and — only if that query resolves it — retry.
+ *
+ * Deliberately always proposes BOTH steps regardless of what the verify fixture says.
+ * Whether the retry actually executes is decided by the engine core's execution ledger,
+ * not by this handler pre-empting it. That is what makes the "does not blindly retry"
+ * guarantee structural: a fixture authored with a still-inconclusive check would produce
+ * the exact same two proposed steps, and the retry would come back OUTCOME_UNKNOWN again.
+ */
+const ReconciliationPayloadSchema = z.object({
+  verifyAttempts: z
+    .array(
+      z.object({
+        attemptId: z.string().min(1),
+        targetIdempotencyKey: z.string().min(1),
+        provider: z.string().min(1),
+      }),
+    )
+    .min(1),
+  sendAttempts: z
+    .array(
+      z.object({
+        attemptId: z.string().min(1),
+        idempotencyKey: z.string().min(1),
+        provider: z.string().min(1),
+        honorsIdempotencyKey: z.boolean(),
+        description: z.string().min(1),
+        target: z.string().min(1),
+      }),
+    )
+    .min(1),
+});
+
+function handleReconciliation(ctx: HandlerContext): HandlerOutcome {
+  const { event, state } = ctx;
+  const id = (suffix: string) => `${event.eventId}:${suffix}`;
+  const parsed = ReconciliationPayloadSchema.safeParse(event.payload);
+
+  if (!parsed.success) {
+    return {
+      steps: [
+        {
+          id: id('reconcile-invalid'),
+          label: 'Reconciliation',
+          atOffsetSeconds: 0,
+          summary: 'Reconciliation payload failed validation. No check or retry was attempted.',
+          decisions: [
+            decision({
+              id: id('d-reconcile-invalid'),
+              eventId: event.eventId,
+              mechanism: 'DETERMINISTIC_RULE',
+              objective: 'Validate the reconciliation payload before attempting any check or retry.',
+              relevantState: state.lifecycleState,
+              evidenceRefs: ['event.payload'],
+              deterministicFacts: [
+                { label: 'Validation errors', value: parsed.error.issues.map((i) => i.message).join('; ') },
+              ],
+              missingInformation: [],
+              permittedActions: ['reject_event'],
+              forbiddenActions: ['guess_target_key'],
+              selectedAction: 'reject_event',
+              applicablePolicy: ['A malformed reconciliation request takes no action.'],
+              authority: 0,
+            }),
+          ],
+          effects: [],
+          verifications: [],
+        },
+      ],
+    };
+  }
+
+  const verify = parsed.data.verifyAttempts[0];
+  const retry = parsed.data.sendAttempts[0];
+  if (verify === undefined || retry === undefined) {
+    throw new Error('reconciliation payload passed validation but is missing its first entries');
+  }
+
+  return {
+    steps: [
+      {
+        id: id('verify'),
+        label: 'Verification check',
+        atOffsetSeconds: 0,
+        summary: 'Querying the provider’s authoritative delivery status for the earlier uncertain attempt.',
+        decisions: [
+          decision({
+            id: id('d-verify'),
+            eventId: event.eventId,
+            mechanism: 'DETERMINISTIC_RULE',
+            objective:
+              'Independently resolve an earlier OUTCOME_UNKNOWN send by querying the provider’s own status record, rather than assuming an answer either way.',
+            relevantState: state.lifecycleState,
+            evidenceRefs: [`execution.idempotencyKey=${verify.targetIdempotencyKey}`],
+            deterministicFacts: [{ label: 'Target idempotency key', value: verify.targetIdempotencyKey }],
+            missingInformation: [],
+            permittedActions: ['query_provider_status'],
+            forbiddenActions: ['assume_outcome', 'retry_without_checking'],
+            selectedAction: 'query_provider_status',
+            applicablePolicy: [
+              'A verification check can only narrow an unknown outcome toward a definite answer, or leave it unresolved. It can never itself act on the customer.',
+            ],
+            authority: 3,
+          }),
+        ],
+        effects: [
+          {
+            id: id('effect:verify'),
+            kind: 'VERIFICATION_CHECK',
+            description: `Query delivery status for idempotency key "${verify.targetIdempotencyKey}".`,
+            target: 'Provider status API',
+            idempotencyKey: `verify:${verify.targetIdempotencyKey}`,
+            authority: 3,
+            policyPermits: true,
+            execution: {
+              kind: 'VERIFY',
+              attemptId: verify.attemptId,
+              targetIdempotencyKey: verify.targetIdempotencyKey,
+              provider: verify.provider,
+            },
+          },
+        ],
+        verifications: [],
+      },
+      {
+        id: id('retry'),
+        label: 'Retry despatch',
+        atOffsetSeconds: 1,
+        summary:
+          'Retry proposed on the original idempotency key. Whether it actually executes is decided by the execution ledger in the engine core, not by this handler.',
+        decisions: [
+          decision({
+            id: id('d-retry'),
+            eventId: event.eventId,
+            mechanism: 'DETERMINISTIC_RULE',
+            objective: 'Retry a send whose prior outcome was unknown, now that retry safety may have been established.',
+            relevantState: state.lifecycleState,
+            evidenceRefs: [`execution.idempotencyKey=${retry.idempotencyKey}`],
+            deterministicFacts: [
+              { label: 'Idempotency key', value: retry.idempotencyKey },
+              { label: 'Provider honours idempotency key', value: String(retry.honorsIdempotencyKey) },
+            ],
+            missingInformation: [],
+            permittedActions: ['propose_retry'],
+            forbiddenActions: ['bypass_execution_ledger', 'assert_retry_is_safe'],
+            selectedAction: 'propose_retry',
+            applicablePolicy: [
+              'This handler proposes the retry unconditionally; the execution ledger in the engine core is the sole authority on whether it is actually permitted.',
+            ],
+            authority: 3,
+          }),
+        ],
+        effects: [
+          {
+            id: id('effect:retry'),
+            kind: 'MESSAGE_SEND',
+            description: retry.description,
+            target: retry.target,
+            idempotencyKey: retry.idempotencyKey,
+            authority: 3,
+            policyPermits: true,
+            execution: {
+              kind: 'SEND',
+              attemptId: retry.attemptId,
+              provider: retry.provider,
+              honorsIdempotencyKey: retry.honorsIdempotencyKey,
+            },
+          },
+        ],
+        verifications: [],
+      },
+    ],
+  };
+}
+
+// ---------------------------------------------------------------------------
 
 function readJudgmentId(payload: Readonly<Record<string, unknown>>): string | null {
   const raw = payload['judgment'];
   if (typeof raw !== 'object' || raw === null) return null;
   const candidate = (raw as Record<string, unknown>)['judgmentId'];
   return typeof candidate === 'string' ? candidate : null;
+}
+
+/**
+ * Reads just enough off the first `sendAttempts` entry to build a ProposedEffect's
+ * `execution` field. The full entry (idempotencyKey, provider, description) is consumed
+ * separately by the pre-pass in `lib/engine/run.ts` to resolve the outcome — this handler
+ * never needs those, since it already knows the idempotency key and constructs the
+ * description itself.
+ */
+const AckSendAttemptSchema = z.object({
+  attemptId: z.string().min(1),
+  provider: z.string().min(1),
+  honorsIdempotencyKey: z.boolean(),
+});
+
+function readAckSendAttempt(
+  payload: Readonly<Record<string, unknown>>,
+): { attemptId: string; provider: string; honorsIdempotencyKey: boolean } | null {
+  const raw = payload['sendAttempts'];
+  if (!Array.isArray(raw) || raw.length === 0) return null;
+  const parsed = AckSendAttemptSchema.safeParse(raw[0]);
+  return parsed.success ? parsed.data : null;
 }
 
 export const LEAD_RESCUE_HANDLERS: SystemHandlers = {
@@ -1104,5 +1413,6 @@ export const LEAD_RESCUE_HANDLERS: SystemHandlers = {
     'inbound.enquiry.received': handleEnquiry,
     'prospect.replied': handleReply,
     'human.decision.recorded': handleHumanDecision,
+    'side_effect.reconciliation.attempted': handleReconciliation,
   },
 };

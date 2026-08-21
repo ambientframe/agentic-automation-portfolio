@@ -468,6 +468,16 @@ const RAW = {
         'Suppression handling in Lead Rescue and Dormant Pipeline Recovery. This policy is stricter than the legal floor; the floor itself is recorded separately as evidence.',
     },
     {
+      id: 'kestrel-restricted-contact-review',
+      statement:
+        'A new inbound inquiry from a contact who carries prior consent-withdrawal on file is never acted on autonomously. It is held for a named person to determine whether this specific inquiry may be answered, regardless of how the enquiry classifies or how confident that classification is.',
+      provenance: 'CLIENT_POLICY',
+      verification: 'NOT_APPLICABLE',
+      sourceIds: [],
+      appliesTo:
+        'Lead Rescue policy evaluation ahead of the acknowledgement/routing action. This is a business risk-tolerance choice, not a legal determination: whether a prior marketing opt-out should extend to a separately-initiated business inquiry is genuinely a judgement call, and this policy routes that judgement to a person every time rather than encoding an answer either way.',
+    },
+    {
       id: 'kestrel-collection-cadence',
       statement:
         'Payment reminders issue 3 days before due date and again on days 1, 8, 15 and 30 past due, with escalation to the founder at day 45.',
