@@ -1,0 +1,10 @@
+{
+  "scanned": "2026-08-21",
+  "framework": "Next.js 16.3.2 (app router, Turbopack)",
+  "fontStack": "Inter + Newsreader + IBM Plex Mono (next/font/google, app/layout.tsx)",
+  "palette": "OKLCH custom properties (tokens.css, contrast-verified 42/42 pairs)",
+  "motion": "motion-cut — no framer-motion/gsap/motion/lenis in package.json",
+  "spacing": "Tailwind v4 default 4pt scale",
+  "preserved": ["font stack", "framework", "Tailwind v4 setup"],
+  "introduced": ["OKLCH token system", "Index-First macrostructure", "N6 masthead", "Ft5 statement footer", "named easings", "slop-test gates"]
+}

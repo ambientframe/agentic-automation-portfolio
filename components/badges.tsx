@@ -73,8 +73,8 @@ export function StandardCard({ standard }: { standard: OperatingStandard }) {
   const display = evidenceDisplay(standard);
 
   return (
-    <article className="border rule rounded-sm p-4 space-y-2.5" style={{ background: 'var(--paper-raised)' }}>
-      <div className="flex flex-wrap items-center gap-1.5">
+    <article className="border rule rounded-sm p-4 space-y-3" style={{ background: 'var(--paper-raised)' }}>
+      <div className="flex flex-wrap items-center gap-2">
         <ProvenanceBadge type={standard.provenance} />
         <VerificationBadge status={standard.verification} />
       </div>
@@ -110,17 +110,21 @@ export function StandardCard({ standard }: { standard: OperatingStandard }) {
 
 // ---------------------------------------------------------------------------
 
+/**
+ * Three tiers, because three distinctions matter to a reader:
+ * live (really running), simulated (runs, but nothing leaves the process), and
+ * concept (does not run at all). The badge carries the signal so the fidelity note
+ * beneath it can stay neutral prose rather than a paragraph of alarm colour.
+ */
 export function MaturityBadge({ level }: { level: MaturityLevel }) {
-  const live = isLive(level);
+  const style: CSSProperties = isLive(level)
+    ? { color: 'var(--ok)', background: 'var(--prov-evidence-bg)', borderColor: 'var(--ok)' }
+    : level === 'CONCEPT'
+      ? { color: 'var(--warn)', background: 'var(--warn-bg)', borderColor: 'var(--warn)' }
+      : { color: 'var(--ink-muted)', borderColor: 'var(--rule-strong)' };
+
   return (
-    <span
-      className="badge"
-      style={
-        live
-          ? { color: 'var(--ok)', background: 'var(--prov-evidence-bg)', borderColor: 'var(--ok)' }
-          : { color: 'var(--ink-muted)', borderColor: 'var(--rule-strong)' }
-      }
-    >
+    <span className="badge" style={style}>
       {level.replace(/_/g, ' ')}
     </span>
   );

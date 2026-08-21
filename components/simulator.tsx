@@ -64,11 +64,13 @@ export function Simulator({
                 <button
                   type="button"
                   onClick={() => setCursor(index)}
-                  className="w-full text-left px-3 py-2.5 transition-colors"
+                  className="w-full text-left px-3 py-3"
                   style={{
                     background: active ? 'var(--panel)' : 'transparent',
                     opacity: reached ? 1 : 0.4,
-                    borderLeft: `3px solid ${active ? 'var(--accent)' : 'transparent'}`,
+                    // Selection marker on a list row, not a decorative card stripe.
+                    borderInlineStart: `2px solid ${active ? 'var(--accent)' : 'transparent'}`,
+                    transition: 'background-color var(--dur-short) var(--ease-out)',
                   }}
                 >
                   <div className="flex items-baseline justify-between gap-2">
@@ -140,7 +142,7 @@ function EntryInspector({ entry }: { entry: TimelineEntry }) {
     <>
       <Panel title={entry.stepLabel}>
         <p className="text-sm leading-relaxed">{entry.summary}</p>
-        <dl className="instrument grid gap-1.5 sm:grid-cols-2 mt-3">
+        <dl className="instrument grid gap-2 sm:grid-cols-2 mt-3">
           <Row label="Event" value={entry.event.type} />
           <Row label="Source" value={`${entry.event.source} · ${entry.event.sourceEventId}`} />
           <Row label="Occurred" value={entry.event.occurredAt} />
@@ -192,7 +194,7 @@ function EntryInspector({ entry }: { entry: TimelineEntry }) {
         <Panel title="Side effects">
           <ul className="space-y-4">
             {entry.sideEffects.map((effect) => (
-              <li key={effect.id} className="space-y-1.5">
+              <li key={effect.id} className="space-y-2">
                 <div className="flex flex-wrap items-center gap-2">
                   <EffectStatusBadge status={effect.status} />
                   <span
@@ -279,7 +281,7 @@ function DecisionPanel({ decision }: { decision: DecisionRecord }) {
 
       <p className="text-sm leading-relaxed">{decision.objective}</p>
 
-      <div className="mt-3 space-y-2.5">
+      <div className="mt-3 space-y-3">
         {decision.deterministicFacts.length > 0 && (
           <Group label="Facts consulted">
             <ul className="instrument space-y-1">
@@ -310,7 +312,7 @@ function DecisionPanel({ decision }: { decision: DecisionRecord }) {
           </Group>
         )}
 
-        <div className="grid gap-2.5 sm:grid-cols-2">
+        <div className="grid gap-3 sm:grid-cols-2">
           <Group label="Permitted">
             <p className="instrument" style={{ color: 'var(--ink-muted)' }}>
               {decision.permittedActions.join(', ')}
@@ -358,7 +360,7 @@ function DecisionPanel({ decision }: { decision: DecisionRecord }) {
 function Panel({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section className="border rule rounded-sm" style={{ background: 'var(--paper-raised)' }}>
-      <h3 className="label px-4 py-2.5 border-b rule">{title}</h3>
+      <h3 className="label px-4 py-3 border-b rule">{title}</h3>
       <div className="p-4">{children}</div>
     </section>
   );
@@ -377,7 +379,7 @@ function Row({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex gap-2 min-w-0">
       <span className="label shrink-0">{label}</span>
-      <span className="truncate" title={value}>
+      <span className="truncate tabular" title={value}>
         {value}
       </span>
     </div>
@@ -398,7 +400,7 @@ function Control({
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className="badge transition-opacity disabled:opacity-35 disabled:cursor-not-allowed hover:opacity-70"
+      className="badge disabled:opacity-35 disabled:cursor-not-allowed hover:opacity-70"
       style={{ borderColor: 'var(--rule-strong)', color: 'var(--ink)' }}
     >
       {label}

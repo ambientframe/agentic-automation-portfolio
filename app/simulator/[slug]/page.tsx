@@ -92,7 +92,7 @@ export default async function SimulatorPage({ params }: PageProps<'/simulator/[s
       <section className="border rule rounded-sm p-5 space-y-3" style={{ background: 'var(--panel)' }}>
         <h2 className="label">What is real here, and what is not</h2>
         <div className="grid gap-4 sm:grid-cols-2">
-          <div className="space-y-1.5">
+          <div className="space-y-2">
             <p className="instrument font-medium" style={{ color: 'var(--ok)' }}>
               Genuinely executing
             </p>
@@ -107,7 +107,7 @@ export default async function SimulatorPage({ params }: PageProps<'/simulator/[s
               <li>· Authority gate on every side effect</li>
             </ul>
           </div>
-          <div className="space-y-1.5">
+          <div className="space-y-2">
             <p className="instrument font-medium" style={{ color: 'var(--warn)' }}>
               Simulated
             </p>

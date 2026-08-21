@@ -4,7 +4,7 @@ import { ALL_SYSTEMS, systemBySlug } from '@/data/systems';
 import { sourceById } from '@/data/research/sources';
 import { LEAD_RESCUE_SCENARIOS } from '@/data/profiles/kestrel/scenarios/lead-rescue';
 import { MaturityBadge, MechanismBadge, StandardCard } from '@/components/badges';
-import { AUTHORITY_LABELS, isLive, type AuthorityLevel } from '@/lib/model/system';
+import { AUTHORITY_LABELS, type AuthorityLevel } from '@/lib/model/system';
 
 export function generateStaticParams() {
   return ALL_SYSTEMS.map((s) => ({ slug: s.slug }));
@@ -36,35 +36,40 @@ export default async function SystemDossier({ params }: PageProps<'/systems/[slu
         </div>
         <h1 className="display text-4xl sm:text-5xl">{system.name}</h1>
         <p className="lede prose-measure">{system.buyerOutcome}</p>
-        <p
-          className="instrument border-l-2 pl-4 py-2 prose-measure leading-relaxed"
-          style={{
-            color: isLive(system.maturity) ? 'var(--ink-muted)' : 'var(--warn)',
-            borderColor: isLive(system.maturity) ? 'var(--rule-strong)' : 'var(--warn)',
-          }}
-        >
-          <span className="label">Current fidelity</span> {system.fidelityNote}
-        </p>
+        <div className="prose-measure border-t border-b rule py-3 space-y-1">
+          <p className="label">Current fidelity</p>
+          <p className="instrument leading-relaxed" style={{ color: 'var(--ink-muted)' }}>
+            {system.fidelityNote}
+          </p>
+        </div>
       </header>
 
       {scenarios.length > 0 && (
         <section className="space-y-4">
           <SectionHeading>Runnable incidents</SectionHeading>
-          <div className="grid gap-px sm:grid-cols-3">
-            {scenarios.map((s) => (
-              <Link
-                key={s.id}
-                href={`/simulator/${s.slug}`}
-                className="group border rule rounded-sm p-4 transition-colors hover:border-[var(--rule-strong)]"
-                style={{ background: 'var(--paper-raised)' }}
-              >
-                <h3 className="display text-base group-hover:opacity-70">{s.title}</h3>
-                <p className="instrument mt-2" style={{ color: 'var(--ink-muted)' }}>
-                  Ends in {s.expectedFinalState.replace(/_/g, ' ').toLowerCase()}
-                </p>
-              </Link>
+          <ol className="border-t rule">
+            {scenarios.map((s, index) => (
+              <li key={s.id}>
+                <Link
+                  href={`/simulator/${s.slug}`}
+                  className="index-row group flex flex-wrap items-baseline gap-x-5 gap-y-1 py-4 px-2 -mx-2"
+                >
+                  <h3 className="display text-base group-hover:opacity-70 flex-1 min-w-0">
+                    <span className="instrument mr-3" style={{ color: 'var(--ink-faint)' }}>
+                      {String(index + 1).padStart(2, '0')}
+                    </span>
+                    {s.title}
+                  </h3>
+                  <span
+                    className="badge"
+                    style={{ color: 'var(--ink-muted)', borderColor: 'var(--rule-strong)' }}
+                  >
+                    ends {s.expectedFinalState.replace(/_/g, ' ').toLowerCase()}
+                  </span>
+                </Link>
+              </li>
             ))}
-          </div>
+          </ol>
         </section>
       )}
 
@@ -104,15 +109,19 @@ export default async function SystemDossier({ params }: PageProps<'/systems/[slu
           {system.lifecycle.states.map((state) => (
             <div
               key={state.id}
-              className="border rule rounded-sm p-3.5 space-y-1.5"
-              style={{
-                background: 'var(--paper-raised)',
-                borderLeftWidth: '3px',
-                borderLeftColor: stateColour(state.kind),
-              }}
+              className="border rule rounded-sm p-4 space-y-2"
+              style={{ background: 'var(--paper-raised)' }}
             >
               <div className="flex items-baseline justify-between gap-2">
-                <span className="instrument font-medium">{state.id}</span>
+                <span className="instrument font-medium flex items-center gap-2">
+                  {/* A small square carries the state's kind — never a thick left stripe. */}
+                  <span
+                    className="state-mark"
+                    style={{ background: stateColour(state.kind) }}
+                    aria-hidden="true"
+                  />
+                  {state.id}
+                </span>
                 <span className="label">{state.kind.replace(/_/g, ' ')}</span>
               </div>
               <p className="text-[0.8125rem] leading-relaxed" style={{ color: 'var(--ink-muted)' }}>
@@ -169,7 +178,7 @@ export default async function SystemDossier({ params }: PageProps<'/systems/[slu
         </div>
         <div className="border rule rounded-sm p-4" style={{ background: 'var(--panel)' }}>
           <p className="label mb-3">Authority ladder</p>
-          <dl className="instrument grid gap-1.5 sm:grid-cols-2">
+          <dl className="instrument grid gap-2 sm:grid-cols-2">
             {([0, 1, 2, 3, 4] as AuthorityLevel[]).map((level) => (
               <div key={level} className="flex gap-3">
                 <dt className="tabular-nums" style={{ color: 'var(--ink-faint)' }}>
@@ -368,11 +377,11 @@ function ListBlock({
       <p className="label" style={accent === undefined ? undefined : { color: accent }}>
         {label}
       </p>
-      <ul className="space-y-1.5">
+      <ul className="space-y-2">
         {items.map((item) => (
           <li
             key={item}
-            className="text-[0.8125rem] leading-relaxed pl-3.5 relative"
+            className="text-[0.8125rem] leading-relaxed pl-4 relative"
             style={{ color: 'var(--ink-muted)' }}
           >
             <span className="absolute left-0" style={{ color: accent ?? 'var(--ink-faint)' }}>

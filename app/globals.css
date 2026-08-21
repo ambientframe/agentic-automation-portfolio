@@ -1,101 +1,58 @@
-@import "tailwindcss";
+/* Hallmark · macrostructure: Index-First · genre: editorial
+ * nav: N6 newspaper masthead · footer: Ft5 statement · enrichment: none (typography only)
+ * theme: custom · vibe: "technical bulletin, ink on warm paper, instrument marginalia"
+ * axes: paper-band light · display-style high-contrast-serif · accent-hue cool-teal 178°
+ * tokens: ./tokens.css (OKLCH, contrast-verified 42/42)
+ * contrast: pass · pre-emit critique: P5 H5 E4 S5 R5 V4
+ */
+
+@import 'tailwindcss';
+@import '../tokens.css';
 
 /*
  * TWO LAYERS, ONE SYSTEM.
  *
  * Buyer-facing surfaces are editorial: serif display, generous measure, hairline rules,
  * almost no colour. Inspection surfaces drop into instrument density: mono, tighter
- * leading, tinted panels. Colour is reserved almost entirely for provenance and state,
- * so that when something IS coloured it means something.
+ * leading, tinted panels. Colour is reserved for provenance and runtime state.
+ *
+ * Every colour and font below references a token. No inline hex, no inline OKLCH,
+ * no bare font-family. If a value is needed, it goes into tokens.css first.
  */
 
 @theme {
   --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system, sans-serif;
-  --font-serif: var(--font-newsreader), ui-serif, Georgia, "Times New Roman", serif;
+  --font-serif: var(--font-newsreader), ui-serif, Georgia, 'Times New Roman', serif;
   --font-mono: var(--font-plex-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
-:root {
-  --paper: #fbfaf8;
-  --paper-raised: #ffffff;
-  --panel: #f4f2ee;
-  --ink: #15181c;
-  --ink-muted: #565d66;
-  --ink-faint: #868d97;
-  --rule: #e2ded7;
-  --rule-strong: #cdc7bd;
-  --accent: #1d5c56;
-
-  /* Provenance */
-  --prov-evidence: #1d5c56;
-  --prov-evidence-bg: #e8f1ef;
-  --prov-policy: #2c4a7c;
-  --prov-policy-bg: #e9eef6;
-  --prov-lab: #5b3a78;
-  --prov-lab-bg: #f0eaf5;
-  --prov-fixture: #6b6257;
-  --prov-fixture-bg: #efece6;
-
-  /* Verification qualifiers */
-  --warn: #8a5a12;
-  --warn-bg: #fbf1de;
-
-  /* Runtime status */
-  --ok: #1d5c56;
-  --suppressed: #8a5a12;
-  --blocked: #8f3a3a;
-  --waiting: #4a5568;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --paper: #0e1013;
-    --paper-raised: #15181d;
-    --panel: #1a1e24;
-    --ink: #e8e6e1;
-    --ink-muted: #9aa2ad;
-    --ink-faint: #6b747f;
-    --rule: #262b32;
-    --rule-strong: #3a4149;
-    --accent: #6fb5aa;
-
-    --prov-evidence: #6fb5aa;
-    --prov-evidence-bg: #12241f;
-    --prov-policy: #8fb2e8;
-    --prov-policy-bg: #141c2b;
-    --prov-lab: #bda0d8;
-    --prov-lab-bg: #201a29;
-    --prov-fixture: #b0a698;
-    --prov-fixture-bg: #1e1c18;
-
-    --warn: #d9a441;
-    --warn-bg: #2a2011;
-
-    --ok: #6fb5aa;
-    --suppressed: #d9a441;
-    --blocked: #d98080;
-    --waiting: #9aa2ad;
-  }
-}
+/* --- Root ---------------------------------------------------------------- */
 
 html {
   background: var(--paper);
   color: var(--ink);
+  /* clip, never hidden — `hidden` breaks position:sticky in the timeline rail */
+  overflow-x: clip;
 }
 
 body {
   font-family: var(--font-sans);
-  font-feature-settings: "cv05" 1, "ss01" 1;
+  font-feature-settings: 'cv05' 1, 'ss01' 1;
   text-rendering: optimizeLegibility;
+  overflow-x: clip;
 }
 
-/* --- Editorial layer ---------------------------------------------------- */
+/* --- Editorial layer ------------------------------------------------------ */
 
 .display {
   font-family: var(--font-serif);
   font-weight: 400;
+  font-style: normal; /* headers are roman. always. */
   letter-spacing: -0.018em;
   line-height: 1.08;
+  /* long identifiers (PAST_DUE_31_60, AWAITING_CUSTOMER_INPUT) must not overflow */
+  overflow-wrap: anywhere;
+  min-width: 0;
 }
 
 .lede {
@@ -109,13 +66,15 @@ body {
   max-width: 68ch;
 }
 
-/* --- Instrument layer --------------------------------------------------- */
+/* --- Instrument layer ----------------------------------------------------- */
 
 .instrument {
   font-family: var(--font-mono);
   font-size: 0.75rem;
   line-height: 1.5;
   letter-spacing: -0.01em;
+  overflow-wrap: anywhere;
+  min-width: 0;
 }
 
 .label {
@@ -126,11 +85,37 @@ body {
   color: var(--ink-faint);
 }
 
+/* Numerals in any inspection surface align in columns. */
+.instrument,
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
 .rule {
   border-color: var(--rule);
 }
 
-/* --- Badges ------------------------------------------------------------- */
+/* --- Masthead (N6) -------------------------------------------------------- */
+
+.masthead {
+  border-bottom: 3px double var(--rule-strong);
+}
+
+/* --- Index rows (Index-First) --------------------------------------------- */
+
+.index-row {
+  border-bottom: var(--rule-hair) solid var(--rule);
+  transition:
+    background-color var(--dur-short) var(--ease-out),
+    border-color var(--dur-short) var(--ease-out);
+}
+
+.index-row:hover {
+  background: var(--panel);
+  border-color: var(--rule-strong);
+}
+
+/* --- Badges --------------------------------------------------------------- */
 
 .badge {
   display: inline-flex;
@@ -141,22 +126,73 @@ body {
   letter-spacing: 0.055em;
   text-transform: uppercase;
   padding: 0.1875rem 0.4375rem;
-  border-radius: 3px;
+  border-radius: var(--radius-sm);
+  /* clickable and label text never wraps to two lines */
   white-space: nowrap;
-  border: 1px solid transparent;
+  border: var(--rule-hair) solid transparent;
 }
 
-/* --- Focus -------------------------------------------------------------- */
+/* A small square carries state colour instead of a thick left stripe on the card. */
+.state-mark {
+  display: inline-block;
+  inline-size: 0.5rem;
+  block-size: 0.5rem;
+  border-radius: 1px;
+  flex: none;
+}
 
+/* --- Interaction ---------------------------------------------------------- */
+
+a,
+button,
+summary {
+  transition:
+    color var(--dur-short) var(--ease-out),
+    opacity var(--dur-short) var(--ease-out),
+    transform var(--dur-instant) var(--ease-out);
+}
+
+/* Eight states. :active is the one most often missing — it is the press feedback. */
+button:active:not(:disabled),
+summary:active {
+  transform: translateY(1px);
+}
+
+.index-row:active {
+  background: var(--panel);
+  border-color: var(--rule-strong);
+}
+
+a:active {
+  opacity: 0.65;
+}
+
+button:disabled {
+  cursor: not-allowed;
+}
+
+/* Focus rings appear instantly — never transitioned, never animated. */
 a:focus-visible,
 button:focus-visible,
 summary:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
-  border-radius: 2px;
+  border-radius: var(--radius-sm);
+  transition: none;
 }
 
 ::selection {
   background: var(--accent);
   color: var(--paper);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: var(--dur-instant) !important;
+    scroll-behavior: auto !important;
+  }
 }
