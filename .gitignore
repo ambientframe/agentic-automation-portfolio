@@ -36,6 +36,9 @@ yarn-error.log*
 # vercel
 .vercel
 
+# Lead Rescue wait/resume demo store — runtime state, not a fixture
+/.data/
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts

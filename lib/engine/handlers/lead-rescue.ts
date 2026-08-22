@@ -724,6 +724,10 @@ function handleEnquiry(ctx: HandlerContext): HandlerOutcome {
       atOffsetSeconds: 11,
       transitionTo: 'WAITING_FOR_REPLY',
       summary: `Asked for ${missing.length} missing field(s). Parked awaiting reply.`,
+      // waitStartedAt is the event's own occurredAt, never a clock read. It is what a
+      // later, genuinely separate `lead.wait.reevaluated` event compares itself against —
+      // see handleWaitReevaluation below.
+      statePatch: { facts: { waitStartedAt: event.occurredAt } },
       decisions: [
         decision({
           id: id('d-ask'),
@@ -1083,6 +1087,158 @@ function replyDisposition(
 }
 
 // ---------------------------------------------------------------------------
+// lead.wait.reevaluated
+// ---------------------------------------------------------------------------
+
+/**
+ * The deterministic rule behind lr-t14. Genuinely separate from `handleReply`: this event
+ * carries no reply content at all, only `occurredAt` — the one place a real clock reading
+ * is permitted to enter the system, and only as an ordinary event field the caller
+ * supplies, exactly like every other event's `occurredAt`. This function itself remains
+ * synchronous, total, and free of clocks, same as every other handler in this file.
+ *
+ * Who calls this, and when, is a persistence-layer question answered in
+ * `lib/engine/wait-resume.ts`, not here. This handler only ever answers one question:
+ * given a wait start and a check time, has the configured window elapsed?
+ */
+function handleWaitReevaluation(ctx: HandlerContext): HandlerOutcome {
+  const { event, state, profile } = ctx;
+  const id = (suffix: string) => `${event.eventId}:${suffix}`;
+  const windowHours = numberParam(profile, 'replyWaitWindowHours');
+  const waitStartedAt = state.facts['waitStartedAt'];
+
+  if (waitStartedAt === undefined) {
+    return {
+      steps: [
+        {
+          id: id('wait-check-invalid'),
+          label: 'Wait re-evaluation',
+          atOffsetSeconds: 0,
+          summary: 'No recorded wait start on this entity. No action taken.',
+          decisions: [
+            decision({
+              id: id('d-wait-check-invalid'),
+              eventId: event.eventId,
+              mechanism: 'DETERMINISTIC_RULE',
+              objective: 'Determine whether the configured reply-wait window has elapsed.',
+              relevantState: state.lifecycleState,
+              evidenceRefs: ['state.facts.waitStartedAt'],
+              deterministicFacts: [{ label: 'Wait started', value: 'not recorded' }],
+              missingInformation: [],
+              permittedActions: ['record_unresolvable_check'],
+              forbiddenActions: ['guess_wait_start', 'escalate_without_evidence'],
+              selectedAction: 'record_unresolvable_check',
+              applicablePolicy: ['A wait re-evaluation with no recorded wait start cannot conclude anything and takes no action.'],
+              authority: 0,
+            }),
+          ],
+          effects: [],
+          verifications: [],
+        },
+      ],
+    };
+  }
+
+  const elapsedMs = Date.parse(event.occurredAt) - Date.parse(waitStartedAt);
+  const windowMs = windowHours * 60 * 60 * 1000;
+  const elapsed = elapsedMs >= windowMs;
+  const elapsedHours = Math.round((elapsedMs / (60 * 60 * 1000)) * 10) / 10;
+
+  if (!elapsed) {
+    return {
+      steps: [
+        {
+          id: id('wait-check'),
+          label: 'Wait re-evaluation',
+          atOffsetSeconds: 0,
+          summary: `Checked ${elapsedHours}h into a ${windowHours}h window. Still within the configured wait — no action taken.`,
+          decisions: [
+            decision({
+              id: id('d-wait-check'),
+              eventId: event.eventId,
+              mechanism: 'DETERMINISTIC_RULE',
+              objective: 'Determine whether the configured reply-wait window has elapsed.',
+              relevantState: 'WAITING_FOR_REPLY',
+              evidenceRefs: ['state.facts.waitStartedAt', 'event.occurredAt'],
+              deterministicFacts: [
+                { label: 'Wait started', value: waitStartedAt },
+                { label: 'Checked at', value: event.occurredAt },
+                { label: 'Elapsed', value: `${elapsedHours} hours` },
+                { label: 'Configured window', value: `${windowHours} hours` },
+              ],
+              missingInformation: [...state.missingInformation],
+              permittedActions: ['remain_waiting'],
+              forbiddenActions: ['escalate_before_window_elapses', 'guess_reply_intent'],
+              selectedAction: 'remain_waiting',
+              applicablePolicy: [
+                'CLIENT_POLICY kestrel-reply-wait-window: escalation is eligible only once the configured wait window has genuinely elapsed.',
+              ],
+              authority: 3,
+            }),
+          ],
+          effects: [],
+          verifications: [],
+        },
+      ],
+    };
+  }
+
+  return {
+    steps: [
+      {
+        id: id('wait-elapsed'),
+        label: 'Wait elapsed',
+        atOffsetSeconds: 0,
+        transitionTo: 'NEEDS_HUMAN',
+        summary: `No reply within the configured ${windowHours}-hour window (checked at ${elapsedHours}h). Escalated to a person.`,
+        statePatch: { awaitingHuman: 'Reply window elapsed without a response' },
+        decisions: [
+          decision({
+            id: id('d-wait-elapsed'),
+            eventId: event.eventId,
+            mechanism: 'DETERMINISTIC_RULE',
+            objective: 'Determine whether the configured reply-wait window has elapsed.',
+            relevantState: 'WAITING_FOR_REPLY',
+            evidenceRefs: ['state.facts.waitStartedAt', 'event.occurredAt'],
+            deterministicFacts: [
+              { label: 'Wait started', value: waitStartedAt },
+              { label: 'Checked at', value: event.occurredAt },
+              { label: 'Elapsed', value: `${elapsedHours} hours` },
+              { label: 'Configured window', value: `${windowHours} hours` },
+            ],
+            missingInformation: [...state.missingInformation],
+            permittedActions: ['escalate_to_human'],
+            forbiddenActions: ['send_templated_followup', 'assume_intent', 'close_case'],
+            selectedAction: 'escalate_to_human',
+            applicablePolicy: [
+              'CLIENT_POLICY kestrel-reply-wait-window: a missing-information question unanswered past the configured window is escalated to a named person.',
+            ],
+            escalationReason: `No reply within ${windowHours} hours of the question being sent.`,
+            authority: 2,
+          }),
+        ],
+        effects: [
+          {
+            id: id('effect:notify-wait-elapsed'),
+            kind: 'NOTIFICATION',
+            description: 'Notify the named owner that the reply window elapsed without a response.',
+            target: 'Named owner',
+            idempotencyKey: `notify:${event.entityId}:wait-elapsed`,
+            authority: 3,
+            policyPermits: true,
+            verification: {
+              check: 'Confirm the notification reached a named owner rather than a shared queue.',
+              expect: 'Notification addressed to a named owner.',
+            },
+          },
+        ],
+        verifications: [],
+      },
+    ],
+  };
+}
+
+// ---------------------------------------------------------------------------
 // human.decision.recorded
 // ---------------------------------------------------------------------------
 
@@ -1414,5 +1570,6 @@ export const LEAD_RESCUE_HANDLERS: SystemHandlers = {
     'prospect.replied': handleReply,
     'human.decision.recorded': handleHumanDecision,
     'side_effect.reconciliation.attempted': handleReconciliation,
+    'lead.wait.reevaluated': handleWaitReevaluation,
   },
 };

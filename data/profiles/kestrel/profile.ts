@@ -478,6 +478,16 @@ const RAW = {
         'Lead Rescue policy evaluation ahead of the acknowledgement/routing action. This is a business risk-tolerance choice, not a legal determination: whether a prior marketing opt-out should extend to a separately-initiated business inquiry is genuinely a judgement call, and this policy routes that judgement to a person every time rather than encoding an answer either way.',
     },
     {
+      id: 'kestrel-reply-wait-window',
+      statement:
+        'A missing-information question that goes unanswered for 24 hours is escalated to a named person rather than left waiting indefinitely.',
+      provenance: 'CLIENT_POLICY',
+      verification: 'NOT_APPLICABLE',
+      sourceIds: [],
+      appliesTo:
+        'Lead Rescue wait/resume: the window WAITING_FOR_REPLY is held open before lr-t14 (wait elapsed) becomes eligible. One business day, chosen because a genuinely interested prospect who has gone quiet this long is better served by a person than by a system that keeps waiting.',
+    },
+    {
       id: 'kestrel-collection-cadence',
       statement:
         'Payment reminders issue 3 days before due date and again on days 1, 8, 15 and 30 past due, with escalation to the founder at day 45.',
@@ -560,6 +570,7 @@ const RAW = {
     { key: 'acknowledgementTargetSeconds', label: 'Acknowledgement target', value: 300, unit: 'seconds', policyId: 'kestrel-ack-window' },
     { key: 'routingTargetMinutes', label: 'Routing target, business hours', value: 30, unit: 'minutes', policyId: 'kestrel-routing-window' },
     { key: 'maxInformationQuestions', label: 'Maximum clarifying questions before human review', value: 2, unit: 'questions', policyId: 'kestrel-routing-window' },
+    { key: 'replyWaitWindowHours', label: 'Reply wait window before escalation', value: 24, unit: 'hours', policyId: 'kestrel-reply-wait-window' },
     { key: 'dormantMaxAttempts', label: 'Maximum reactivation attempts', value: 3, unit: 'attempts', policyId: 'kestrel-outreach-cadence' },
     { key: 'dormantWindowDays', label: 'Reactivation sequence window', value: 21, unit: 'days', policyId: 'kestrel-outreach-cadence' },
     { key: 'dormantCoolingOffDays', label: 'Cooling-off before re-entry', value: 90, unit: 'days', policyId: 'kestrel-outreach-cadence' },

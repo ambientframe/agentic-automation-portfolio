@@ -63,7 +63,7 @@ Maturity is descriptive, not aspirational.
 
 | System | Maturity |
 | --- | --- |
-| 1. Lead Rescue | SIMULATED |
+| 1. Lead Rescue | INTERACTIVE PROTOTYPE |
 | 2. Dormant Pipeline Recovery | SIMULATED |
 | 3. Call-to-Proposal Revenue Agent | SIMULATED |
 | 4. Client Onboarding Operator | SIMULATED |
@@ -93,9 +93,9 @@ and it is enforced by `tests/seam.test.ts`.
 
 ## 1. Lead Rescue
 
-**Maturity: SIMULATED**
+**Maturity: INTERACTIVE PROTOTYPE**
 
-Runs end to end as a deterministic simulation. The lifecycle graph, duplicate suppression, confidence floor, policy gates, authority ladder, and retry-safety gating for uncertain provider outcomes all genuinely execute. Bounded judgments and provider send/verify outcomes are replayed from authored fixtures rather than produced by a model or a real provider, and no message, record write, or notification leaves the process. There is no live integration, and no state persists beyond a single request.
+Runs end to end as a deterministic simulation, with one genuine exception: WAITING_FOR_REPLY now persists to a real file-backed store and resumes independently of the process that parked it. A separate, real-clock-driven check (a route handler, not a production scheduler) loads a waiting incident back off disk and correctly fires lr-t14 only once the configured window has genuinely elapsed — proven by tests that tear down and reconstruct the store between parking and checking, not by a fixture event’s timestamp happening to arrive later. Every other stage — the lifecycle graph, duplicate suppression, confidence floor, policy gates, authority ladder, and retry-safety gating for uncertain provider outcomes — still genuinely executes within a single request, and bounded judgments and provider send/verify outcomes are still replayed from authored fixtures rather than produced by a model or a real provider. No message, record write, or notification leaves the process, and there is still no live trigger, live send, or production scheduler: the new mechanism is a persisted incident and an independently-triggerable check, not a connection to anything external.
 
 ### Business problem
 

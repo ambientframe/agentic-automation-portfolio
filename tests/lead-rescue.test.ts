@@ -9,13 +9,14 @@ function scenario(slug: string) {
 }
 
 describe('Lead Rescue scenarios', () => {
-  it('provides the three scenarios the brief requires, plus the two reliability-closure scenarios', () => {
+  it('provides the three scenarios the brief requires, the two reliability-closure scenarios, and the wait-elapsed scenario', () => {
     expect(LEAD_RESCUE_SCENARIOS.map((s) => s.slug)).toEqual([
       'after-hours-enquiry',
       'duplicate-delivery',
       'ambiguous-high-risk',
       'restricted-contact-review',
       'uncertain-downstream-outcome',
+      'reply-window-elapses',
     ]);
   });
 

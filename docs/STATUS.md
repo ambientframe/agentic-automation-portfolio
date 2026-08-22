@@ -1,12 +1,13 @@
 # Status
 
-**As of 2026-08-22 · Owner Revenue Intelligence Agent — the sixth and final system,
-completing the horizontal portfolio at `SIMULATED`**
+**As of 2026-08-22 · Lead Rescue wait/resume — the portfolio's first vertical fidelity
+increment: `WAITING_FOR_REPLY` now genuinely persists and resumes across a process
+boundary**
 
 ## Portfolio maturity
 
 **INTERACTIVE PROTOTYPE** — the application runs, all six systems are open and inspectable,
-and now all six execute real operating logic: Lead Rescue against five scenarios, Dormant
+and all six execute real operating logic: Lead Rescue against six scenarios, Dormant
 Pipeline Recovery against two, Call-to-Proposal Revenue Agent against two, Client
 Onboarding Operator against two, Receivables / Invoice Recovery Agent against two, and
 Owner Revenue Intelligence Agent against two, plus one smaller executable path exercising
@@ -14,19 +15,20 @@ a third declared transition pair in Call-to-Proposal.
 
 | # | System | Maturity | Runs? |
 | --- | --- | --- | --- |
-| 1 | Lead Rescue | `SIMULATED` | Yes — 5 scenarios execute end to end |
+| 1 | Lead Rescue | `INTERACTIVE_PROTOTYPE` | Yes — 6 scenarios execute end to end, plus a live wait/resume demo |
 | 2 | Dormant Pipeline Recovery | `SIMULATED` | Yes — 2 scenarios execute end to end |
 | 3 | Call-to-Proposal Revenue Agent | `SIMULATED` | Yes — 2 scenarios execute end to end |
 | 4 | Client Onboarding Operator | `SIMULATED` | Yes — 2 scenarios execute end to end |
 | 5 | Receivables / Invoice Recovery Agent | `SIMULATED` | Yes — 2 scenarios execute end to end |
 | 6 | Owner Revenue Intelligence Agent | `SIMULATED` | Yes — 2 scenarios execute end to end |
 
-**The horizontal portfolio is now complete.** Every system holds schema-validated canon
-and at least one scenario that replays through the shared engine core. This closes the
-build strategy recorded in every prior pass's own "next fidelity gap" section: explore all
-six systems to credible simulated depth before vertically hardening any one of them. What
-comes next is a deliberate portfolio-wide fidelity review, not an assumed Lead Rescue
-feature — see "Single recommended next fidelity gap" below.
+**The horizontal portfolio finished the prior pass; this one is the first vertical climb.**
+`docs/FIDELITY_ASSESSMENT.md` (committed the prior pass, untouched by this one) built an
+evidence-based fidelity matrix across all six systems and selected exactly one work
+package: give `WAITING_FOR_REPLY` a genuine wait/resume mechanism. This pass implements and
+independently verifies it, and is the first pass anywhere in this portfolio to promote a
+system's `maturity` field past `SIMULATED` — see "Lead Rescue wait/resume — this pass"
+below for what that promotion does and does not claim.
 
 **This pass built the sixth system from an already-authored CONCEPT canon**, the same
 starting condition as Receivables one pass ago: the lifecycle graph (12 states, 14
@@ -184,10 +186,100 @@ otherwise coupled to this one — the narrow-boundary-artifact question the desi
 posed for this pass resolved to "the existing fixture-event pattern is already sufficient,"
 not to a new abstraction.
 
+## Lead Rescue wait/resume — this pass
+
+**Prior defect, named precisely.** `WAITING_FOR_REPLY` was genuinely reached but only ever
+exited because the next authored fixture event in a scenario happened to carry a later
+`occurredAt`. `lr-t14` (`WAITING_FOR_REPLY → NEEDS_HUMAN`, "wait elapsed") was declared in
+canon with zero code, event, scenario, or test anywhere. Nothing in the system
+autonomously noticed that time had passed — the one stage in Lead Rescue's own loop with no
+logic behind it at all, per `docs/FIDELITY_ASSESSMENT.md` section 3.1.
+
+**What changed.** Three new files carry the whole mechanism. `lib/persistence/wait-incident-store.ts`
+declares `WaitIncidentRecord` (incident id, system id, correlation id, an `EngineState`
+snapshot, and a `revision` for optimistic concurrency — nothing else; `waitStartedAt` is
+read out of the snapshot's own `facts`, never duplicated) and a `WaitIncidentStore`
+interface with two implementations: `InMemoryWaitIncidentStore` for fast logic tests, and
+`FileWaitIncidentStore` — one JSON file, written via a temp-file-then-rename so a killed
+process leaves the prior good file rather than a torn one — which is the actual durability
+mechanism. `lib/engine/wait-resume.ts` is the bridge: `parkWaitingIncident` persists a
+snapshot after an ordinary engine run lands in a waiting state, and `checkWaitIncident`
+loads a record, applies exactly one `lead.wait.reevaluated` event against it through
+`applyEvent` (the same primitive the reducer already exposed — `reduceScenario` was never
+touched), and resolves (deletes) the record only if the handler's own rule actually moved
+the lifecycle state. `lib/engine/handlers/lead-rescue.ts` gained one new handler,
+`handleWaitReevaluation`, implementing `lr-t14` for real: it compares the re-check event's
+`occurredAt` against a `waitStartedAt` fact now written when `WAITING_FOR_REPLY` is first
+entered, against a new `replyWaitWindowHours` operating parameter (24 hours, linked to a
+new `kestrel-reply-wait-window` client policy) — and, on elapse, proposes the same kind of
+`NOTIFICATION` effect every other escalation path in this handler already uses, through the
+same authority and idempotency gates.
+
+**The one real clock read in this codebase.** It happens at exactly two network boundaries —
+`app/api/lead-rescue/wait-incidents/check/route.ts`'s default path, and the live demo page's
+"Check" button — never inside `applyEvent`, `handleWaitReevaluation`, or anywhere in
+`lib/engine/`. `occurredAt` arrives as an ordinary parameter, the same discipline every
+other event in this portfolio already followed; this pass adds a caller that sometimes
+supplies a genuine timestamp instead of an authored one, and changes nothing about the
+guarantee itself.
+
+**Falsifying tests, all passing.** `tests/wait-incident-store.test.ts` (20 tests) proves the
+store in isolation, including a missing store file, a hand-corrupted record throwing
+`MalformedWaitRecordError` rather than returning a wrong answer, and durability across
+reconstructing a `FileWaitIncidentStore` pointed at the same path.
+`tests/lead-rescue-wait-resume.test.ts` (7 tests) proves the four properties the assessment
+named: a check before the deadline leaves the incident untouched with no transition or side
+effect; a check after the deadline fires `lr-t14` with the correct decision and a real
+`EXECUTED` notification; a `FileWaitIncidentStore` reconstructed after its first instance is
+discarded entirely still resumes correctly and reaches the same final state as an
+uninterrupted replay of the equivalent scenario; and a duplicate resume — both a sequential
+repeat and two genuinely concurrent `Promise.all` calls racing to resolve the same elapsed
+incident — never produces a second `ELAPSED` outcome. A sixth scenario,
+`reply-window-elapses`, was added to `data/profiles/kestrel/scenarios/lead-rescue.ts` and
+runs in the simulator like every other scenario — it proves the deterministic RULE computes
+correctly against authored timestamps (the same claim every scenario in this portfolio
+makes), which is a different claim from what the resume tests prove, and its own
+`demonstrates` copy says so explicitly.
+
+**Maturity reassessed, not assumed.** Lead Rescue's `maturity` moves `SIMULATED →
+INTERACTIVE_PROTOTYPE` — the bar `docs/FIDELITY_ASSESSMENT.md` named in advance, cleared and
+independently re-verified rather than awarded by that document itself. It remains
+explicitly `NOT_LIVE`: no webhook, no real email/CRM provider, no production scheduler
+exists, the notification effect is still `executionMode: 'SIMULATED'`, and nothing here
+touches a network except the demo's own two route handlers talking to the local filesystem.
+
+**Live UI/commercial proof.** `app/lead-rescue/wait/page.tsx` (a dynamic, never-statically-generated
+page — the first in this portfolio that can honestly claim "executed on this request"
+without the SSG caveat the simulator pages carry) lets a visitor park a real incident,
+watch a real "check now" leave it untouched, then cross the deadline and watch `lr-t14`
+fire, the notification execute, and the incident disappear from the waiting list — the
+exact follow-up question `docs/FIDELITY_ASSESSMENT.md` flagged as the one a sharp buyer
+would ask first ("what's actually checking whether the reply arrived?"), now answerable by
+clicking a button instead of by explanation. One control, "Simulate past deadline & check,"
+is clearly labelled as the sole demo-only affordance: it supplies a timestamp just past the
+deadline instead of the real clock, through the otherwise-identical check path, so the
+elapsed branch can be shown without an actual 24-hour wait.
+
+**Reuse opportunities found, deliberately not implemented.** `lr-t22` ("Offer unanswered,"
+`BOOKING_READY → NEEDS_HUMAN`) is the identical wait-elapsed shape on a different lifecycle
+state within Lead Rescue itself — the smallest, lowest-risk next data point on whether this
+mechanism generalizes, before generalizing it to a second system. Client Onboarding's
+`BLOCKED` state and its `co-t07`/`co-t09` wait-elapsed transitions, Dormant Pipeline
+Recovery's cadence-retry and cooling-off transitions, and Receivables' `PAYMENT_PROMISED`-elapsed
+check all share the exact same shape of missing capability the assessment already
+identified — none touched this pass, per its own exit condition: stop before generalizing,
+and let the next choice come from evidence a second concrete case produces, not from a list
+compiled in advance. True multi-process file-locking for `FileWaitIncidentStore` was also
+considered and rejected — the revision-based optimistic-concurrency guard already proven in
+`tests/lead-rescue-wait-resume.test.ts`'s concurrent-resume test is sufficient for a
+single-process prototype, and a lock file's own failure modes (staleness, cleanup on crash)
+would be new complexity with no concrete consumer yet.
+
 ## What is REAL
 
 Real in the sense of *actually executing code*, not *connected to the outside world*.
-Nothing here touches a network.
+Nothing here touches a network — with one narrow exception, noted below, that itself never
+leaves the local filesystem.
 
 Everything already true of Lead Rescue, Dormant Pipeline Recovery, and Call-to-Proposal —
 the lifecycle state machine, the idempotency ledger, the event ledger, the authority gate,
@@ -196,7 +288,26 @@ consistency — is unchanged and still holds, and now also holds for Client Onbo
 Receivables / Invoice Recovery, and Owner Revenue Intelligence, all six running through the
 same reducer and the same two-phase runner.
 
-New this pass (Owner Revenue Intelligence):
+New this pass (Lead Rescue wait/resume):
+
+- **A waiting incident now survives past a single call.** `WaitIncidentRecord`, persisted by
+  `FileWaitIncidentStore` to a real JSON file, is the first state in this portfolio that
+  outlives the `reduceScenario`/`runScenario` call that produced it — verified by
+  reconstructing the store object entirely between parking and resuming.
+- **A genuine, independently-triggerable check.** `checkWaitIncident` reads a real elapsed
+  time (deadline vs. a caller-supplied `occurredAt`) rather than an authored fixture
+  ordering, and the elapsed/not-elapsed judgment itself lives in exactly one place —
+  `handleWaitReevaluation` — never duplicated into the persistence layer that orchestrates
+  around it.
+- **Duplicate and racing resumes are safe by construction.** `WaitIncidentStore.resolve`'s
+  revision guard, not a new deduplication concept, is what makes two genuinely concurrent
+  `checkWaitIncident` calls on the same elapsed incident produce exactly one `ELAPSED` and
+  one refusal — proven with real `Promise.all` concurrency, not a sequential stand-in for it.
+- **A malformed persisted record fails loudly, not silently.** A hand-corrupted record
+  throws `MalformedWaitRecordError` naming what was wrong, rather than being coerced into a
+  plausible-looking but wrong `WaitIncidentRecord`.
+
+New in the Owner Revenue Intelligence pass (prior), retained for continuity:
 
 - **A freshness gate that genuinely blocks, not annotates.** An input older than the
   configured tolerance halts the analysis at `STALE_DATA_FLAGGED` before any variance is
@@ -277,7 +388,13 @@ Unchanged in kind from the first three systems:
   product. Bramwell Data, its stated systems (AWS, Okta, GitHub Enterprise), and every other
   detail are invented, continuing Call-to-Proposal's own fixture economics rather than
   starting a new one.
-- **All timestamps.** Authored in fixtures. The engine never reads a clock.
+- **Almost all timestamps.** The reducer itself still never reads a clock — that invariant
+  is unchanged and unchangeable by design. But it is no longer true that every `occurredAt`
+  in this portfolio is authored in a fixture: the Lead Rescue wait/resume check route
+  (`app/api/lead-rescue/wait-incidents/check/route.ts`) and its demo page read the real
+  server clock once, at the network boundary, and pass it in as an ordinary event field,
+  same as any other caller. Every SSG-prerendered scenario page, including all six of Lead
+  Rescue's own scenarios, still uses exclusively authored fixture timestamps.
 - **The declared AI-judgment surfaces are not exercised this pass.** The canon lists two
   `aiJudgments` — interpreting free-text handover notes, and interpreting whether a customer
   reply supplies a requested item — but both scenarios use schema-validated structured
@@ -386,24 +503,39 @@ Everything else stayed exactly as domain-specific as the first three systems' ow
 ## Verification
 
 ```
-npm run verify     # typecheck + lint + 335 tests
-npm run build      # 25 pages prerender; the engine executes at build time
+npm run verify     # typecheck + lint + 362 tests
+npm run build      # 27 pages prerender or route; the engine executes at build/request time
 npm run docs       # regenerate canon from the model
 ```
 
-All passing. Visual inspection performed on the portfolio index (now reading "6
-SIMULATED · 0 CONCEPT"), the Owner Revenue Intelligence dossier, and both new scenario
-pages — the run-summary panel's existing generic counters render correctly with no new UI
-component: scenario A (`cash-collection-quietly-worsens`) shows 9 steps, 8 transitions
-accepted, 0 rejected, 0 side effects executed, 1 blocked by policy (the notification, at
-authority level 1); scenario B (`stale-concentration-read-dismissed`) shows 4 steps, 4
+All passing as of this pass, including `tests/wait-incident-store.test.ts` (20 tests) and
+`tests/lead-rescue-wait-resume.test.ts` (7 tests). `npm run build` now reports two routes as
+`ƒ` (server-rendered on demand) rather than prerendered — `/api/lead-rescue/wait-incidents`
+and its `/check` sibling — the first dynamic routes anywhere in this portfolio; every other
+route remains `○` static or `●` SSG, unchanged. Live-verified in the browser, not only by
+the automated suite: parked a demo incident, confirmed an immediate real-clock check left it
+`STILL_WAITING` with the record unchanged, then used the "simulate past deadline" control to
+confirm the same check path reaches `NEEDS_HUMAN` via `lr-t14`, executes the notification,
+and removes the incident from the waiting list.
+
+Visual inspection performed on the portfolio index, the Owner Revenue Intelligence dossier,
+and both new scenario pages — the run-summary panel's existing generic counters render
+correctly with no new UI component: scenario A (`cash-collection-quietly-worsens`) shows 9 steps, 8
+transitions accepted, 0 rejected, 0 side effects executed, 1 blocked by policy (the
+notification, at authority level 1); scenario B (`stale-concentration-read-dismissed`) shows 4
+steps, 4
 transitions accepted (stale flag, refresh, and dismissal across two events), 0 side
 effects, matching the "ordinary variation is left alone" claim exactly.
 
 ## Known fidelity gaps
 
-1. **Two Lead Rescue, three Dormant Pipeline Recovery, and two Call-to-Proposal transitions
-   remain declared but unexercised**, unchanged by this pass.
+1. **One Lead Rescue, three Dormant Pipeline Recovery, and two Call-to-Proposal transitions
+   remain declared but unexercised.** `lr-t14` (wait elapsed) is closed by this pass —
+   genuinely, via persisted resume, not merely a scenario reaching it. `lr-t22` ("Offer
+   unanswered," `BOOKING_READY → NEEDS_HUMAN`) is the identical wait-elapsed shape on a
+   different lifecycle state and is the named reuse opportunity this pass deliberately left
+   for the next one, not a gap this pass missed. Dormant Pipeline Recovery and
+   Call-to-Proposal are unchanged by this pass.
 2. **Four Client Onboarding transitions are declared but unexercised**: `co-t07`/`co-t09`
    (wait-elapsed timeouts) have no driving event, and `BLOCKED` itself — `co-t13` in,
    `co-t14`/`co-t15` out — is never reached by either scenario. Checked twice now (the
@@ -436,28 +568,43 @@ effects, matching the "ordinary variation is left alone" claim exactly.
    ambiguous-reply shape each (Receivables); the variance/corroboration gates are proven on
    one metric pattern each (Owner Revenue Intelligence). A production system would need more
    synthetic variations to be confident across each system's full requirement catalog.
-7. **No reliability/evidence view, no true step-execute simulator, no persistence.**
-   Unchanged from every prior pass; still why none of the six running systems is close to
-   `PARTIALLY_LIVE`.
+7. **No reliability/evidence view, no true step-execute simulator, and — outside Lead
+   Rescue's wait/resume slice — no persistence.** Otherwise unchanged from every prior pass;
+   still why none of the six running systems is close to `PARTIALLY_LIVE`.
+8. **The masthead's own maturity rollup (`app/layout.tsx`) has no bucket for
+   `INTERACTIVE_PROTOTYPE`.** Verified directly in the browser: it now reads "6 systems · 5
+   simulated · 0 concept · 0 live" — Lead Rescue's promotion is invisible there, undercounted
+   rather than overclaimed, since the counter only tests for exact `SIMULATED`/`CONCEPT`
+   matches plus `isLive()`. Not fixed this pass — a shared layout component is outside a
+   Lead Rescue-scoped work package, and the direction of the error (understating advancement)
+   does not violate "nothing simulated may read as live."
 
 ## Single recommended next fidelity gap
 
-**Portfolio-wide fidelity assessment complete — see
-[FIDELITY_ASSESSMENT.md](FIDELITY_ASSESSMENT.md).** The horizontal portfolio is done; all
-six systems are `SIMULATED`. That assessment built an evidence-based fidelity matrix across
-all six systems and five dimensions, red-teamed Lead Rescue stage by stage against its
-intended production loop, and selected exactly one first vertical work package: give
-`WAITING_FOR_REPLY` a genuine wait/resume mechanism — a minimal durable record of which
-incidents are waiting, plus a real, clock-driven re-evaluation that can discover a wait
-window has elapsed, rather than relying on the next fixture event happening to carry a
-later timestamp. This is the one stage in Lead Rescue's own operating loop with no logic
-behind it at all (every other stage has real decision logic behind a simulated I/O
-boundary; this one has none), and it is also the single most-repeated specific gap across
-the whole portfolio's history — Client Onboarding's entire `BLOCKED` state, Dormant Pipeline
-Recovery's cadence-retry loop, and Receivables' promise-elapsed check all share the exact
-same shape of missing capability.
+**`lr-t22` ("Offer unanswered"), using the exact wait/resume mechanism this pass built,
+with zero new architecture.** `docs/FIDELITY_ASSESSMENT.md` named `WAITING_FOR_REPLY`'s
+wait/resume gap as the highest-leverage next step and this pass closed it, independently
+re-verified against the four falsifying tests the assessment specified. `lr-t22` is the
+identical shape — a lifecycle state waiting for an external response, no logic anywhere
+that notices time has passed — on `BOOKING_READY` instead of `WAITING_FOR_REPLY`. Closing it
+would mean, concretely: a second `waitStartedAt`-equivalent fact at the point an offer is
+made, a second operating parameter for the response window (already declared in canon as a
+configured window, not yet in `profile.operatingParameters`), and a second handler branch
+following `handleWaitReevaluation`'s exact shape — no change to `WaitIncidentStore`,
+`checkWaitIncident`, or any file under `lib/persistence/`.
 
-**Do not begin implementing that work package from this document.** The assessment is a
-separate, committed artifact; the next pass implements it, verifies the falsifying tests
-the assessment specifies, and reassesses before generalising the mechanism to any other
-system.
+**Why this outranks generalising to a second system.** Client Onboarding's `BLOCKED` state,
+Dormant Pipeline Recovery's cadence-retry loop, and Receivables' promise-elapsed check all
+share the same missing-capability shape and were all named in
+`docs/FIDELITY_ASSESSMENT.md` as reuse candidates — but this pass proved the mechanism works
+on exactly one lifecycle transition in one system. Reaching for a second SYSTEM next would
+be generalising from a sample size of one, precisely the "built because production systems
+eventually need it" temptation the brief warns against.
+`docs/FIDELITY_ASSESSMENT.md`'s own exit condition says to wait for independent
+confirmation, on a second concrete case, that the same shape of need recurs — `lr-t22`,
+still inside Lead Rescue, is exactly that second concrete case, at the lowest possible risk
+and cost before any cross-system generalisation is considered.
+
+**Do not begin implementing `lr-t22` from this document.** Recorded here as the evidence-based
+next candidate, the same discipline every prior pass's "next fidelity gap" section applied —
+not as a plan to execute without its own re-verification.

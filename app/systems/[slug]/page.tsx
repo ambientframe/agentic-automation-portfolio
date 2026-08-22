@@ -44,6 +44,26 @@ export default async function SystemDossier({ params }: PageProps<'/systems/[slu
         </div>
       </header>
 
+      {system.id === 'lead-rescue' && (
+        <section
+          className="border rule rounded-sm p-4 flex flex-wrap items-center justify-between gap-3"
+          style={{ background: 'var(--panel)' }}
+        >
+          <div>
+            <p className="label" style={{ color: 'var(--waiting)' }}>
+              Live, not a replay
+            </p>
+            <p className="instrument" style={{ color: 'var(--ink-muted)' }}>
+              Park a waiting incident against a real persisted store, then check it — too early
+              does nothing, past the configured window it escalates for real.
+            </p>
+          </div>
+          <Link href="/lead-rescue/wait" className="badge" style={{ color: 'var(--waiting)', borderColor: 'var(--waiting)' }}>
+            Open wait/resume demo →
+          </Link>
+        </section>
+      )}
+
       {scenarios.length > 0 && (
         <section className="space-y-4">
           <SectionHeading>Runnable incidents</SectionHeading>

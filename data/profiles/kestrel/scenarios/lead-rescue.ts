@@ -574,6 +574,124 @@ const UNCERTAIN_OUTCOME = {
 } satisfies Parameters<typeof ScenarioSchema.parse>[0];
 
 // ===========================================================================
+// Scenario 6 — Reply window elapses without a response
+// ===========================================================================
+
+/**
+ * Demonstrates the DETERMINISTIC RULE behind lr-t14 (`handleWaitReevaluation` in
+ * `lib/engine/handlers/lead-rescue.ts`): given a recorded wait start and a check time, the
+ * handler correctly stays parked before the configured window and correctly escalates
+ * after it. Like every other scenario in this file, every timestamp here is authored, so
+ * this run replays byte-identical forever (`tests/replay.test.ts`).
+ *
+ * What this scenario does NOT demonstrate is genuine cross-process persistence — that is a
+ * different claim, proven separately in `tests/lead-rescue-wait-resume.test.ts` by actually
+ * tearing down and reconstructing a `FileWaitIncidentStore` between the park and the
+ * check. This scenario only proves the RULE computes correctly; the resume tests prove the
+ * incident survives independently of any one function call. See
+ * `docs/FIDELITY_ASSESSMENT.md` section 6 for why that distinction is the whole point of
+ * this work package.
+ */
+const WAIT_ELAPSED = {
+  id: 'lr-scenario-wait-elapsed',
+  slug: 'reply-window-elapses',
+  systemId: 'lead-rescue',
+  title: 'Reply window elapses without a response',
+  summary:
+    'A qualified enquiry is missing two required facts. The system asks for them and parks in WAITING_FOR_REPLY. A re-check one hour later finds the wait still within its configured window and takes no action. A second re-check, this time thirty hours after the question was sent, finds the window has genuinely elapsed and escalates to a named person — the wait-elapsed rule this system previously had no way to exercise at all.',
+  demonstrates: [
+    'A re-check before the configured window elapses leaves WAITING_FOR_REPLY untouched and proposes no side effect',
+    'A re-check after the configured window elapses fires lr-t14 (WAITING_FOR_REPLY -> NEEDS_HUMAN) for real, computed from occurredAt against the recorded wait start — not from the next fixture event happening to arrive later',
+    'The elapsed check reuses the same deterministic-rule/decision-record shape as every other transition in this handler, including a policy citation',
+    'Escalation still reaches a named owner via the ordinary NOTIFICATION side effect, gated by the same policy and authority checks as any other effect',
+  ],
+  expectedFinalState: 'NEEDS_HUMAN',
+
+  judgments: {
+    'jd-solace-intake': {
+      judgmentId: 'jd-solace-intake',
+      classification: 'QUALIFIED_ENQUIRY',
+      confidence: 0.85,
+      missingInformation: ['framework', 'headcount'],
+      evidenceRefs: [
+        '"a customer contract now requires an independent compliance attestation"',
+        '"we don\'t currently have anything in place"',
+      ],
+      declinedToInfer: [
+        'Which specific framework the contract requires — the enquiry says "compliance attestation" without naming one',
+        'Company size, which was not mentioned at all',
+        'Timeline, which is implied to be contractual but never dated',
+      ],
+      rationaleSummary:
+        'Names a concrete commercial trigger and an identifiable need. In segment. Two policy-required facts are absent from the text.',
+    },
+  },
+
+  events: [
+    {
+      eventId: 'evt-solace-001',
+      correlationId: 'inc-lr-solace',
+      entityId: 'lead-solace',
+      type: 'inbound.enquiry.received',
+      source: 'website-form',
+      sourceEventId: 'wf-2026-08-10-2201',
+      occurredAt: '2026-08-10T09:00:00-04:00',
+      receivedAt: '2026-08-10T09:00:00-04:00',
+      schemaVersion: SCHEMA_VERSION,
+      actor: 'EXTERNAL_PARTY',
+      executionMode: 'SIMULATED',
+      payload: {
+        contactName: 'Jordan Vance',
+        contactEmail: 'j.vance@solaceunderwriting.example',
+        company: 'Solace Underwriting Group',
+        channel: 'website-form',
+        consentState: 'PERMITTED',
+        requiredFields: ['framework', 'headcount'],
+        message:
+          "Hello — a customer contract now requires an independent compliance attestation and we don't currently have anything in place. Can you tell us what's involved?",
+        judgment: {
+          judgmentId: 'jd-solace-intake',
+          objective:
+            'Classify an inbound enquiry into the permitted set and report which policy-required facts the text does not establish.',
+          input:
+            "Hello — a customer contract now requires an independent compliance attestation and we don't currently have anything in place. Can you tell us what's involved?",
+          permittedClassifications: [...ENQUIRY_CLASSES],
+          requiredFields: ['framework', 'headcount'],
+        },
+      },
+    },
+    {
+      eventId: 'evt-solace-002',
+      correlationId: 'inc-lr-solace',
+      entityId: 'lead-solace',
+      type: 'lead.wait.reevaluated',
+      source: 'wait-scheduler',
+      sourceEventId: 'wait-check-2026-08-10-1000',
+      occurredAt: '2026-08-10T10:00:00-04:00',
+      receivedAt: '2026-08-10T10:00:00-04:00',
+      schemaVersion: SCHEMA_VERSION,
+      actor: 'SYSTEM',
+      executionMode: 'SIMULATED',
+      payload: {},
+    },
+    {
+      eventId: 'evt-solace-003',
+      correlationId: 'inc-lr-solace',
+      entityId: 'lead-solace',
+      type: 'lead.wait.reevaluated',
+      source: 'wait-scheduler',
+      sourceEventId: 'wait-check-2026-08-11-1500',
+      occurredAt: '2026-08-11T15:00:00-04:00',
+      receivedAt: '2026-08-11T15:00:00-04:00',
+      schemaVersion: SCHEMA_VERSION,
+      actor: 'SYSTEM',
+      executionMode: 'SIMULATED',
+      payload: {},
+    },
+  ],
+} satisfies Parameters<typeof ScenarioSchema.parse>[0];
+
+// ===========================================================================
 
 export const LEAD_RESCUE_SCENARIOS: readonly Scenario[] = [
   ScenarioSchema.parse(AFTER_HOURS),
@@ -581,6 +699,7 @@ export const LEAD_RESCUE_SCENARIOS: readonly Scenario[] = [
   ScenarioSchema.parse(AMBIGUOUS_HIGH_RISK),
   ScenarioSchema.parse(RESTRICTED_CONTACT),
   ScenarioSchema.parse(UNCERTAIN_OUTCOME),
+  ScenarioSchema.parse(WAIT_ELAPSED),
 ];
 
 /**
