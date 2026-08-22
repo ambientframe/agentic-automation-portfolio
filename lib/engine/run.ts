@@ -9,6 +9,12 @@ import {
   type ResolvedJudgment,
 } from '@/lib/ports/decision-provider';
 import {
+  resolveExtraction,
+  type ExtractionProvider,
+  type ExtractionRequest,
+  type ResolvedExtraction,
+} from '@/lib/ports/extraction-provider';
+import {
   resolveSend,
   resolveVerify,
   type ResolvedSend,
@@ -98,6 +104,35 @@ export function extractVerifyRequests(event: CanonicalEvent): VerifyRequest[] {
     .map((r) => r.data);
 }
 
+/**
+ * A structured-extraction request carried on the event whose payload it concerns. Uses
+ * the `ExtractionProvider` port (`lib/ports/extraction-provider.ts`), not
+ * `DecisionProvider` — see that file for why the two are not the same contract. Kept as
+ * its own strict payload rather than folded into `JudgmentRequestPayloadSchema` because
+ * the shapes genuinely differ: a classification request has no segments to cite.
+ */
+const TranscriptSegmentPayloadSchema = z.strictObject({
+  id: z.string().min(1),
+  speaker: z.string().min(1),
+  text: z.string().min(1),
+});
+
+export const ExtractionRequestPayloadSchema = z.strictObject({
+  judgmentId: z.string().min(1),
+  objective: z.string().min(1),
+  sourceArtifactId: z.string().min(1),
+  segments: z.array(TranscriptSegmentPayloadSchema).min(1),
+  requiredFields: z.array(z.string().min(1)),
+});
+
+export function extractExtractionRequest(event: CanonicalEvent): ExtractionRequest | null {
+  const raw = event.payload['extraction'];
+  if (raw === undefined) return null;
+  const parsed = ExtractionRequestPayloadSchema.safeParse(raw);
+  if (!parsed.success) return null;
+  return { ...parsed.data, correlationId: event.correlationId };
+}
+
 export interface RunDeps {
   readonly system: SystemDefinition;
   readonly profile: BusinessProfile;
@@ -105,6 +140,8 @@ export interface RunDeps {
   readonly provider: DecisionProvider;
   /** Only required when a scenario declares `sendAttempts` / `verifyAttempts`. */
   readonly executor?: SideEffectExecutor;
+  /** Only required when a scenario declares an `extraction` request. Today, only Call-to-Proposal does. */
+  readonly extractionProvider?: ExtractionProvider;
 }
 
 /** Phase 1a. Walks the scenario in order and resolves each declared judgment once. */
@@ -155,6 +192,34 @@ export async function resolveExecutionAttempts(
   return { send, verify };
 }
 
+/**
+ * Phase 1c. Resolves every declared extraction request once. If a scenario declares
+ * none (every scenario before Call-to-Proposal existed), this returns an empty map and
+ * never touches `provider` — so `provider` stays genuinely optional for those callers.
+ */
+export async function resolveExtractions(
+  scenario: Scenario,
+  provider: ExtractionProvider | undefined,
+): Promise<Map<string, ResolvedExtraction>> {
+  const resolved = new Map<string, ResolvedExtraction>();
+  const requests = scenario.events
+    .map(extractExtractionRequest)
+    .filter((r): r is ExtractionRequest => r !== null);
+  if (requests.length === 0) return resolved;
+
+  if (provider === undefined) {
+    throw new Error(
+      `Scenario "${scenario.id}" declares ${requests.length} extraction request(s) but no ExtractionProvider was supplied.`,
+    );
+  }
+
+  for (const request of requests) {
+    if (resolved.has(request.judgmentId)) continue;
+    resolved.set(request.judgmentId, await resolveExtraction(provider, request));
+  }
+  return resolved;
+}
+
 export interface ReduceDeps {
   readonly system: SystemDefinition;
   readonly profile: BusinessProfile;
@@ -167,6 +232,7 @@ export function reduceScenario(
   judgments: ReadonlyMap<string, ResolvedJudgment>,
   deps: ReduceDeps,
   executionOutcomes: ExecutionOutcomes = { send: new Map(), verify: new Map() },
+  extractions: ReadonlyMap<string, ResolvedExtraction> = new Map(),
 ): EngineRun {
   const internals = {
     effects: new SideEffectLedger(),
@@ -177,7 +243,13 @@ export function reduceScenario(
   let state: EngineState = initialState(deps.handlers.initialState);
 
   for (const event of scenario.events) {
-    const result = applyEvent(state, event, { ...deps, judgments, internals, executionOutcomes });
+    const result = applyEvent(state, event, {
+      ...deps,
+      judgments,
+      internals,
+      executionOutcomes,
+      extractions,
+    });
     state = result.state;
     timeline.push(...result.entries);
   }
@@ -201,10 +273,12 @@ export function reduceScenario(
 export async function runScenario(scenario: Scenario, deps: RunDeps): Promise<EngineRun> {
   const judgments = await resolveJudgments(scenario, deps.provider);
   const executionOutcomes = await resolveExecutionAttempts(scenario, deps.executor);
+  const extractions = await resolveExtractions(scenario, deps.extractionProvider);
   return reduceScenario(
     scenario,
     judgments,
     { system: deps.system, profile: deps.profile, handlers: deps.handlers },
     executionOutcomes,
+    extractions,
   );
 }

@@ -11,6 +11,7 @@ import type {
 } from '@/lib/model/runtime';
 import type { AuthorityLevel } from '@/lib/model/system';
 import type { ResolvedJudgment } from '@/lib/ports/decision-provider';
+import type { ResolvedExtraction } from '@/lib/ports/extraction-provider';
 import type { EventLedger, ExecutionLedger, SideEffectLedger } from './ledger';
 
 /**
@@ -89,6 +90,13 @@ export interface HandlerContext {
   readonly system: SystemDefinition;
   readonly profile: BusinessProfile;
   readonly judgments: ReadonlyMap<string, ResolvedJudgment>;
+  /**
+   * Pre-resolved structured extractions, keyed by judgmentId. Empty for every system
+   * except Call-to-Proposal, which is the only one whose bounded judgment needs the
+   * `ExtractionProvider` port rather than `DecisionProvider`. See
+   * `lib/ports/extraction-provider.ts` for why the two are not the same contract.
+   */
+  readonly extractions: ReadonlyMap<string, ResolvedExtraction>;
   /** Read-only view; only the core may claim keys. */
   readonly ledger: { has(key: string): boolean };
   /** True when this exact source event was already observed. */

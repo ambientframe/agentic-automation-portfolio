@@ -26,13 +26,13 @@ Research pass: **2026-08-21**.
 
 | Verification | Claims |
 | --- | --- |
-| Verified | 13 |
+| Verified | 15 |
 | Unverified (pending) | 2 |
 | Weak or disputed support | 1 |
 | Superseded | 0 |
 | Not applicable (policy / lab target) | 19 |
 
-Primary, official, or standards-body sources: 12 of 15.
+Primary, official, or standards-body sources: 14 of 17.
 
 ## Corrections this research pass produced
 
@@ -43,6 +43,10 @@ The widely quoted "5 minutes versus 30 minutes = 100x contact, 21x qualification
 ### Call-to-Proposal Revenue Agent — `cp-std-human-oversight`
 
 The cited profile is a governance framework, not a technical standard. It prescribes no thresholds, so the confidence floor and revision budget used here are operator policy, not derived from it.
+
+### Call-to-Proposal Revenue Agent — `cp-std-next-step-capture`
+
+The cited page documents a beta product feature, not a study of outcomes. It supports treating structured next-step capture as current practice, not that it causes better results.
 
 ### Receivables / Invoice Recovery Agent — `rr-std-aging-convention`
 
@@ -223,6 +227,32 @@ Automation vendors frequently present FDCPA-style constraints as universally app
 
 *Limitations.* An FTC business blog post, which is guidance rather than regulation. Records the exception that matters here: a creditor collecting its own debts under a name other than its own, implying a third party is collecting, can itself become a debt collector under FDCPA section 803(6). Also notes that conduct outside FDCPA scope remains subject to the FTC Act section 5 prohibition on deceptive or unfair practices, and that some state laws reach original creditors. A 2015 post; current status not re-confirmed against the statute.
 
+### `hubspot-next-steps` — HubSpot
+
+**Review recommended next steps for deals**
+
+| | |
+| --- | --- |
+| Published | 2026-08-04 |
+| Located and read | 2026-08-21 |
+| Primary / authoritative | yes |
+| URL | https://knowledge.hubspot.com/meetings-tool/review-recommended-next-steps-for-deals |
+
+*Limitations.* Product documentation for a beta feature (Super Admin opt-in, gated behind Sales/Service Hub Professional/Enterprise), not a research study. It describes HOW to use structured next-step capture, not evidence that using it improves outcomes — the rationale is inferred from the vendor building and gating the feature this way, not stated as a finding. Clear vendor commercial interest in the product being documented.
+
+### `salesforce-pipeline-exit-criteria` — Salesforce
+
+**Sales Pipeline Management: A Complete Guide and the Best Tools in 2026**
+
+| | |
+| --- | --- |
+| Published | 2026-04-06 |
+| Located and read | 2026-08-21 |
+| Primary / authoritative | yes |
+| URL | https://www.salesforce.com/sales/pipeline/management/ |
+
+*Limitations.* Staff-authored guidance on salesforce.com, editorial/marketing-adjacent (the same page also promotes Sales Cloud and lists competitor CRMs), not formal product documentation or a controlled study. States a best practice — defining measurable exit criteria per stage — rather than measured evidence that doing so improves outcomes. A companion page (salesforce.com/sales/pipeline/stages/) was checked first and did NOT contain this guidance; it was located on this page instead, not assumed from a search snippet.
+
 ### `iso-8000` — International Organization for Standardization
 
 **ISO 8000 series - Data quality (ISO/TC 184/SC 4), with ISO/IEC 25012**
@@ -270,6 +300,8 @@ Automation vendors frequently present FDCPA-style constraints as universally app
 | Dormant Pipeline Recovery | Every sequence declares entry criteria, cadence, maximum attempts, exit conditions, suppression conditions, and re-entry conditions before it is permitted to run. | LAB_TARGET | NOT_APPLICABLE | — |
 | Call-to-Proposal Revenue Agent | Generative models produce fluent output that is not grounded in their input. Confabulation is a named primary risk category requiring managed controls, not an occasional defect to be tuned away. | EVIDENCE | VERIFIED | nist-ai-600-1 |
 | Call-to-Proposal Revenue Agent | Human oversight and intervention are governance-level controls in recognised AI risk management practice, alongside content provenance and pre-deployment testing. | EVIDENCE | VERIFIED | nist-ai-600-1 |
+| Call-to-Proposal Revenue Agent | Current CRM practice treats a call's recommended next step as a structured, reviewable output distinct from freeform notes, gated by objective capture criteria. | EVIDENCE | VERIFIED | hubspot-next-steps |
+| Call-to-Proposal Revenue Agent | Current pipeline-management guidance holds that a deal should only advance to the next stage when defined, measurable exit criteria for the current stage are actually met, not on rep judgment or activity alone. | EVIDENCE | VERIFIED | salesforce-pipeline-exit-criteria |
 | Call-to-Proposal Revenue Agent | A package containing any claim that resolves to no cited passage and no human-supplied fact does not reach a reviewer. | LAB_TARGET | NOT_APPLICABLE | — |
 | Call-to-Proposal Revenue Agent | Information the conversation did not establish remains marked unknown through the whole pipeline and is never replaced by a plausible default. | LAB_TARGET | NOT_APPLICABLE | — |
 | Call-to-Proposal Revenue Agent | Facts supplied by a person during clarification are recorded with that person as their source, distinguishable from facts derived from the transcript. | LAB_TARGET | NOT_APPLICABLE | — |

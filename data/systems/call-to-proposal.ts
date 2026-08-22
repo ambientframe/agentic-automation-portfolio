@@ -146,6 +146,28 @@ const RAW = {
         'The cited profile is a governance framework, not a technical standard. It prescribes no thresholds, so the confidence floor and revision budget used here are operator policy, not derived from it.',
     },
     {
+      id: 'cp-std-next-step-capture',
+      statement:
+        "Current CRM practice treats a call's recommended next step as a structured, reviewable output distinct from freeform notes, gated by objective capture criteria.",
+      provenance: 'EVIDENCE',
+      verification: 'VERIFIED',
+      sourceIds: ['hubspot-next-steps'],
+      appliesTo:
+        'Justifies representing agreed next step and its owner as required structured-record fields rather than leaving them in prose notes.',
+      correction:
+        'The cited page documents a beta product feature, not a study of outcomes. It supports treating structured next-step capture as current practice, not that it causes better results.',
+    },
+    {
+      id: 'cp-std-pipeline-exit-criteria',
+      statement:
+        'Current pipeline-management guidance holds that a deal should only advance to the next stage when defined, measurable exit criteria for the current stage are actually met, not on rep judgment or activity alone.',
+      provenance: 'EVIDENCE',
+      verification: 'VERIFIED',
+      sourceIds: ['salesforce-pipeline-exit-criteria'],
+      appliesTo:
+        'Justifies required-field coverage as a computed gate the record must satisfy before progressing to claims review, and justifies material gaps blocking progress until resolved.',
+    },
+    {
       id: 'cp-lab-zero-unsupported',
       statement:
         'A package containing any claim that resolves to no cited passage and no human-supplied fact does not reach a reviewer.',
@@ -187,7 +209,7 @@ const RAW = {
       escalationCondition: 'Any unsupported claim reaching a reviewer.',
       authorityRequired: 2,
       terminalState: 'NEEDS_HUMAN.',
-      verificationTest: 'Pending — scenario not yet authored.',
+      verificationTest: 'tests/call-to-proposal.test.ts — the unsupported-scope-claim-blocked scenario and the claim-admission-gate unit tests',
     },
     {
       id: 'cp-fm-malformed-output',
@@ -202,7 +224,7 @@ const RAW = {
       escalationCondition: 'Repeated contract violations on the same transcript format.',
       authorityRequired: 2,
       terminalState: 'NEEDS_HUMAN.',
-      verificationTest: 'tests/decision-provider.test.ts — schema-invalid output is refused',
+      verificationTest: 'tests/extraction-provider.test.ts — schema-invalid and mis-cited output is refused; tests/call-to-proposal.test.ts — an unavailable extraction routes to NEEDS_HUMAN',
     },
     {
       id: 'cp-fm-missing-fields',
@@ -216,7 +238,7 @@ const RAW = {
       escalationCondition: 'Clarification window elapses without an answer.',
       authorityRequired: 2,
       terminalState: 'AWAITING_CLARIFICATION, then NEEDS_HUMAN on timeout.',
-      verificationTest: 'Pending — scenario not yet authored.',
+      verificationTest: 'tests/call-to-proposal.test.ts — a call missing exactly one material field routes to AWAITING_CLARIFICATION and resolves once a person supplies it. The timeout-to-NEEDS_HUMAN edge itself remains unexercised — no event drives it yet.',
     },
     {
       id: 'cp-fm-policy-violation',
@@ -230,7 +252,7 @@ const RAW = {
       escalationCondition: 'Any prohibited commitment reaching a draft.',
       authorityRequired: 2,
       terminalState: 'NEEDS_HUMAN.',
-      verificationTest: 'Pending — scenario not yet authored.',
+      verificationTest: 'tests/call-to-proposal.test.ts — the claim-admission gate blocks any claim value containing a prohibited-commitment phrase, regardless of source or citation',
     },
     {
       id: 'cp-fm-approval-timeout',
@@ -248,9 +270,9 @@ const RAW = {
     },
   ],
 
-  maturity: 'CONCEPT',
+  maturity: 'SIMULATED',
   fidelityNote:
-    'Business canon, lifecycle graph, metrics, standards, and failure modes are defined and validated. No executable scenario exists yet, so nothing in this system runs. Labelled CONCEPT rather than SIMULATED until a scenario replays through the engine.',
+    'Two scenarios replay through the same engine core Lead Rescue and Dormant Pipeline Recovery proved: a discovery call whose every material fact is cited, sourced, or derived reaches an approved, despatched proposal; and a candidate claim that expands scope with zero supporting citation is refused before a draft can exist, regardless of its confidence. A third, smaller path shows a genuinely missing material fact routed to a person and closed by a recorded human answer. Extraction is the one bounded judgment, resolved through a dedicated port before the deterministic claim-admission gate, required-field coverage, scope derivation, and approval-authority checks run — none of which the judgment itself may bypass. As with the first two systems, nothing here is live: no message left this process, no model was called, and the business is fictional.',
 } satisfies Parameters<typeof SystemDefinitionSchema.parse>[0];
 
 export const CALL_TO_PROPOSAL: SystemDefinition = SystemDefinitionSchema.parse(RAW);

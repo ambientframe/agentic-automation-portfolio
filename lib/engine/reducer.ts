@@ -11,6 +11,7 @@ import type {
 import type { AuthorityLevel, SystemDefinition } from '@/lib/model/system';
 import type { BusinessProfile } from '@/lib/model/profile';
 import type { ResolvedJudgment } from '@/lib/ports/decision-provider';
+import type { ResolvedExtraction } from '@/lib/ports/extraction-provider';
 import type { ResolvedSend, ResolvedVerify } from '@/lib/ports/side-effect-executor';
 import type {
   EngineInternals,
@@ -55,6 +56,8 @@ export interface StepDeps {
   readonly profile: BusinessProfile;
   readonly handlers: SystemHandlers;
   readonly judgments: ReadonlyMap<string, ResolvedJudgment>;
+  /** Optional: only Call-to-Proposal's handler reads this. See `HandlerContext.extractions`. */
+  readonly extractions?: ReadonlyMap<string, ResolvedExtraction>;
   readonly internals: EngineInternals;
   /**
    * Pre-resolved send/verify outcomes, keyed by attemptId. Resolved async, before this
@@ -64,6 +67,7 @@ export interface StepDeps {
 }
 
 const EMPTY_EXECUTION_OUTCOMES: ExecutionOutcomes = { send: new Map(), verify: new Map() };
+const EMPTY_EXTRACTIONS: ReadonlyMap<string, ResolvedExtraction> = new Map();
 
 export interface ApplyResult {
   readonly state: EngineState;
@@ -86,6 +90,7 @@ export function applyEvent(
 ): ApplyResult {
   const { system, profile, handlers, judgments, internals } = deps;
   const executionOutcomes = deps.executionOutcomes ?? EMPTY_EXECUTION_OUTCOMES;
+  const extractions = deps.extractions ?? EMPTY_EXTRACTIONS;
 
   const observation = internals.events.observe(event.source, event.sourceEventId, event.eventId);
   const isDuplicateEvent = observation === 'DUPLICATE';
@@ -101,6 +106,7 @@ export function applyEvent(
     system,
     profile,
     judgments,
+    extractions,
     ledger: { has: (key: string) => internals.effects.has(key) },
     isDuplicateEvent,
   });

@@ -350,7 +350,7 @@ Coverage: 23 distinct failure classes across 42 entries.
 | **Escalates when** | Any unsupported claim reaching a reviewer. |
 | **Authority required** | 2 · PREPARE / HUMAN APPROVES |
 | **Resolves into** | NEEDS_HUMAN. |
-| **Verification** | Pending — scenario not yet authored. |
+| **Verification** | tests/call-to-proposal.test.ts — the unsupported-scope-claim-blocked scenario and the claim-admission-gate unit tests |
 
 ### AI MALFORMED OUTPUT — Extraction returns output that does not satisfy the record contract.
 
@@ -365,7 +365,7 @@ Coverage: 23 distinct failure classes across 42 entries.
 | **Escalates when** | Repeated contract violations on the same transcript format. |
 | **Authority required** | 2 · PREPARE / HUMAN APPROVES |
 | **Resolves into** | NEEDS_HUMAN. |
-| **Verification** | tests/decision-provider.test.ts — schema-invalid output is refused |
+| **Verification** | tests/extraction-provider.test.ts — schema-invalid and mis-cited output is refused; tests/call-to-proposal.test.ts — an unavailable extraction routes to NEEDS_HUMAN |
 
 ### MISSING REQUIRED FIELD — A material commercial field is absent and no one notices before the proposal is written.
 
@@ -379,7 +379,7 @@ Coverage: 23 distinct failure classes across 42 entries.
 | **Escalates when** | Clarification window elapses without an answer. |
 | **Authority required** | 2 · PREPARE / HUMAN APPROVES |
 | **Resolves into** | AWAITING_CLARIFICATION, then NEEDS_HUMAN on timeout. |
-| **Verification** | Pending — scenario not yet authored. |
+| **Verification** | tests/call-to-proposal.test.ts — a call missing exactly one material field routes to AWAITING_CLARIFICATION and resolves once a person supplies it. The timeout-to-NEEDS_HUMAN edge itself remains unexercised — no event drives it yet. |
 
 ### POLICY VIOLATION — Draft text promises an outcome the firm does not control, or terms outside the approved rate card.
 
@@ -393,7 +393,7 @@ Coverage: 23 distinct failure classes across 42 entries.
 | **Escalates when** | Any prohibited commitment reaching a draft. |
 | **Authority required** | 2 · PREPARE / HUMAN APPROVES |
 | **Resolves into** | NEEDS_HUMAN. |
-| **Verification** | Pending — scenario not yet authored. |
+| **Verification** | tests/call-to-proposal.test.ts — the claim-admission gate blocks any claim value containing a prohibited-commitment phrase, regardless of source or citation |
 
 ### HUMAN APPROVAL TIMEOUT — A draft waits for approval past the promised delivery window.
 

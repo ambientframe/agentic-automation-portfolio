@@ -9,9 +9,15 @@ import {
   LEAD_RESCUE_VERIFY_OUTCOMES,
 } from '@/data/profiles/kestrel/scenarios/lead-rescue';
 import { DORMANT_PIPELINE_RECOVERY_SCENARIOS } from '@/data/profiles/kestrel/scenarios/dormant-pipeline-recovery';
-import { LEAD_RESCUE, DORMANT_PIPELINE_RECOVERY } from '@/data/systems';
+import {
+  CALL_TO_PROPOSAL_EXTRACTIONS,
+  CALL_TO_PROPOSAL_SCENARIOS,
+} from '@/data/profiles/kestrel/scenarios/call-to-proposal';
+import { LEAD_RESCUE, DORMANT_PIPELINE_RECOVERY, CALL_TO_PROPOSAL } from '@/data/systems';
 import { LEAD_RESCUE_HANDLERS } from '@/lib/engine/handlers/lead-rescue';
 import { DORMANT_PIPELINE_RECOVERY_HANDLERS } from '@/lib/engine/handlers/dormant-pipeline-recovery';
+import { CALL_TO_PROPOSAL_HANDLERS } from '@/lib/engine/handlers/call-to-proposal';
+import type { ExtractionResult } from '@/lib/ports/extraction-provider';
 import type { SystemHandlers } from './types';
 
 /**
@@ -37,6 +43,8 @@ export interface RunnableSystem {
   /** Present only for systems whose scenarios opt effects into execution-outcome tracking. */
   readonly sendOutcomes?: Readonly<Record<string, SendOutcome>>;
   readonly verifyOutcomes?: Readonly<Record<string, VerifyOutcome>>;
+  /** Present only for systems whose scenarios opt into the `ExtractionProvider` port. Today, only Call-to-Proposal. */
+  readonly extractions?: Readonly<Record<string, ExtractionResult>>;
 }
 
 export const RUNNABLE_SYSTEMS: readonly RunnableSystem[] = [
@@ -53,6 +61,13 @@ export const RUNNABLE_SYSTEMS: readonly RunnableSystem[] = [
     handlers: DORMANT_PIPELINE_RECOVERY_HANDLERS,
     profile: KESTREL,
     scenarios: DORMANT_PIPELINE_RECOVERY_SCENARIOS,
+  },
+  {
+    system: CALL_TO_PROPOSAL,
+    handlers: CALL_TO_PROPOSAL_HANDLERS,
+    profile: KESTREL,
+    scenarios: CALL_TO_PROPOSAL_SCENARIOS,
+    extractions: CALL_TO_PROPOSAL_EXTRACTIONS,
   },
 ];
 

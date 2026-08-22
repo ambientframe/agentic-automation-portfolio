@@ -16,7 +16,7 @@ npm install
 npm run dev
 ```
 
-Then open the printed URL. Five Lead Rescue incidents replay through the engine:
+Then open the printed URL. Nine incidents across three systems replay through the engine:
 
 - `/simulator/after-hours-enquiry` — an incomplete enquiry at 20:47, worked to a booking
 - `/simulator/duplicate-delivery` — the same event delivered twice, refused twice
@@ -26,6 +26,14 @@ Then open the printed URL. Five Lead Rescue incidents replay through the engine:
   blocked at the policy gate because the contact carries restricted consent state
 - `/simulator/uncertain-downstream-outcome` — an acknowledgement whose outcome comes back
   unknown; a naive retry is refused, and exactly one send succeeds after verification
+- `/simulator/eligible-reactivation` — a dormant opportunity's stated timing objection
+  expires and a named human accepts it back into the active pipeline
+- `/simulator/suppressed-recovery` — a textbook re-entry trigger, correctly overridden by
+  suppression before any candidate action is ever computed
+- `/simulator/discovery-to-approved-proposal` — a discovery call whose every material fact
+  is cited, sourced, or derived reaches an approved, despatched proposal
+- `/simulator/unsupported-scope-claim-blocked` — a candidate claim expands scope with zero
+  supporting citation and is refused before a draft can exist, regardless of its confidence
 
 ## Verify it
 
@@ -33,11 +41,14 @@ Then open the printed URL. Five Lead Rescue incidents replay through the engine:
 npm run verify
 ```
 
-Typecheck, lint, and 180 tests. The interesting ones are not smoke tests:
+Typecheck, lint, and 240 tests. The interesting ones are not smoke tests:
 
 | Test | Asserts |
 | --- | --- |
 | `tests/lead-rescue.test.ts` | A replayed duplicate produces **zero** duplicate external actions; a low-confidence judgment sends **nothing**; a restricted contact's candidate action is blocked regardless of classification confidence; an uncertain send outcome permits exactly **one** customer-facing effect across the whole run |
+| `tests/dormant-pipeline-recovery.test.ts` | The re-entry reason is a genuine date comparison, never a narrated yes; suppression is evaluated before any re-entry reason and produces zero side effects when it applies |
+| `tests/call-to-proposal.test.ts` | Every admitted buyer fact cites a real transcript passage; a claim asserting scope with **zero** citations is refused before a draft can exist; a stale approval does not authorise a revised artifact; a claim stating a prohibited commitment is blocked regardless of source |
+| `tests/extraction-provider.test.ts` | A citation pointing at a segment the transcript never supplied is refused at the port boundary — a malformed evidence reference cannot silently validate a buyer claim |
 | `tests/engine.test.ts` | An undeclared transition is rejected and the state does not move; no transition can leave a terminal state; a naive retry on an unresolved uncertain outcome is refused by the core |
 | `tests/side-effect-executor.test.ts` | The provider port never fabricates an external id, and converts every provider failure into data rather than throwing |
 | `tests/replay.test.ts` | Two runs of the same scenario are byte-identical, and every timestamp traces to an authored fixture |
@@ -49,7 +60,7 @@ Typecheck, lint, and 180 tests. The interesting ones are not smoke tests:
 Other commands:
 
 ```bash
-npm run build      # 15 pages prerender — the engine executes at build time
+npm run build      # 19 pages prerender — the engine executes at build time
 npm run docs       # regenerate the canon documents from the typed model
 ```
 

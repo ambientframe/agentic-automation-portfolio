@@ -4,6 +4,7 @@ import { ALL_RUNNABLE_SCENARIOS, findRunnableScenario } from '@/lib/engine/regis
 import { runScenario } from '@/lib/engine/run';
 import { FixtureDecisionProvider } from '@/lib/ports/decision-provider';
 import { FixtureSideEffectExecutor } from '@/lib/ports/side-effect-executor';
+import { FixtureExtractionProvider } from '@/lib/ports/extraction-provider';
 import { Simulator } from '@/components/simulator';
 
 export function generateStaticParams() {
@@ -25,6 +26,9 @@ export default async function SimulatorPage({ params }: PageProps<'/simulator/[s
     ...(runnable.sendOutcomes === undefined
       ? {}
       : { executor: new FixtureSideEffectExecutor(runnable.sendOutcomes, runnable.verifyOutcomes ?? {}) }),
+    ...(runnable.extractions === undefined
+      ? {}
+      : { extractionProvider: new FixtureExtractionProvider(runnable.extractions) }),
   });
 
   const matchedExpectation = run.finalState.lifecycleState === scenario.expectedFinalState;

@@ -180,6 +180,32 @@ const RAW: readonly SourceRef[] = [
   },
 
   // -------------------------------------------------------------------------
+  // Discovery-call capture and pipeline-stage integrity
+  // -------------------------------------------------------------------------
+  {
+    id: 'hubspot-next-steps',
+    organization: 'HubSpot',
+    title: 'Review recommended next steps for deals',
+    url: 'https://knowledge.hubspot.com/meetings-tool/review-recommended-next-steps-for-deals',
+    publishedOn: '2026-08-04',
+    checkedOn: '2026-08-21',
+    primary: true,
+    limitations:
+      'Product documentation for a beta feature (Super Admin opt-in, gated behind Sales/Service Hub Professional/Enterprise), not a research study. It describes HOW to use structured next-step capture, not evidence that using it improves outcomes — the rationale is inferred from the vendor building and gating the feature this way, not stated as a finding. Clear vendor commercial interest in the product being documented.',
+  },
+  {
+    id: 'salesforce-pipeline-exit-criteria',
+    organization: 'Salesforce',
+    title: 'Sales Pipeline Management: A Complete Guide and the Best Tools in 2026',
+    url: 'https://www.salesforce.com/sales/pipeline/management/',
+    publishedOn: '2026-04-06',
+    checkedOn: '2026-08-21',
+    primary: true,
+    limitations:
+      'Staff-authored guidance on salesforce.com, editorial/marketing-adjacent (the same page also promotes Sales Cloud and lists competitor CRMs), not formal product documentation or a controlled study. States a best practice — defining measurable exit criteria per stage — rather than measured evidence that doing so improves outcomes. A companion page (salesforce.com/sales/pipeline/stages/) was checked first and did NOT contain this guidance; it was located on this page instead, not assumed from a search snippet.',
+  },
+
+  // -------------------------------------------------------------------------
   // Data quality and metric governance
   // -------------------------------------------------------------------------
   {

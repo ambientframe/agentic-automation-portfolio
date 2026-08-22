@@ -3,14 +3,17 @@ import {
   LEAD_RESCUE_SEND_OUTCOMES,
   LEAD_RESCUE_VERIFY_OUTCOMES,
 } from '@/data/profiles/kestrel/scenarios/lead-rescue';
-import { LEAD_RESCUE, DORMANT_PIPELINE_RECOVERY } from '@/data/systems';
+import { CALL_TO_PROPOSAL_EXTRACTIONS } from '@/data/profiles/kestrel/scenarios/call-to-proposal';
+import { LEAD_RESCUE, DORMANT_PIPELINE_RECOVERY, CALL_TO_PROPOSAL } from '@/data/systems';
 import { LEAD_RESCUE_HANDLERS } from '@/lib/engine/handlers/lead-rescue';
 import { DORMANT_PIPELINE_RECOVERY_HANDLERS } from '@/lib/engine/handlers/dormant-pipeline-recovery';
+import { CALL_TO_PROPOSAL_HANDLERS } from '@/lib/engine/handlers/call-to-proposal';
 import { runScenario } from '@/lib/engine/run';
 import type { EngineRun } from '@/lib/engine/types';
 import type { Scenario } from '@/lib/model/runtime';
 import { FixtureDecisionProvider } from '@/lib/ports/decision-provider';
 import { FixtureSideEffectExecutor } from '@/lib/ports/side-effect-executor';
+import { FixtureExtractionProvider } from '@/lib/ports/extraction-provider';
 
 /** Runs a Lead Rescue scenario exactly as the application does. */
 export async function runLeadRescue(scenario: Scenario): Promise<EngineRun> {
@@ -30,5 +33,16 @@ export async function runDormantPipelineRecovery(scenario: Scenario): Promise<En
     profile: KESTREL,
     handlers: DORMANT_PIPELINE_RECOVERY_HANDLERS,
     provider: new FixtureDecisionProvider(scenario.judgments),
+  });
+}
+
+/** Runs a Call-to-Proposal scenario exactly as the application does. */
+export async function runCallToProposal(scenario: Scenario): Promise<EngineRun> {
+  return runScenario(scenario, {
+    system: CALL_TO_PROPOSAL,
+    profile: KESTREL,
+    handlers: CALL_TO_PROPOSAL_HANDLERS,
+    provider: new FixtureDecisionProvider(scenario.judgments),
+    extractionProvider: new FixtureExtractionProvider(CALL_TO_PROPOSAL_EXTRACTIONS),
   });
 }
