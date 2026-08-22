@@ -119,8 +119,10 @@ const RAW = {
     { id: 'dp-positive-replies', name: 'Positive replies', kind: 'LAGGING', definition: 'Responses interpreted as interest at or above the confidence floor, confirmed by a human acceptance.', unit: 'replies', sourceOfTruth: 'Workflow store' },
     { id: 'dp-reopened', name: 'Reopened opportunities', kind: 'LAGGING', definition: 'Records returned to the active pipeline under a named owner.', unit: 'opportunities', sourceOfTruth: 'Customer system of record' },
     { id: 'dp-recovered-value', name: 'Recovered pipeline value', kind: 'LAGGING', definition: 'Sum of opportunity values for reopened records at the stage value recorded on reopening. Recognised as pipeline, not revenue.', unit: 'currency', sourceOfTruth: 'Customer system of record' },
+    { id: 'dp-recovered-closed-revenue', name: 'Recovered closed revenue', kind: 'LAGGING', definition: 'Sum of invoiced value from engagements that originated from a reopened dormant record, recognised only once a signed agreement exists, never projected from reopened pipeline value.', unit: 'currency', sourceOfTruth: 'Customer system of record' },
     { id: 'dp-time-to-action', name: 'Trigger-to-action latency', kind: 'LEADING', definition: 'Elapsed time from the re-entry reason becoming true to the first executed attempt.', unit: 'hours', sourceOfTruth: 'Side-effect ledger' },
     { id: 'dp-optout-rate', name: 'Opt-out rate', kind: 'RELIABILITY', definition: 'Opt-outs received divided by executed attempts. A rising value indicates the segment is being over-worked.', unit: 'percent', sourceOfTruth: 'Suppression register' },
+    { id: 'dp-false-positive-reactivation', name: 'False-positive reactivation rate', kind: 'RELIABILITY', definition: 'Records accepted back into the active pipeline whose accepting owner reverses that decision within a defined review window, divided by records accepted in the period.', unit: 'percent', sourceOfTruth: 'Workflow store' },
     { id: 'dp-duplicate-outreach', name: 'Duplicate outreach rate', kind: 'RELIABILITY', definition: 'Executed attempts sharing an idempotency key or entity with a concurrent sequence, divided by executed attempts. Lab target is zero.', unit: 'percent', sourceOfTruth: 'Side-effect ledger' },
     { id: 'dp-disposition-coverage', name: 'Terminal disposition coverage', kind: 'COVERAGE', definition: 'Share of evaluated records holding a terminal, waiting, or human-review state at cycle end.', unit: 'percent', sourceOfTruth: 'Workflow store' },
   ],
@@ -188,7 +190,8 @@ const RAW = {
       escalationCondition: 'Any executed attempt to a suppressed contact.',
       authorityRequired: 4,
       terminalState: 'SUPPRESSED.',
-      verificationTest: 'Pending — scenario not yet authored.',
+      verificationTest:
+        "Verified — tests/dormant-pipeline-recovery.test.ts, 'suppressed recovery': consent is evaluated before the re-entry reason, a textbook-qualifying recycle trigger is recorded and then overridden, and zero side effects are produced.",
     },
     {
       id: 'dp-fm-duplicate-outreach',
@@ -203,7 +206,8 @@ const RAW = {
       escalationCondition: 'Duplicate outreach rate above zero.',
       authorityRequired: 3,
       terminalState: 'No state change; attempt recorded as SUPPRESSED_DUPLICATE.',
-      verificationTest: 'Pending — scenario not yet authored.',
+      verificationTest:
+        "Verified — tests/dormant-pipeline-recovery.test.ts, 'redelivering the same triggering event produces zero additional customer-facing outreach': the same business event delivered twice claims the same idempotency key once and is refused the second time.",
     },
     {
       id: 'dp-fm-stale-data',
@@ -245,7 +249,8 @@ const RAW = {
       escalationCondition: 'Any executed attempt to an active customer.',
       authorityRequired: 3,
       terminalState: 'ARCHIVED.',
-      verificationTest: 'Pending — scenario not yet authored.',
+      verificationTest:
+        "Verified — tests/dormant-pipeline-recovery.test.ts, 'excludes an account that is already active elsewhere': the active-account exclusion runs before the re-entry reason is evaluated and produces zero side effects.",
     },
     {
       id: 'dp-fm-rate-limited',
@@ -264,9 +269,9 @@ const RAW = {
     },
   ],
 
-  maturity: 'CONCEPT',
+  maturity: 'SIMULATED',
   fidelityNote:
-    'Business canon, lifecycle graph, metrics, standards, and failure modes are defined and validated. No executable scenario exists yet, so nothing in this system runs. It is deliberately labelled CONCEPT rather than SIMULATED until a scenario replays through the engine.',
+    'Two scenarios replay through the same engine core Lead Rescue proved: a timing objection expires and the opportunity is genuinely reopened after a named human acceptance, and a textbook-qualifying recycle trigger is correctly overridden by suppression before any candidate action is ever computed. The re-entry reason is a real date comparison against the event, never a narrated yes. As with Lead Rescue, nothing here is live: no message left this process, no model was called, and the business is fictional.',
 } satisfies Parameters<typeof SystemDefinitionSchema.parse>[0];
 
 export const DORMANT_PIPELINE_RECOVERY: SystemDefinition = SystemDefinitionSchema.parse(RAW);

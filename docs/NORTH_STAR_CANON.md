@@ -64,7 +64,7 @@ Maturity is descriptive, not aspirational.
 | System | Maturity |
 | --- | --- |
 | 1. Lead Rescue | SIMULATED |
-| 2. Dormant Pipeline Recovery | CONCEPT |
+| 2. Dormant Pipeline Recovery | SIMULATED |
 | 3. Call-to-Proposal Revenue Agent | CONCEPT |
 | 4. Client Onboarding Operator | CONCEPT |
 | 5. Receivables / Invoice Recovery Agent | CONCEPT |
@@ -74,7 +74,7 @@ Maturity is descriptive, not aspirational.
 
 - 6 systems
 - 139 declared lifecycle transitions
-- 60 metric definitions, each with an explicit formula and a named system of record
+- 62 metric definitions, each with an explicit formula and a named system of record
 - 35 operating standards, of which 16 assert external evidence
 - 42 named failure modes
 - 15 sources in the ledger
@@ -342,9 +342,9 @@ See [FAILURE_MODE_REGISTER.md](FAILURE_MODE_REGISTER.md) for the full entries. T
 
 ## 2. Dormant Pipeline Recovery
 
-**Maturity: CONCEPT**
+**Maturity: SIMULATED**
 
-Business canon, lifecycle graph, metrics, standards, and failure modes are defined and validated. No executable scenario exists yet, so nothing in this system runs. It is deliberately labelled CONCEPT rather than SIMULATED until a scenario replays through the engine.
+Two scenarios replay through the same engine core Lead Rescue proved: a timing objection expires and the opportunity is genuinely reopened after a named human acceptance, and a textbook-qualifying recycle trigger is correctly overridden by suppression before any candidate action is ever computed. The re-entry reason is a real date comparison against the event, never a narrated yes. As with Lead Rescue, nothing here is live: no message left this process, no model was called, and the business is fictional.
 
 ### Business problem
 
@@ -492,8 +492,10 @@ Regardless of confidence, the system may never:
 | Positive replies | LAGGING | Responses interpreted as interest at or above the confidence floor, confirmed by a human acceptance. | Workflow store | replies |
 | Reopened opportunities | LAGGING | Records returned to the active pipeline under a named owner. | Customer system of record | opportunities |
 | Recovered pipeline value | LAGGING | Sum of opportunity values for reopened records at the stage value recorded on reopening. Recognised as pipeline, not revenue. | Customer system of record | currency |
+| Recovered closed revenue | LAGGING | Sum of invoiced value from engagements that originated from a reopened dormant record, recognised only once a signed agreement exists, never projected from reopened pipeline value. | Customer system of record | currency |
 | Trigger-to-action latency | LEADING | Elapsed time from the re-entry reason becoming true to the first executed attempt. | Side-effect ledger | hours |
 | Opt-out rate | RELIABILITY | Opt-outs received divided by executed attempts. A rising value indicates the segment is being over-worked. | Suppression register | percent |
+| False-positive reactivation rate | RELIABILITY | Records accepted back into the active pipeline whose accepting owner reverses that decision within a defined review window, divided by records accepted in the period. | Workflow store | percent |
 | Duplicate outreach rate | RELIABILITY | Executed attempts sharing an idempotency key or entity with a concurrent sequence, divided by executed attempts. Lab target is zero. | Side-effect ledger | percent |
 | Terminal disposition coverage | COVERAGE | Share of evaluated records holding a terminal, waiting, or human-review state at cycle end. | Workflow store | percent |
 

@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { ALL_SYSTEMS, systemBySlug } from '@/data/systems';
 import { sourceById } from '@/data/research/sources';
-import { LEAD_RESCUE_SCENARIOS } from '@/data/profiles/kestrel/scenarios/lead-rescue';
+import { ALL_RUNNABLE_SCENARIOS } from '@/lib/engine/registry';
 import { MaturityBadge, MechanismBadge, StandardCard } from '@/components/badges';
 import { AUTHORITY_LABELS, type AuthorityLevel } from '@/lib/model/system';
 
@@ -15,7 +15,7 @@ export default async function SystemDossier({ params }: PageProps<'/systems/[slu
   const system = systemBySlug(slug);
   if (system === undefined) notFound();
 
-  const scenarios = LEAD_RESCUE_SCENARIOS.filter((s) => s.systemId === system.id);
+  const scenarios = ALL_RUNNABLE_SCENARIOS.filter((s) => s.systemId === system.id);
   const citedSourceIds = [...new Set(system.standards.flatMap((s) => s.sourceIds))];
 
   return (

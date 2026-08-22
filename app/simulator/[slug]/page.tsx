@@ -1,35 +1,30 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import {
-  LEAD_RESCUE_SCENARIOS,
-  LEAD_RESCUE_SEND_OUTCOMES,
-  LEAD_RESCUE_VERIFY_OUTCOMES,
-  leadRescueScenarioBySlug,
-} from '@/data/profiles/kestrel/scenarios/lead-rescue';
-import { KESTREL } from '@/data/profiles/kestrel/profile';
-import { LEAD_RESCUE } from '@/data/systems';
-import { LEAD_RESCUE_HANDLERS } from '@/lib/engine/handlers/lead-rescue';
+import { ALL_RUNNABLE_SCENARIOS, findRunnableScenario } from '@/lib/engine/registry';
 import { runScenario } from '@/lib/engine/run';
 import { FixtureDecisionProvider } from '@/lib/ports/decision-provider';
 import { FixtureSideEffectExecutor } from '@/lib/ports/side-effect-executor';
 import { Simulator } from '@/components/simulator';
 
 export function generateStaticParams() {
-  return LEAD_RESCUE_SCENARIOS.map((s) => ({ slug: s.slug }));
+  return ALL_RUNNABLE_SCENARIOS.map((s) => ({ slug: s.slug }));
 }
 
 export default async function SimulatorPage({ params }: PageProps<'/simulator/[slug]'>) {
   const { slug } = await params;
-  const scenario = leadRescueScenarioBySlug(slug);
-  if (scenario === undefined) notFound();
+  const found = findRunnableScenario(slug);
+  if (found === undefined) notFound();
+  const { runnable, scenario } = found;
 
   // The real engine, running now, on this request. Not a recording.
   const run = await runScenario(scenario, {
-    system: LEAD_RESCUE,
-    profile: KESTREL,
-    handlers: LEAD_RESCUE_HANDLERS,
+    system: runnable.system,
+    profile: runnable.profile,
+    handlers: runnable.handlers,
     provider: new FixtureDecisionProvider(scenario.judgments),
-    executor: new FixtureSideEffectExecutor(LEAD_RESCUE_SEND_OUTCOMES, LEAD_RESCUE_VERIFY_OUTCOMES),
+    ...(runnable.sendOutcomes === undefined
+      ? {}
+      : { executor: new FixtureSideEffectExecutor(runnable.sendOutcomes, runnable.verifyOutcomes ?? {}) }),
   });
 
   const matchedExpectation = run.finalState.lifecycleState === scenario.expectedFinalState;
@@ -41,16 +36,16 @@ export default async function SimulatorPage({ params }: PageProps<'/simulator/[s
           ← All systems
         </Link>
         <Link
-          href={`/systems/${LEAD_RESCUE.slug}`}
+          href={`/systems/${runnable.system.slug}`}
           style={{ color: 'var(--ink-muted)' }}
           className="hover:opacity-70"
         >
-          Lead Rescue dossier
+          {runnable.system.name} dossier
         </Link>
       </nav>
 
       <header className="space-y-5">
-        <span className="label">{LEAD_RESCUE.name} · incident replay</span>
+        <span className="label">{runnable.system.name} · incident replay</span>
         <h1 className="display text-3xl sm:text-4xl">{scenario.title}</h1>
         <p className="lede prose-measure">{scenario.summary}</p>
 

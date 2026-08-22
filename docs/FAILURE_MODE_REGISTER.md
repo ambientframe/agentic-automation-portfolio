@@ -260,7 +260,7 @@ Coverage: 23 distinct failure classes across 42 entries.
 | **Escalates when** | Any executed attempt to a suppressed contact. |
 | **Authority required** | 4 · EXECUTE AND MANAGE BOUNDED DOWNSTREAM CONSEQUENCES |
 | **Resolves into** | SUPPRESSED. |
-| **Verification** | Pending — scenario not yet authored. |
+| **Verification** | Verified — tests/dormant-pipeline-recovery.test.ts, 'suppressed recovery': consent is evaluated before the re-entry reason, a textbook-qualifying recycle trigger is recorded and then overridden, and zero side effects are produced. |
 
 ### RETRY DUPLICATE SIDE EFFECT — The same contact receives the same attempt twice, or is worked by two sequences at once.
 
@@ -275,7 +275,7 @@ Coverage: 23 distinct failure classes across 42 entries.
 | **Escalates when** | Duplicate outreach rate above zero. |
 | **Authority required** | 3 · EXECUTE UNDER EXPLICIT POLICY |
 | **Resolves into** | No state change; attempt recorded as SUPPRESSED_DUPLICATE. |
-| **Verification** | Pending — scenario not yet authored. |
+| **Verification** | Verified — tests/dormant-pipeline-recovery.test.ts, 'redelivering the same triggering event produces zero additional customer-facing outreach': the same business event delivered twice claims the same idempotency key once and is refused the second time. |
 
 ### STALE DATA — Outreach references an account fact that is no longer true.
 
@@ -317,7 +317,7 @@ Coverage: 23 distinct failure classes across 42 entries.
 | **Escalates when** | Any executed attempt to an active customer. |
 | **Authority required** | 3 · EXECUTE UNDER EXPLICIT POLICY |
 | **Resolves into** | ARCHIVED. |
-| **Verification** | Pending — scenario not yet authored. |
+| **Verification** | Verified — tests/dormant-pipeline-recovery.test.ts, 'excludes an account that is already active elsewhere': the active-account exclusion runs before the re-entry reason is evaluated and produces zero side effects. |
 
 ### RATE LIMITED — The outreach provider refuses further sends partway through a cycle.
 

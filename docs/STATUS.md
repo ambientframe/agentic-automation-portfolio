@@ -1,181 +1,233 @@
 # Status
 
-**As of 2026-08-21 · Lead Rescue reliability closure (post-Phase-1)**
+**As of 2026-08-21 · Dormant Pipeline Recovery — horizontal fidelity move (System 2)**
 
 ## Portfolio maturity
 
 **INTERACTIVE PROTOTYPE** — the application runs, all six systems are open and inspectable,
-and one of them executes real operating logic against five real scenarios, including two
-that exercise reliability behaviour under adversity rather than the happy path.
+and two of them execute real operating logic: Lead Rescue against five scenarios and
+Dormant Pipeline Recovery against two, including one that demonstrates dormancy alone
+never grants outreach authority.
 
 | # | System | Maturity | Runs? |
 | --- | --- | --- | --- |
 | 1 | Lead Rescue | `SIMULATED` | Yes — 5 scenarios execute end to end |
-| 2 | Dormant Pipeline Recovery | `CONCEPT` | No |
+| 2 | Dormant Pipeline Recovery | `SIMULATED` | Yes — 2 scenarios execute end to end |
 | 3 | Call-to-Proposal Revenue Agent | `CONCEPT` | No |
 | 4 | Client Onboarding Operator | `CONCEPT` | No |
 | 5 | Receivables / Invoice Recovery Agent | `CONCEPT` | No |
 | 6 | Owner Revenue Intelligence Agent | `CONCEPT` | No |
 
-Systems 2–6 hold complete, schema-validated canon but no executable scenario. They are
+Systems 3–6 hold complete, schema-validated canon but no executable scenario. They are
 labelled `CONCEPT` rather than `SIMULATED` deliberately — see
 [CANON_DIVERGENCES.md §1](CANON_DIVERGENCES.md).
 
-**Lead Rescue's maturity does not advance in this pass, on purpose.** More code executing
-is not the same claim as a live integration existing, and the maturity ladder tracks the
-latter. `SIMULATED` remains the honest label until a real provider, a real model, or
-durable state exists behind one of its ports. What changed is *which* of Lead Rescue's
-simulated claims are now backed by executing logic rather than by narration — see below.
+**This pass is horizontal, not deeper.** It does not touch Lead Rescue's behaviour and does
+not add a sixth failure class to its register. The purpose was to prove the architecture
+built for one system supports a materially different one — a reactivation lifecycle with
+its own re-entry principle, not a copy of Lead Rescue's intake funnel — without becoming
+either a Lead-Rescue-specific framework or a generic universal workflow engine. See
+"Architecture falsification result" below for what that test actually found.
 
 ## What is REAL
 
 Real in the sense of *actually executing code*, not *connected to the outside world*.
 Nothing here touches a network.
 
-- **The lifecycle state machine.** Transitions resolve against declared rules. An
-  undeclared move is rejected and recorded; the state does not move.
-- **The idempotency ledger.** Side effects claim a key before executing. A second claim is
-  refused. The duplicate-delivery scenario genuinely re-enters the ledger.
-- **The execution ledger.** *(New this pass.)* A side effect whose outcome came back
-  uncertain cannot be retried by a later attempt on the same key unless an independent
-  verification attempt proved non-execution, or the provider is known to honour the
-  idempotency key. The uncertain-downstream-outcome scenario genuinely re-enters this
-  ledger, and a naive retry with neither basis is refused by the core, not by the scenario
-  script.
-- **The event ledger.** Repeat deliveries of the same source event are recognised as
-  repeats.
-- **The authority gate.** Levels 0–1 never act externally, level 2 parks for approval,
-  levels 3–4 may execute. Uniform, in the engine core, not bypassable by a handler.
-- **The policy gate.** A closed gate blocks the effect before authority is even considered.
-  The restricted-contact scenario computes a real candidate action and genuinely blocks
-  it here — the block is `BLOCKED_BY_POLICY` on an actual proposed effect, not an
-  omitted step.
-- **Deterministic decisions.** Schema validation, normalisation, identity resolution,
-  consent screening, confidence-floor comparison, missing-field computation, disposition
-  mapping, and retry accounting all compute from state, event, and policy.
-- **Schema validation of all canon.** An uncited `EVIDENCE` claim is a parse failure, not a
-  style problem.
-- **Profile consistency.** Revenue, funnel, headcount, and engagement values reconcile
-  against each other or the test suite fails.
+Everything already true of Lead Rescue (the lifecycle state machine, the idempotency
+ledger, the execution ledger, the event ledger, the authority gate, the policy gate,
+deterministic decisions, schema validation of all canon, profile consistency) is
+unchanged and still holds, and now also holds for Dormant Pipeline Recovery, running
+through the *same* engine core with zero changes to `lib/engine/reducer.ts` or
+`lib/engine/run.ts`.
+
+New this pass:
+
+- **A genuine date-based re-entry-reason computation.** "Has the configured recycle date
+  arrived, or has the recorded objection's expiry passed?" is a real string comparison
+  against the event's own `occurredAt`, evaluated by `reEntryReasonFor()`. It is not a
+  narrated "yes" — a record whose configured date has not yet arrived genuinely fails the
+  check, and the eligible-reactivation scenario's expected outcome depends on that
+  comparison actually running.
+- **Ordered deterministic gates ahead of any bounded judgment.** Consent, then
+  active-account status, then re-entry reason, then attempt-budget capacity — all four
+  evaluated, in that declared order, before a candidate reactivation is ever prepared.
+  The suppressed-recovery scenario proves the ordering matters: a textbook-qualifying
+  recycle trigger is computed and then made irrelevant by the earlier consent gate.
+- **A runnable-system registry** (`lib/engine/registry.ts`). Small and additive: a flat
+  array plus a lookup function, introduced because the simulator and portfolio-index pages
+  previously imported Lead Rescue's system, handlers, and fixtures by name. It does not
+  touch the engine core.
 
 ## What is SIMULATED
 
-- **Every side effect.** Nothing left this process. No message, record write, notification,
-  or resource creation occurred anywhere.
-- **Bounded AI judgments.** Free-text interpretation is replayed from authored fixtures
-  through the `DecisionProvider` port. **No model is called.**
-- **Provider send/verify outcomes.** *(New this pass.)* Whether an acknowledgement
-  succeeded, failed before effect, was rate-limited, or came back with no confirmation at
-  all is replayed from authored fixtures through the `SideEffectExecutor` port. **No
-  provider is called.** The port's contract — two methods, `attemptSend` and
-  `attemptVerify`, four possible send outcomes — is what a live provider adapter would
-  satisfy later without the engine core changing.
-- **The business.** Kestrel Compliance Group, its clients, staff, figures, and every
-  incident are invented and carry `FIXTURE` provenance.
-- **All timestamps.** Authored in fixtures. The engine never reads a clock, which is what
-  makes replay exact.
+Unchanged in kind from Lead Rescue, now also true of Dormant Pipeline Recovery:
 
-## What is an UNVERIFIED ASSUMPTION
+- **Every side effect.** Nothing left this process. The one reactivation approach and the
+  one record write in the eligible-reactivation scenario are both `executionMode:
+  'SIMULATED'`.
+- **The bounded AI judgment.** Reply interpretation is replayed from an authored fixture
+  through the same `DecisionProvider` port Lead Rescue uses. **No model is called.**
+- **The business.** Ferro Analytics, Solmark Insurance Services, and every other detail are
+  invented, consistent with Kestrel Compliance Group's existing fixture economics.
+- **All timestamps.** Authored in fixtures. The engine never reads a clock.
 
-- Two evidence claims sit at `PENDING_VERIFICATION`: the HBR 2011 response-time statistics
-  (paywalled, not read) and the ISO 8000 / DAMA-DMBOK data-quality dimensions (paywalled,
-  not read). Both are stated without numbers, and no design decision depends on a threshold
-  from either.
-- One claim sits at `DISPUTED_OR_WEAK`: the lead-response-latency evidence. See
-  [CANON_DIVERGENCES.md §2](CANON_DIVERGENCES.md).
-- The Kestrel profile is internally coherent but is not modelled on any real firm. Its
-  ratios are plausible, not researched.
+Dormant Pipeline Recovery's scenarios do not use the `SideEffectExecutor` port at all —
+see "What did not generalize" below for why that was a deliberate choice, not an omission.
 
-## Architecture introduced this pass
+## Architecture reuse: what worked without changes
 
-- **`SideEffectExecutor` port** (`lib/ports/side-effect-executor.ts`), a peer to
-  `DecisionProvider`. `attemptSend` returns one of `SUCCEEDED` / `FAILED_BEFORE_EFFECT` /
-  `RATE_LIMITED` / `OUTCOME_UNKNOWN`; `attemptVerify` is read-only and can only narrow an
-  existing `OUTCOME_UNKNOWN` toward a definite answer, or leave it exactly as unresolved
-  (`STILL_UNKNOWN`) — it can never itself cause a customer-facing effect.
-- **`ExecutionLedger`** (`lib/engine/ledger.ts`), the single source of truth for retry
-  safety. Additive: the pre-existing `SideEffectLedger` is untouched, and every side effect
-  that doesn't opt into execution tracking runs the exact byte-identical path it always did.
-- **`TechnicalExecution`**, a new optional field on `SideEffect`, deliberately kept separate
-  from business lifecycle state. A lead can sit in `BOOKING_READY` while one of its side
-  effects carries `OUTCOME_UNKNOWN` — the uncertainty lives on the side effect record, not
-  on the state machine. Inspectable in the simulator via a collapsed drill-down, not
-  surfaced on the default view.
-- **`SUPPRESSION_REVIEW`**, a new Lead Rescue lifecycle state distinct from
-  `DO_NOT_CONTACT` — an open question held for a person, not a closed one. Reached when a
-  candidate action is computed and then blocked by the new
-  `kestrel-restricted-contact-review` client policy, which routes every new inquiry from a
-  consent-restricted contact to a person regardless of classification or confidence.
+Confirmed by actually building the second system, not asserted in advance:
 
-## Reliability mechanisms represented
+- **`lib/engine/reducer.ts` and `lib/engine/run.ts` — zero changes.** Both were already
+  generic over `SystemDefinition` + `BusinessProfile` + `SystemHandlers`. Transition
+  legality, idempotency, the authority gate, and the two-phase judgment-resolution split
+  all worked immediately for a second system's own states, transitions, and event types.
+- **`DecisionProvider` / `FixtureDecisionProvider` — zero changes.** The reply-interpretation
+  judgment for Dormant Pipeline Recovery is resolved through the identical port and fixture
+  class Lead Rescue uses.
+- **`lib/model/system.ts`, `lib/model/profile.ts`, `lib/model/provenance.ts`,
+  `lib/model/runtime.ts` — zero schema changes.** The Dormant Pipeline Recovery system
+  definition authored during the earlier design pass was already schema-valid and needed
+  no new fields; only its `maturity`, `fidelityNote`, two `failureModes[].verificationTest`
+  entries, and two additional `metrics` entries changed.
+- **The Kestrel profile — zero changes.** `dormantMaxAttempts`, `dormantWindowDays`, and
+  `dormantCoolingOffDays` already existed as `operatingParameters`, already linked to
+  `kestrel-outreach-cadence`, from the Lead Rescue era. `kestrel-suppression-immediate`
+  already named Dormant Pipeline Recovery in its `appliesTo` text. The declared
+  `dp-lab-sequence-contract` standard already named all six sequence-policy concepts
+  (entry, cadence, maximum attempts, exit, suppression, re-entry) the work for this pass
+  needed represented — it did not need to be written.
+- **`app/layout.tsx` (masthead and footer) — zero changes.** Both already derive their
+  counts from `ALL_SYSTEMS` generically; the maturity change was picked up automatically.
+- **The `Simulator` and badge components — zero changes.** Fully generic over the runtime
+  model already; Dormant Pipeline Recovery's timeline renders through the identical
+  components Lead Rescue's does.
+- **The test patterns generalized, not the test code.** `tests/systems.test.ts`,
+  `tests/provenance.test.ts`, `tests/decision-provider.test.ts`,
+  `tests/side-effect-executor.test.ts`, and `tests/seam.test.ts` already parametrize over
+  `ALL_SYSTEMS` or are system-agnostic; they needed no edits and were already exercising
+  Dormant Pipeline Recovery's canon before this pass.
 
-| Mechanism | Represented | Executes |
-| --- | --- | --- |
-| At-least-once delivery / duplicate suppression | Yes | Yes |
-| Transition legality | Yes | Yes |
-| Authority ladder | Yes | Yes |
-| Policy gate | Yes | Yes |
-| Confidence floor → human review | Yes | Yes |
-| Missing information carried, never invented | Yes | Yes |
-| Post-action verification records | Yes | Yes |
-| Suppression / restricted-contact review | Yes | **Yes** *(was partial)* |
-| Retry safety for uncertain outcomes | Yes | **Yes** *(new)* |
-| Bounded retry budget | Modelled in canon | No |
-| Downstream API failure and recovery | Yes, as retry safety | **Yes**, for the send-outcome case *(was no)* |
-| Human approval timeout | Modelled in canon | No |
-| Out-of-order events, malformed payload | Modelled in canon | No |
+## What did not generalize, and was not forced to
+
+- **The handler is entirely new code**, not a shared abstraction. `dispositionFor`,
+  `humanTarget`, the payload schemas, the state-name string literals, and the idempotency
+  key conventions are all Dormant-Pipeline-Recovery-specific, exactly as Lead Rescue's own
+  handler is Lead-Rescue-specific. The *shape* repeats (deterministic gates → bounded
+  judgment → deterministic disposition → human decision), not the code.
+- **`readJudgmentId` stays duplicated**, not extracted into a shared helper, matching Lead
+  Rescue's own existing choice to keep handlers dependency-light on engine orchestration.
+  A five-line duplicate across two handlers is the deliberate cost of that isolation, not
+  an oversight.
+- **The `SideEffectExecutor` port was not used.** Dormant Pipeline Recovery's one simulated
+  contact attempt uses the plain always-succeeds effect path (the same one most Lead Rescue
+  effects use), not execution-outcome tracking. Nothing in either required scenario needed
+  an uncertain provider outcome, and building one in to "use both ports" would have been
+  complexity added for its own sake. The port is proven reusable by Lead Rescue's own
+  scenario; a second system does not need to re-prove it to remain honest about its
+  existence.
+- **No multi-step autonomous follow-up loop was built.** The cadence-retry cycle
+  (`AWAITING_RESPONSE` → `REACTIVATION_ATTEMPTED` → `AWAITING_RESPONSE` again on silence,
+  and eventually `ATTEMPTS_EXHAUSTED`) is fully declared in the system's transition table
+  from the earlier design pass, but this iteration's handler does not implement a "cadence
+  due, still no reply" event at all — only the one despatch the brief called for. The
+  sequence-policy contract is represented and inspectable; the loop it bounds is not yet
+  built, on instruction.
+
+## Architecture falsification result
+
+The work was explicitly framed as a test of whether the Lead Rescue architecture is
+reusable or accidentally Lead-Rescue-shaped. The answer, from having actually built the
+second system rather than argued about it in advance:
+
+**The engine core and the ports are the genuinely cross-system layer; everything else is
+domain-specific by design, and that boundary held with no adjustment.** Zero lines changed
+in `lib/engine/reducer.ts`, `lib/engine/run.ts`, `lib/engine/ledger.ts`,
+`lib/ports/decision-provider.ts`, or `lib/ports/side-effect-executor.ts`. The only new
+shared code is `lib/engine/registry.ts` — a UI-layer concern (which scenario belongs to
+which system), not an engine concern, and it stays a flat array rather than growing into a
+plugin system. This is the "small shared execution kernel plus domain-specific operating
+logic" shape the work called for, not a second independent engine and not one generic
+engine full of system-name conditionals.
+
+**One real design mistake was caught and fixed during implementation, not before it.** The
+first draft of the attempt-budget check transitioned an exhausted record directly from
+`SCHEDULED` to `ATTEMPTS_EXHAUSTED` — a transition the declared table does not permit;
+`ATTEMPTS_EXHAUSTED` is only reachable from `AWAITING_RESPONSE` (`dp-t11`), because the
+original design correctly modelled it as something that happens organically within a live
+cadence cycle, not on a fresh evaluation. A test written against this ("attempts already
+exhausted from a prior cycle") failed with a rejected transition, which is exactly what the
+engine core is supposed to do to an illegal move — it caught a bug in the new handler,
+the same way an undeclared transition caught a defect in Lead Rescue's own handler during
+its original build. The fix moved the capacity check earlier, into the same deterministic
+step that decides the re-entry reason, so an already-exhausted record is archived from
+`ELIGIBILITY_REVIEW` (a legal move) rather than granted a `SCHEDULED` status it has no
+attempt capacity left to act on.
+
+**The payload-schema boundary needed no correction.** The non-strict-handler-schema /
+strict-canonical-envelope split that Lead Rescue's reliability pass arrived at already
+satisfies Dormant Pipeline Recovery's needs with no change: an evaluation payload carrying
+a field the handler does not declare parses successfully (Zod's default `z.object()`
+strips it) and never reaches a decision, a fact, or a side effect —
+`tests/dormant-pipeline-recovery.test.ts`'s *"strips an unrecognised payload field..."*
+test asserts this directly against the second system rather than assuming the first
+system's fix generalizes.
 
 ## Verification
 
 ```
-npm run verify     # typecheck + lint + 180 tests
-npm run build      # 15 pages prerender; the engine runs at build time
+npm run verify     # typecheck + lint + 203 tests
+npm run build      # 17 pages prerender; the engine runs at build time
 npm run docs       # regenerate canon from the model
 ```
 
-All passing. Visual inspection performed at 1280×1400, 900×1400, and 375×812, in both
-colour schemes; no horizontal overflow at any width. The `OUTCOME_UNKNOWN` badge and the
-technical-execution drill-down were confirmed rendering with distinct, token-driven colour
-in both themes.
+All passing. Visual inspection performed at desktop and mobile widths, in both colour
+schemes, on both new scenario pages and the Dormant Pipeline Recovery dossier; no
+horizontal overflow, and badge/decision-panel colouring renders identically to the
+existing Lead Rescue pages since both share the same components unchanged.
 
 ## Known fidelity gaps
 
-1. **Five systems do not run.** Canon exists; no scenario replays through the engine.
-2. **Three Lead Rescue failure classes remain modelled only.** Malformed payload,
-   out-of-order events at the business-entity level, and human approval timeout are still
-   *"Pending — scenario not yet authored"* in the register. Suppression and the uncertain-
-   outcome / downstream-failure case — the two this pass targeted — are now verified.
-3. **No reliability/evidence view.** The brief's fourth view (§8) does not exist yet; its
-   content is currently spread across the dossier.
-4. **The simulator steps a completed run** rather than executing incrementally. Honest —
-   and the page says so — but a true step-execute would be a fidelity gain.
-5. **No persistence.** State lives for one request. Nothing exercises the durable-state
-   concern that real deployment will introduce. This is also why "PARTIALLY LIVE" is not
-   yet reachable for Lead Rescue even with the new ports: a live provider without durable
-   state would lose the retry-safety ledger on every request.
-6. **Two paywalled sources unread.** Recorded, not hidden.
-
-## What would have to become real before Lead Rescue could legitimately move toward PARTIALLY LIVE
-
-At least one of: a live send provider behind `SideEffectExecutor`, a live model behind
-`DecisionProvider`, or durable state so the execution and idempotency ledgers survive
-across requests. The ports exist and are proven correct against fixtures; none of the
-three has a live implementation, and none is planned until a real limitation in the running
-system creates the need.
+1. **Four systems do not run.** Canon exists for Call-to-Proposal, Client Onboarding,
+   Receivables, and Owner Revenue Intelligence; no scenario replays through the engine for
+   any of them.
+2. **Three Lead Rescue failure classes remain modelled only**, unchanged by this pass:
+   malformed payload, out-of-order events at the business-entity level, and human approval
+   timeout.
+3. **Three Dormant Pipeline Recovery failure classes remain modelled only**: stale data
+   read at despatch time, wrong-entity matching, and provider rate-limiting mid-cycle. The
+   first two would need a second contact/account-matching concept this iteration
+   deliberately did not build; the third would need the `SideEffectExecutor` port wired in,
+   which — as above — neither required scenario needed.
+4. **The cadence-retry loop is declared, not executable.** `SCHEDULED` →
+   `REACTIVATION_ATTEMPTED` → `AWAITING_RESPONSE` → (silence) → `REACTIVATION_ATTEMPTED`
+   again → eventually `ATTEMPTS_EXHAUSTED` → `COOLING_OFF` is a real, legal path through
+   the declared transition table, and the sequence-policy contract that bounds it
+   (`dp-lab-sequence-contract`, `kestrel-outreach-cadence`) is fully represented and cited
+   by the one despatch this iteration does execute — but no event type exists yet to drive
+   a second attempt when the first gets silence rather than a reply.
+5. **No reliability/evidence view.** Unchanged from the prior pass.
+6. **The simulator steps a completed run**, not a true step-execute, for both systems.
+7. **No persistence.** Unchanged from the prior pass; still why neither system is close to
+   `PARTIALLY_LIVE`.
 
 ## Single recommended next fidelity gap
 
-**Author scenarios for the remaining three unexercised Lead Rescue failure classes
-(malformed payload, out-of-order events, human approval timeout) before adding any new
-system**, OR pick one of systems 2–6 and author its first scenario to raise it honestly
-from `CONCEPT` to `SIMULATED`.
+Two comparable options, same as the prior pass's framing, now with one more data point:
 
-Both are legitimate next steps and roughly comparable in cost; which one matters more
-depends on whether the goal is deepening Lead Rescue's proof of reliability further or
-widening the portfolio's breadth. Deepening has slightly higher leverage right now: two
-of five originally-Pending failure classes just converted to verified, which is a
-faster rate of return than the portfolio has seen on any other kind of work, and the
-remaining three are the same shape of gap — a claim in the register with no test behind it.
+**Close the cadence-retry gap in Dormant Pipeline Recovery** (a "no response, cadence due,
+retry" event plus its handler, exercising `dp-t10`/`dp-t11`/`dp-t15`/`dp-t16`/`dp-t17` and
+retiring `dp-fm-duplicate-outreach`'s sibling concern about concurrent-sequence
+duplication), **or pick one of systems 3–6 and author its first scenario.**
 
-**Do not begin real n8n implementation yet.** The next fidelity gap should be selected
-from evidence this build produces, not assumed in advance.
+Deepening Dormant Pipeline Recovery has a specific advantage the last two passes didn't:
+the sequence-policy contract is already fully declared and now proven inspectable by a real
+despatch, so the retry loop's boundaries (entry, cadence, maximum attempts, exit,
+suppression, re-entry) are already written down and cited — building the loop would be
+implementing an already-specified contract, not designing one from scratch. Widening to a
+third system has the portfolio-breadth argument the last pass also made, and is now
+supported by concrete evidence that the architecture generalizes cleanly a second time.
+
+**Do not begin real n8n implementation yet.** The next fidelity gap should continue to be
+selected from evidence the build produces, not assumed in advance.

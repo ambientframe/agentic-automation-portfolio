@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { ALL_SYSTEMS } from '@/data/systems';
 import { KESTREL } from '@/data/profiles/kestrel/profile';
-import { LEAD_RESCUE_SCENARIOS } from '@/data/profiles/kestrel/scenarios/lead-rescue';
+import { ALL_RUNNABLE_SCENARIOS } from '@/lib/engine/registry';
 import { MaturityBadge, ProvenanceBadge } from '@/components/badges';
 
 /**
@@ -11,7 +11,7 @@ import { MaturityBadge, ProvenanceBadge } from '@/components/badges';
  * three-up feature grid.
  */
 export default function PortfolioPage() {
-  const runnable = new Set(LEAD_RESCUE_SCENARIOS.map((s) => s.systemId));
+  const runnable = new Set(ALL_RUNNABLE_SCENARIOS.map((s) => s.systemId));
 
   return (
     <div className="mx-auto max-w-6xl px-6 py-14 space-y-16">
@@ -116,7 +116,7 @@ export default function PortfolioPage() {
         </div>
 
         <ol>
-          {LEAD_RESCUE_SCENARIOS.map((scenario, index) => (
+          {ALL_RUNNABLE_SCENARIOS.map((scenario, index) => (
             <li key={scenario.id}>
               <Link
                 href={`/simulator/${scenario.slug}`}
