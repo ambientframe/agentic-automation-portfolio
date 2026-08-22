@@ -442,23 +442,22 @@ effects, matching the "ordinary variation is left alone" claim exactly.
 
 ## Single recommended next fidelity gap
 
-**Run a portfolio-wide fidelity-gap assessment before choosing anything else.** The
-horizontal portfolio is now complete — all six systems are `SIMULATED`, and the build
-strategy that has governed every pass so far (explore all six to credible simulated depth
-before vertically hardening any one) has no further breadth work to justify. This is
-itself the decision point the strategy always pointed toward, not a default next step:
-five consecutive systems have now proven the shared engine core generalises across
-materially different business domains with zero-to-minimal core changes, so there is no
-accumulating cross-cutting defect forcing an interruption, and no single-system gap in the
-list above is self-evidently more urgent than the others without weighing them against
-each other directly. The honest move is to compare the accumulated gap list — the
-unexercised transitions across five systems, Client Onboarding's `BLOCKED` state, Dormant
-Pipeline Recovery's cadence-retry loop, Owner Revenue Intelligence's two pending failure
-modes, and the complete absence of a reliability/evidence view — against Lead Rescue's own
-production-readiness requirements, and select the first Lead Rescue work package from that
-comparison, not from this document's own recommendation made in advance of it.
+**Portfolio-wide fidelity assessment complete — see
+[FIDELITY_ASSESSMENT.md](FIDELITY_ASSESSMENT.md).** The horizontal portfolio is done; all
+six systems are `SIMULATED`. That assessment built an evidence-based fidelity matrix across
+all six systems and five dimensions, red-teamed Lead Rescue stage by stage against its
+intended production loop, and selected exactly one first vertical work package: give
+`WAITING_FOR_REPLY` a genuine wait/resume mechanism — a minimal durable record of which
+incidents are waiting, plus a real, clock-driven re-evaluation that can discover a wait
+window has elapsed, rather than relying on the next fixture event happening to carry a
+later timestamp. This is the one stage in Lead Rescue's own operating loop with no logic
+behind it at all (every other stage has real decision logic behind a simulated I/O
+boundary; this one has none), and it is also the single most-repeated specific gap across
+the whole portfolio's history — Client Onboarding's entire `BLOCKED` state, Dormant Pipeline
+Recovery's cadence-retry loop, and Receivables' promise-elapsed check all share the exact
+same shape of missing capability.
 
-**Do not begin real n8n implementation, and do not begin Lead Rescue production hardening,
-before that assessment has actually been made.** The next fidelity gap should continue to
-be selected from evidence the build produces, not assumed in advance — the same discipline
-that kept every prior pass from guessing at System 6's shape before inspecting its canon.
+**Do not begin implementing that work package from this document.** The assessment is a
+separate, committed artifact; the next pass implements it, verifies the falsifying tests
+the assessment specifies, and reassesses before generalising the mechanism to any other
+system.
