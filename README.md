@@ -16,7 +16,7 @@ npm install
 npm run dev
 ```
 
-Then open the printed URL. Eleven incidents across four systems replay through the engine:
+Then open the printed URL. Thirteen incidents across five systems replay through the engine:
 
 - `/simulator/after-hours-enquiry` — an incomplete enquiry at 20:47, worked to a booking
 - `/simulator/duplicate-delivery` — the same event delivered twice, refused twice
@@ -40,6 +40,13 @@ Then open the printed URL. Eleven incidents across four systems replay through t
 - `/simulator/duplicate-provisioning-reconciled` — a redelivered access confirmation
   reconciles its resources instead of duplicating them, while the engine core separately
   refuses the redelivery's illegal lifecycle transition
+- `/simulator/overdue-reply-changes-policy` — an overdue invoice reply mentions a dispute
+  on a different, already-resolved invoice while genuinely promising to pay this one; the
+  bounded judgment reads it correctly, a second judgment extracts the committed date, and
+  payment on that date settles the invoice
+- `/simulator/dispute-halts-cadence` — a clear dispute halts the collection cadence
+  immediately regardless of ageing, a stale delayed evaluation is safely absorbed once the
+  invoice leaves the ageing ladder, and a person resolves the dispute back onto it
 
 ## Verify it
 
@@ -47,7 +54,7 @@ Then open the printed URL. Eleven incidents across four systems replay through t
 npm run verify
 ```
 
-Typecheck, lint, and 280 tests. The interesting ones are not smoke tests:
+Typecheck, lint, and 310 tests. The interesting ones are not smoke tests:
 
 | Test | Asserts |
 | --- | --- |
@@ -58,6 +65,7 @@ Typecheck, lint, and 280 tests. The interesting ones are not smoke tests:
 | `tests/client-onboarding.test.ts` | A field already known from the signed handoff is never re-requested; a reserved secret sentinel submitted through an ordinary intake field *or* as an access-grant channel reference never persists, renders, or gets marked confirmed/complete; an existing resource with a different desired state is never overwritten; a same-rank contradiction routes to a person, never resolved by recency |
 | `tests/handoff-boundary.test.ts` | The System 3 → 4 handoff translator reproduces exactly the fixture Client Onboarding consumes when re-run live against Call-to-Proposal's own scenario, and changes when an admitted claim changes; a proposal blocked at `NEEDS_HUMAN` or a stale approval produces **no** handoff at all; a translated handoff cannot expand signed scope and still authorises onboarding through to first value end to end |
 | `tests/resource-provisioner.test.ts` | `ensure()` genuinely compares desired-state fingerprints rather than reciting a scripted outcome; no external id is ever fabricated |
+| `tests/receivables-recovery.test.ts` | A reply mentioning "dispute" about a different invoice is read as a promise to pay, not a dispute; a promise with no extractable date records nothing; a stale or out-of-order evaluation never regresses the ageing bucket; a dispute halts every reminder immediately; payment halts collection from any state |
 | `tests/engine.test.ts` | An undeclared transition is rejected and the state does not move; no transition can leave a terminal state; a naive retry on an unresolved uncertain outcome is refused by the core; a PROVISION effect never claims the single-shot idempotency ledger a SEND effect does |
 | `tests/side-effect-executor.test.ts` | The provider port never fabricates an external id, and converts every provider failure into data rather than throwing |
 | `tests/replay.test.ts` | Two runs of the same scenario are byte-identical, and every timestamp traces to an authored fixture |
@@ -69,7 +77,7 @@ Typecheck, lint, and 280 tests. The interesting ones are not smoke tests:
 Other commands:
 
 ```bash
-npm run build      # 21 pages prerender — the engine executes at build time
+npm run build      # 23 pages prerender — the engine executes at build time
 npm run docs       # regenerate the canon documents from the typed model
 ```
 

@@ -67,7 +67,7 @@ Maturity is descriptive, not aspirational.
 | 2. Dormant Pipeline Recovery | SIMULATED |
 | 3. Call-to-Proposal Revenue Agent | SIMULATED |
 | 4. Client Onboarding Operator | SIMULATED |
-| 5. Receivables / Invoice Recovery Agent | CONCEPT |
+| 5. Receivables / Invoice Recovery Agent | SIMULATED |
 | 6. Owner Revenue Intelligence Agent | CONCEPT |
 
 ## Canon at a glance
@@ -922,9 +922,9 @@ See [FAILURE_MODE_REGISTER.md](FAILURE_MODE_REGISTER.md) for the full entries. T
 
 ## 5. Receivables / Invoice Recovery Agent
 
-**Maturity: CONCEPT**
+**Maturity: SIMULATED**
 
-Business canon, lifecycle graph, metrics, standards, and failure modes are defined and validated. No executable scenario exists yet, so nothing in this system runs. Labelled CONCEPT rather than SIMULATED until a scenario replays through the engine.
+Two scenarios replay through the same engine core the first four systems proved. A complex path shows the point of the two declared bounded judgments: a reply that mentions "dispute" in passing — about a different, already-settled invoice — is correctly read as a promise to pay, not a dispute, and a second, separate judgment extracts the committed date with citation, reusing Call-to-Proposal’s ExtractionProvider port rather than a new one, because a closed-set classification and an evidence-citing value extraction are genuinely different shapes of judgment. Reminders despatch only on the exact configured collection-cadence day, with every financial figure injected from the accounting record, never composed. A guardrail path shows a clear dispute halting the cadence immediately regardless of how far the invoice had aged, a stale delayed evaluation being safely absorbed rather than corrupting state once the invoice left the ageing ladder, and a person resolving the dispute back onto it. An invoice never regresses to an earlier ageing bucket from a stale or out-of-order evaluation, verified directly. Escalation at the configured day-45 threshold, partial payment, and a broken promise re-entering the ageing ladder are exercised directly rather than through a full scenario. As with the first four systems, nothing here is live: no reminder left this process, no model was called, and the business and its invoices are fictional.
 
 ### Business problem
 

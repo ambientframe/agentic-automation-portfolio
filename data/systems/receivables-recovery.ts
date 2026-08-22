@@ -211,7 +211,7 @@ const RAW = {
       escalationCondition: 'Any executed reminder against a settled invoice.',
       authorityRequired: 3,
       terminalState: 'PAID.',
-      verificationTest: 'Pending — scenario not yet authored.',
+      verificationTest: 'tests/receivables-recovery.test.ts — the direct "payment stops further collection" test settles an invoice, then fires a stale evaluation event against it and asserts zero side effects and zero attempted transitions.',
     },
     {
       id: 'rr-fm-dispute-ignored',
@@ -225,7 +225,7 @@ const RAW = {
       escalationCondition: 'Any reminder executed against a disputed invoice.',
       authorityRequired: 3,
       terminalState: 'DISPUTED.',
-      verificationTest: 'Pending — scenario not yet authored.',
+      verificationTest: 'tests/receivables-recovery.test.ts — the dispute-halts-cadence scenario drives a real dispute reply to DISPUTED and asserts zero reminders despatch from there or after a subsequent stale evaluation; a direct test independently confirms zero side effects from DISPUTED.',
     },
     {
       id: 'rr-fm-fabricated-financial-fact',
@@ -239,7 +239,7 @@ const RAW = {
       escalationCondition: 'Any mismatch detected.',
       authorityRequired: 4,
       terminalState: 'ESCALATED.',
-      verificationTest: 'Pending — scenario not yet authored.',
+      verificationTest: 'tests/receivables-recovery.test.ts — the overdue-reply-changes-policy scenario asserts every despatched reminder’s description contains the exact balance figure from the authoritative record; reminder text is composed from structured facts and never generated.',
     },
     {
       id: 'rr-fm-broken-promise',
@@ -253,7 +253,7 @@ const RAW = {
       escalationCondition: 'A second promise broken by the same customer.',
       authorityRequired: 3,
       terminalState: 'The applicable past-due state.',
-      verificationTest: 'Pending — scenario not yet authored.',
+      verificationTest: 'tests/receivables-recovery.test.ts — the direct "a broken promise re-enters the ageing ladder" test records a genuine promise, evaluates again after the committed date with the balance still outstanding, and asserts the invoice returns to PAST_DUE_31_60.',
     },
     {
       id: 'rr-fm-duplicate-reminder',
@@ -268,7 +268,7 @@ const RAW = {
       escalationCondition: 'Duplicate reminder rate above zero.',
       authorityRequired: 3,
       terminalState: 'No state change; recorded as SUPPRESSED_DUPLICATE.',
-      verificationTest: 'Pending — scenario not yet authored.',
+      verificationTest: 'tests/receivables-recovery.test.ts — the direct "duplicate events do not cause duplicate sends" test redelivers the same evaluation event and asserts the first reminder resolves EXECUTED while the second resolves SUPPRESSED_DUPLICATE against the shared idempotency ledger.',
     },
     {
       id: 'rr-fm-source-outage',
@@ -283,13 +283,13 @@ const RAW = {
       escalationCondition: 'Outage exceeds the configured tolerance window.',
       authorityRequired: 2,
       terminalState: 'Current ageing state preserved; cadence held.',
-      verificationTest: 'Pending — scenario not yet authored.',
+      verificationTest: 'Pending — this pass modelled every evaluation event as carrying a fresh, present balance read (the payload schema requires one); it did not model the read itself failing or going stale, which would need a distinct "no reading available" event shape rather than a variant of the one authored so far.',
     },
   ],
 
-  maturity: 'CONCEPT',
+  maturity: 'SIMULATED',
   fidelityNote:
-    'Business canon, lifecycle graph, metrics, standards, and failure modes are defined and validated. No executable scenario exists yet, so nothing in this system runs. Labelled CONCEPT rather than SIMULATED until a scenario replays through the engine.',
+    'Two scenarios replay through the same engine core the first four systems proved. A complex path shows the point of the two declared bounded judgments: a reply that mentions "dispute" in passing — about a different, already-settled invoice — is correctly read as a promise to pay, not a dispute, and a second, separate judgment extracts the committed date with citation, reusing Call-to-Proposal’s ExtractionProvider port rather than a new one, because a closed-set classification and an evidence-citing value extraction are genuinely different shapes of judgment. Reminders despatch only on the exact configured collection-cadence day, with every financial figure injected from the accounting record, never composed. A guardrail path shows a clear dispute halting the cadence immediately regardless of how far the invoice had aged, a stale delayed evaluation being safely absorbed rather than corrupting state once the invoice left the ageing ladder, and a person resolving the dispute back onto it. An invoice never regresses to an earlier ageing bucket from a stale or out-of-order evaluation, verified directly. Escalation at the configured day-45 threshold, partial payment, and a broken promise re-entering the ageing ladder are exercised directly rather than through a full scenario. As with the first four systems, nothing here is live: no reminder left this process, no model was called, and the business and its invoices are fictional.',
 } satisfies Parameters<typeof SystemDefinitionSchema.parse>[0];
 
 export const RECEIVABLES_RECOVERY: SystemDefinition = SystemDefinitionSchema.parse(RAW);

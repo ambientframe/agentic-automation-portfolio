@@ -530,7 +530,7 @@ Coverage: 23 distinct failure classes across 43 entries.
 | **Escalates when** | Any executed reminder against a settled invoice. |
 | **Authority required** | 3 · EXECUTE UNDER EXPLICIT POLICY |
 | **Resolves into** | PAID. |
-| **Verification** | Pending — scenario not yet authored. |
+| **Verification** | tests/receivables-recovery.test.ts — the direct "payment stops further collection" test settles an invoice, then fires a stale evaluation event against it and asserts zero side effects and zero attempted transitions. |
 
 ### POLICY VIOLATION — The cadence continues after a customer raised a dispute.
 
@@ -544,7 +544,7 @@ Coverage: 23 distinct failure classes across 43 entries.
 | **Escalates when** | Any reminder executed against a disputed invoice. |
 | **Authority required** | 3 · EXECUTE UNDER EXPLICIT POLICY |
 | **Resolves into** | DISPUTED. |
-| **Verification** | Pending — scenario not yet authored. |
+| **Verification** | tests/receivables-recovery.test.ts — the dispute-halts-cadence scenario drives a real dispute reply to DISPUTED and asserts zero reminders despatch from there or after a subsequent stale evaluation; a direct test independently confirms zero side effects from DISPUTED. |
 
 ### AI UNSUPPORTED INFERENCE — A message states an amount, due date, or balance that does not match the accounting system.
 
@@ -558,7 +558,7 @@ Coverage: 23 distinct failure classes across 43 entries.
 | **Escalates when** | Any mismatch detected. |
 | **Authority required** | 4 · EXECUTE AND MANAGE BOUNDED DOWNSTREAM CONSEQUENCES |
 | **Resolves into** | ESCALATED. |
-| **Verification** | Pending — scenario not yet authored. |
+| **Verification** | tests/receivables-recovery.test.ts — the overdue-reply-changes-policy scenario asserts every despatched reminder’s description contains the exact balance figure from the authoritative record; reminder text is composed from structured facts and never generated. |
 
 ### UNEXPECTED HUMAN REPLY — A promised payment date passes with no payment and no follow-up.
 
@@ -572,7 +572,7 @@ Coverage: 23 distinct failure classes across 43 entries.
 | **Escalates when** | A second promise broken by the same customer. |
 | **Authority required** | 3 · EXECUTE UNDER EXPLICIT POLICY |
 | **Resolves into** | The applicable past-due state. |
-| **Verification** | Pending — scenario not yet authored. |
+| **Verification** | tests/receivables-recovery.test.ts — the direct "a broken promise re-enters the ageing ladder" test records a genuine promise, evaluates again after the committed date with the balance still outstanding, and asserts the invoice returns to PAST_DUE_31_60. |
 
 ### DUPLICATE EVENT — The same reminder is sent twice for the same invoice and cadence step.
 
@@ -587,7 +587,7 @@ Coverage: 23 distinct failure classes across 43 entries.
 | **Escalates when** | Duplicate reminder rate above zero. |
 | **Authority required** | 3 · EXECUTE UNDER EXPLICIT POLICY |
 | **Resolves into** | No state change; recorded as SUPPRESSED_DUPLICATE. |
-| **Verification** | Pending — scenario not yet authored. |
+| **Verification** | tests/receivables-recovery.test.ts — the direct "duplicate events do not cause duplicate sends" test redelivers the same evaluation event and asserts the first reminder resolves EXECUTED while the second resolves SUPPRESSED_DUPLICATE against the shared idempotency ledger. |
 
 ### SOURCE SYSTEM OUTAGE — The accounting system is unavailable at evaluation time.
 
@@ -602,7 +602,7 @@ Coverage: 23 distinct failure classes across 43 entries.
 | **Escalates when** | Outage exceeds the configured tolerance window. |
 | **Authority required** | 2 · PREPARE / HUMAN APPROVES |
 | **Resolves into** | Current ageing state preserved; cadence held. |
-| **Verification** | Pending — scenario not yet authored. |
+| **Verification** | Pending — this pass modelled every evaluation event as carrying a fresh, present balance read (the payload schema requires one); it did not model the read itself failing or going stale, which would need a distinct "no reading available" event shape rather than a variant of the one authored so far. |
 
 ---
 

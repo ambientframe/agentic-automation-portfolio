@@ -14,11 +14,16 @@ import {
   CALL_TO_PROPOSAL_SCENARIOS,
 } from '@/data/profiles/kestrel/scenarios/call-to-proposal';
 import { CLIENT_ONBOARDING_SCENARIOS } from '@/data/profiles/kestrel/scenarios/client-onboarding';
-import { LEAD_RESCUE, DORMANT_PIPELINE_RECOVERY, CALL_TO_PROPOSAL, CLIENT_ONBOARDING } from '@/data/systems';
+import {
+  RECEIVABLES_RECOVERY_EXTRACTIONS,
+  RECEIVABLES_RECOVERY_SCENARIOS,
+} from '@/data/profiles/kestrel/scenarios/receivables-recovery';
+import { LEAD_RESCUE, DORMANT_PIPELINE_RECOVERY, CALL_TO_PROPOSAL, CLIENT_ONBOARDING, RECEIVABLES_RECOVERY } from '@/data/systems';
 import { LEAD_RESCUE_HANDLERS } from '@/lib/engine/handlers/lead-rescue';
 import { DORMANT_PIPELINE_RECOVERY_HANDLERS } from '@/lib/engine/handlers/dormant-pipeline-recovery';
 import { CALL_TO_PROPOSAL_HANDLERS } from '@/lib/engine/handlers/call-to-proposal';
 import { CLIENT_ONBOARDING_HANDLERS } from '@/lib/engine/handlers/client-onboarding';
+import { RECEIVABLES_RECOVERY_HANDLERS } from '@/lib/engine/handlers/receivables-recovery';
 import type { ExtractionResult } from '@/lib/ports/extraction-provider';
 import type { SystemHandlers } from './types';
 
@@ -76,6 +81,13 @@ export const RUNNABLE_SYSTEMS: readonly RunnableSystem[] = [
     handlers: CLIENT_ONBOARDING_HANDLERS,
     profile: KESTREL,
     scenarios: CLIENT_ONBOARDING_SCENARIOS,
+  },
+  {
+    system: RECEIVABLES_RECOVERY,
+    handlers: RECEIVABLES_RECOVERY_HANDLERS,
+    profile: KESTREL,
+    scenarios: RECEIVABLES_RECOVERY_SCENARIOS,
+    extractions: RECEIVABLES_RECOVERY_EXTRACTIONS,
   },
 ];
 
