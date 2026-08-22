@@ -133,6 +133,40 @@ const RAW: readonly SourceRef[] = [
     limitations:
       'Community-maintained security guidance, widely accepted but not a certifiable standard and not versioned in a way that supports precise citation of a revision. States that secrets must not be hardcoded in source or littered through configuration files, that secrets appearing in logs require a removal process, that least privilege applies to secret access, and that secrets management must be centralised with defined creation, rotation, revocation, and expiry.',
   },
+  {
+    id: 'owasp-authorization',
+    organization: 'OWASP',
+    title: 'Authorization Cheat Sheet (OWASP Cheat Sheet Series)',
+    url: 'https://cheatsheetseries.owasp.org/cheatsheets/Authorization_Cheat_Sheet.html',
+    checkedOn: '2026-08-22',
+    primary: true,
+    limitations:
+      'Community-maintained security guidance, same status as the Secrets Management Cheat Sheet above: widely accepted, not a certifiable standard, not precisely versioned. States least privilege as assigning users only the minimum privileges necessary for their function, applied both horizontally (peers should not all get the same broad access) and vertically (by role), and recommends periodic review against privilege creep. Does NOT itself specify time-boxed or expiring access grants in its least-privilege guidance; that expectation is carried instead by `owasp-secrets`, cited alongside it here.',
+  },
+
+  // -------------------------------------------------------------------------
+  // Customer onboarding practice
+  // -------------------------------------------------------------------------
+  {
+    id: 'hubspot-customer-onboarding',
+    organization: 'HubSpot',
+    title: 'Customer Onboarding: Definition, Best Practices, and Key Metrics',
+    url: 'https://blog.hubspot.com/service/customer-onboarding',
+    checkedOn: '2026-08-22',
+    primary: false,
+    limitations:
+      'Vendor blog content aimed at SaaS/customer-success teams, not a controlled study. Directly supports two general principles used here: passing sales-established context forward so the customer does not repeat themselves, and defining onboarding goals around the customer’s own outcome rather than a checklist of steps. The page also cites a third-party churn statistic from a 2025 Rocketlane report; that statistic was NOT independently located or verified and is deliberately not repeated in this canon. Kestrel is a project-based B2B professional-services firm, not a SaaS company, so transfer is for the general principle only, never for any onboarding-duration or churn benchmark.',
+  },
+  {
+    id: 'gainsight-onboarding-metrics',
+    organization: 'Gainsight',
+    title: 'Customer Onboarding Metrics (Glossary)',
+    url: 'https://www.gainsight.com/glossary/entry/customer-onboarding-metrics/',
+    checkedOn: '2026-08-22',
+    primary: false,
+    limitations:
+      'Vendor glossary content from a customer-success software company, explicitly written for SaaS onboarding. Corroborates time-to-value and onboarding-completion-rate as conventional onboarding metrics, independently of HubSpot. Notably does NOT cover "customer effort" as a metric at all among the seven it lists — checked specifically for this and absent, so this canon does not cite it as evidence for measuring customer effort. Not an authority on professional-services onboarding.',
+  },
 
   // -------------------------------------------------------------------------
   // Receivables and collection

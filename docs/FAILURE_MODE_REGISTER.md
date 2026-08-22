@@ -36,7 +36,7 @@ recorded rather than hidden: an unverified recovery path is a claim, not a capab
 - `UNEXPECTED_HUMAN_REPLY`
 - `WRONG_ENTITY_MATCH`
 
-Coverage: 23 distinct failure classes across 42 entries.
+Coverage: 23 distinct failure classes across 43 entries.
 
 ---
 
@@ -425,7 +425,7 @@ Coverage: 23 distinct failure classes across 42 entries.
 | **Escalates when** | Any detected secret in persisted state. Treated as an incident, not a metric. |
 | **Authority required** | 4 · EXECUTE AND MANAGE BOUNDED DOWNSTREAM CONSEQUENCES |
 | **Resolves into** | NEEDS_HUMAN, with an incident record. |
-| **Verification** | Pending — scenario not yet authored. |
+| **Verification** | tests/client-onboarding.test.ts — the secret-screen test submits the reserved TEST_ONLY_SECRET_SENTINEL_DO_NOT_USE sentinel through an ordinary intake field and asserts it appears nowhere in final state or in any rendered decision/summary text. |
 
 ### RETRY DUPLICATE SIDE EFFECT — Re-running onboarding creates a second project, folder, or task list.
 
@@ -440,7 +440,7 @@ Coverage: 23 distinct failure classes across 42 entries.
 | **Escalates when** | Duplicate resource rate above zero. |
 | **Authority required** | 3 · EXECUTE UNDER EXPLICIT POLICY |
 | **Resolves into** | No state change; creation recorded as SUPPRESSED_DUPLICATE. |
-| **Verification** | Pending — scenario not yet authored. |
+| **Verification** | tests/client-onboarding.test.ts — the duplicate-provisioning-reconciled scenario redelivers the access-confirmation event; both resources resolve ALREADY_EXISTS_MATCHING the second time and exactly two EXECUTED creations exist across the whole run. |
 
 ### CONTRADICTORY DATA — The agreement and the customer record disagree about scope, contacts, or commercial terms.
 
@@ -454,7 +454,7 @@ Coverage: 23 distinct failure classes across 42 entries.
 | **Escalates when** | Any contradiction on a commercially material field. |
 | **Authority required** | 2 · PREPARE / HUMAN APPROVES |
 | **Resolves into** | NEEDS_HUMAN. |
-| **Verification** | Pending — scenario not yet authored. |
+| **Verification** | tests/client-onboarding.test.ts — resolveAuthoritativeValue direct tests prove the precedence gate never lets a signed-agreement value be silently overwritten and never picks a side between two same-rank disagreeing sources; a dedicated scenario-level test then drives the same contradiction through the real handler and asserts it reaches NEEDS_HUMAN with the conflicting field named. |
 
 ### POLICY VIOLATION — The customer is asked for something they already supplied.
 
@@ -468,7 +468,7 @@ Coverage: 23 distinct failure classes across 42 entries.
 | **Escalates when** | Repeated-information requests above zero. |
 | **Authority required** | 3 · EXECUTE UNDER EXPLICIT POLICY |
 | **Resolves into** | GAPS_COMPUTED. |
-| **Verification** | Pending — scenario not yet authored. |
+| **Verification** | tests/client-onboarding.test.ts — the signed-client-to-first-value scenario asserts the field already known from the handoff (named-owner) never appears in any "requested" list, and the gap-computation decision explicitly records it as reused. |
 
 ### PARTIAL SIDE EFFECT — Some required resources are created and others fail, leaving the engagement half-provisioned.
 
@@ -483,7 +483,7 @@ Coverage: 23 distinct failure classes across 42 entries.
 | **Escalates when** | Reconciliation unable to determine what exists. |
 | **Authority required** | 2 · PREPARE / HUMAN APPROVES |
 | **Resolves into** | NEEDS_HUMAN. |
-| **Verification** | Pending — scenario not yet authored. |
+| **Verification** | tests/client-onboarding.test.ts — the partial-provisioning direct test forces one resource attempt to OUTCOME_UNKNOWN while its sibling genuinely succeeds, and asserts the successful resource stays EXECUTED rather than being lost or recreated. |
 
 ### TIMEOUT — A resource-creation call times out without returning, leaving it unknown whether the resource was created.
 
@@ -497,8 +497,22 @@ Coverage: 23 distinct failure classes across 42 entries.
 | **Retry policy** | Bounded attempts, each reconciling before acting. |
 | **Escalates when** | Reconciliation cannot determine whether the resource exists. |
 | **Authority required** | 2 · PREPARE / HUMAN APPROVES |
-| **Resolves into** | PROVISIONING retained, or NEEDS_HUMAN when reconciliation is inconclusive. |
-| **Verification** | Pending — scenario not yet authored. |
+| **Resolves into** | NEEDS_HUMAN when reconciliation cannot confirm the outcome. |
+| **Verification** | tests/client-onboarding.test.ts — the partial-provisioning direct test forces an OUTCOME_UNKNOWN result on one attempt and asserts it is refused rather than assumed successful, routing to NEEDS_HUMAN instead of TASKS_ASSIGNED. |
+
+### POLICY VIOLATION — A derived onboarding task implies a service or commitment the signed engagement did not buy.
+
+| Field | Value |
+| --- | --- |
+| **Cause** | Free-text handover notes or an onboarding requirement interpreted generously enough to suggest a bigger program than the one that was signed. |
+| **Business impact** | The customer receives an implicit commitment nobody with commercial authority actually approved, and delivery is later asked to honour it. |
+| **Prevention** | Every derived task is checked against the signed engagement’s service line before it is admitted onto the plan; a task with no implied service is always a standard onboarding necessity and always passes. |
+| **Detection signal** | Task-to-scope comparison at plan derivation. |
+| **Recovery** | Refuse the task. It never becomes a client-visible commitment without a person separately approving an amended scope. |
+| **Escalates when** | Any candidate task whose implied service differs from the signed engagement. |
+| **Authority required** | 2 · PREPARE / HUMAN APPROVES |
+| **Resolves into** | CONTEXT_LOADED; the refused task never enters the plan. |
+| **Verification** | tests/client-onboarding.test.ts — admitOnboardingTask is exercised directly against a synthetic task implying a service line the signed handoff did not buy, and is refused by name; the same gate runs for real over every task in each scenario’s derived plan. |
 
 ---
 

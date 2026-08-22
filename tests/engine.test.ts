@@ -393,7 +393,7 @@ describe('engine core guarantees', () => {
             },
           ],
         },
-        { send: new Map(), verify: new Map() },
+        { send: new Map(), verify: new Map(), provision: new Map() },
       );
 
       const result = applyEvent(initialState('NEW'), event(), {
@@ -433,6 +433,7 @@ describe('engine core guarantees', () => {
             ['send-1', { status: 'OK', result: { kind: 'OUTCOME_UNKNOWN', reason: 'no confirmation received' } }],
           ]),
           verify: new Map(),
+          provision: new Map(),
         },
       );
 
@@ -464,6 +465,7 @@ describe('engine core guarantees', () => {
             ['send-2', { status: 'OK', result: { kind: 'SUCCEEDED', externalId: 'msg_would_dupe' } }],
           ]),
           verify: new Map(),
+          provision: new Map(),
         },
       });
 
@@ -552,6 +554,7 @@ describe('engine core guarantees', () => {
               ['send-1', { status: 'OK', result: { kind: 'OUTCOME_UNKNOWN', reason: 'connection reset' } }],
             ]),
             verify: new Map(),
+            provision: new Map(),
           },
         },
       );
@@ -577,6 +580,7 @@ describe('engine core guarantees', () => {
             verify: new Map([
               ['verify-1', { status: 'OK', result: { kind: 'CONFIRMED_NOT_EXECUTED', reason: 'provider log: not sent' } }],
             ]),
+            provision: new Map(),
           },
         },
       );
@@ -589,6 +593,47 @@ describe('engine core guarantees', () => {
 
       const verifyEffect = second.entries.flatMap((e) => e.sideEffects).find((s) => s.kind === 'VERIFICATION_CHECK');
       expect(verifyEffect?.technical?.verificationStatus).toBe('CONFIRMED_NOT_EXECUTED');
+    });
+
+    it('resolves a PROVISION effect from the provision outcome map without ever touching the single-claim ledger', () => {
+      const step = {
+        ...baseStep,
+        effects: [
+          {
+            id: 'eff-provision',
+            kind: 'RESOURCE_PROVISION' as const,
+            description: 'Ensure the workspace resource.',
+            target: 'onboarding:eng-1:workspace',
+            idempotencyKey: 'onboarding:eng-1:workspace',
+            authority: 3 as const,
+            policyPermits: true,
+            execution: { kind: 'PROVISION' as const, attemptId: 'prov-1', resourceKey: 'onboarding:eng-1:workspace', provider: 'test-provisioner' },
+          },
+        ],
+      };
+      const { handlers, internals, executionOutcomes } = sendHarness(
+        { steps: [step] },
+        {
+          send: new Map(),
+          verify: new Map(),
+          provision: new Map([['prov-1', { status: 'OK', result: { kind: 'ALREADY_EXISTS_MATCHING' } }]]),
+        },
+      );
+
+      const result = applyEvent(initialState('NEW'), event(), {
+        system: LEAD_RESCUE,
+        profile: KESTREL,
+        handlers,
+        judgments: new Map(),
+        internals,
+        executionOutcomes,
+      });
+
+      expect(result.entries[0]?.sideEffects[0]?.status).toBe('SUPPRESSED_DUPLICATE');
+      // Unlike a SEND, resolving a PROVISION effect never claims the single-shot ledger —
+      // its idempotency is a property of the port's own identity/state comparison, not of
+      // a first-writer-wins claim. A second `ensure()` on the same key is expected, not refused.
+      expect(internals.effects.has('onboarding:eng-1:workspace')).toBe(false);
     });
   });
 

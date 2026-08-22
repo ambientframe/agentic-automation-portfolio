@@ -16,7 +16,7 @@ npm install
 npm run dev
 ```
 
-Then open the printed URL. Nine incidents across three systems replay through the engine:
+Then open the printed URL. Eleven incidents across four systems replay through the engine:
 
 - `/simulator/after-hours-enquiry` — an incomplete enquiry at 20:47, worked to a booking
 - `/simulator/duplicate-delivery` — the same event delivered twice, refused twice
@@ -34,6 +34,12 @@ Then open the printed URL. Nine incidents across three systems replay through th
   is cited, sourced, or derived reaches an approved, despatched proposal
 - `/simulator/unsupported-scope-claim-blocked` — a candidate claim expands scope with zero
   supporting citation and is refused before a draft can exist, regardless of its confidence
+- `/simulator/signed-client-to-first-value` — a signed engagement carries context forward
+  from Call-to-Proposal's own opportunity, requests only what is genuinely missing,
+  provisions its resources once, and reaches a first-value milestone with one task still open
+- `/simulator/duplicate-provisioning-reconciled` — a redelivered access confirmation
+  reconciles its resources instead of duplicating them, while the engine core separately
+  refuses the redelivery's illegal lifecycle transition
 
 ## Verify it
 
@@ -41,7 +47,7 @@ Then open the printed URL. Nine incidents across three systems replay through th
 npm run verify
 ```
 
-Typecheck, lint, and 240 tests. The interesting ones are not smoke tests:
+Typecheck, lint, and 270 tests. The interesting ones are not smoke tests:
 
 | Test | Asserts |
 | --- | --- |
@@ -49,7 +55,9 @@ Typecheck, lint, and 240 tests. The interesting ones are not smoke tests:
 | `tests/dormant-pipeline-recovery.test.ts` | The re-entry reason is a genuine date comparison, never a narrated yes; suppression is evaluated before any re-entry reason and produces zero side effects when it applies |
 | `tests/call-to-proposal.test.ts` | Every admitted buyer fact cites a real transcript passage; a claim asserting scope with **zero** citations is refused before a draft can exist; a stale approval does not authorise a revised artifact; a claim stating a prohibited commitment is blocked regardless of source |
 | `tests/extraction-provider.test.ts` | A citation pointing at a segment the transcript never supplied is refused at the port boundary — a malformed evidence reference cannot silently validate a buyer claim |
-| `tests/engine.test.ts` | An undeclared transition is rejected and the state does not move; no transition can leave a terminal state; a naive retry on an unresolved uncertain outcome is refused by the core |
+| `tests/client-onboarding.test.ts` | A field already known from the signed handoff is never re-requested; a reserved secret sentinel submitted through an ordinary field never persists or renders anywhere; an existing resource with a different desired state is never overwritten; a same-rank contradiction routes to a person, never resolved by recency |
+| `tests/resource-provisioner.test.ts` | `ensure()` genuinely compares desired-state fingerprints rather than reciting a scripted outcome; no external id is ever fabricated |
+| `tests/engine.test.ts` | An undeclared transition is rejected and the state does not move; no transition can leave a terminal state; a naive retry on an unresolved uncertain outcome is refused by the core; a PROVISION effect never claims the single-shot idempotency ledger a SEND effect does |
 | `tests/side-effect-executor.test.ts` | The provider port never fabricates an external id, and converts every provider failure into data rather than throwing |
 | `tests/replay.test.ts` | Two runs of the same scenario are byte-identical, and every timestamp traces to an authored fixture |
 | `tests/seam.test.ts` | No business vocabulary has leaked into a vertical-agnostic system definition |
@@ -60,7 +68,7 @@ Typecheck, lint, and 240 tests. The interesting ones are not smoke tests:
 Other commands:
 
 ```bash
-npm run build      # 19 pages prerender — the engine executes at build time
+npm run build      # 21 pages prerender — the engine executes at build time
 npm run docs       # regenerate the canon documents from the typed model
 ```
 
@@ -70,7 +78,7 @@ npm run docs       # regenerate the canon documents from the typed model
 docs/           canon (normative) + source/ (historical inputs, byte-preserved)
 lib/model/      provenance, system, runtime, profile — the typed vocabulary
 lib/engine/     pure reducer, idempotency + event + execution ledgers, two-phase runner
-lib/ports/      DecisionProvider + SideEffectExecutor contracts, fixture-backed
+lib/ports/      DecisionProvider + SideEffectExecutor + ExtractionProvider + ResourceProvisioner, fixture-backed
 data/systems/   the six systems — vertical-agnostic, no business vocabulary
 data/profiles/  Kestrel Compliance Group — the swappable fictional business
 data/research/  the source ledger

@@ -5,6 +5,7 @@ import { runScenario } from '@/lib/engine/run';
 import { FixtureDecisionProvider } from '@/lib/ports/decision-provider';
 import { FixtureSideEffectExecutor } from '@/lib/ports/side-effect-executor';
 import { FixtureExtractionProvider } from '@/lib/ports/extraction-provider';
+import { FixtureResourceProvisioner } from '@/lib/ports/resource-provisioner';
 import { Simulator } from '@/components/simulator';
 
 export function generateStaticParams() {
@@ -29,6 +30,10 @@ export default async function SimulatorPage({ params }: PageProps<'/simulator/[s
     ...(runnable.extractions === undefined
       ? {}
       : { extractionProvider: new FixtureExtractionProvider(runnable.extractions) }),
+    // Harmless for every system that never declares a `provisionAttempts` request — the
+    // pre-pass only ever touches this when a scenario actually asks for one. Unlike the
+    // other two ports, it needs no per-scenario fixture data: it reconciles for real.
+    provisioner: new FixtureResourceProvisioner(),
   });
 
   const matchedExpectation = run.finalState.lifecycleState === scenario.expectedFinalState;

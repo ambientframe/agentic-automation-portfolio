@@ -66,7 +66,7 @@ Maturity is descriptive, not aspirational.
 | 1. Lead Rescue | SIMULATED |
 | 2. Dormant Pipeline Recovery | SIMULATED |
 | 3. Call-to-Proposal Revenue Agent | SIMULATED |
-| 4. Client Onboarding Operator | CONCEPT |
+| 4. Client Onboarding Operator | SIMULATED |
 | 5. Receivables / Invoice Recovery Agent | CONCEPT |
 | 6. Owner Revenue Intelligence Agent | CONCEPT |
 
@@ -75,9 +75,9 @@ Maturity is descriptive, not aspirational.
 - 6 systems
 - 139 declared lifecycle transitions
 - 62 metric definitions, each with an explicit formula and a named system of record
-- 37 operating standards, of which 18 assert external evidence
-- 42 named failure modes
-- 17 sources in the ledger
+- 39 operating standards, of which 20 assert external evidence
+- 43 named failure modes
+- 20 sources in the ledger
 
 ## The demonstration environment
 
@@ -727,9 +727,9 @@ See [FAILURE_MODE_REGISTER.md](FAILURE_MODE_REGISTER.md) for the full entries. T
 
 ## 4. Client Onboarding Operator
 
-**Maturity: CONCEPT**
+**Maturity: SIMULATED**
 
-Business canon, lifecycle graph, metrics, standards, and failure modes are defined and validated. No executable scenario exists yet, so nothing in this system runs. Labelled CONCEPT rather than SIMULATED until a scenario replays through the engine.
+Two scenarios replay through the same engine core the first three systems proved: a signed engagement (continuing Call-to-Proposal’s own Bramwell Data opportunity, not a fresh fixture) carries its commercial context forward, requests only the two genuinely missing categories of information — ordinary fields and, separately, secure access — provisions its delivery resources exactly once, and reaches a first-value milestone that requires recorded completion evidence while one unrelated task is still open. A second scenario redelivers the access-confirmation event and shows both a resource-provisioning port and the core lifecycle engine independently refusing to duplicate the same outcome, for two different reasons. A draft or despatched proposal is not sufficient authority to begin onboarding; only a payload asserting kind=SIGNED_AGREEMENT is. Resource provisioning introduced a genuine third port — see STATUS.md for why SideEffectExecutor’s retry-safety contract does not fit an operation that is safe to repeat by construction. As with the first three systems, nothing here is live: no resource was created anywhere real, no model was called, and the business is fictional.
 
 ### Business problem
 
@@ -891,6 +891,17 @@ Regardless of confidence, the system may never:
 - *Applies to:* Justifies keying every resource creation on engagement plus resource identity, which is what prevents duplicate folders, projects, and task lists on re-run.
 - *Sources:* Stripe, *Idempotent requests (API Reference)*; Stripe, *Receive Stripe events in your webhook endpoint*
 
+**Evidence** — Access must be scoped to the minimum privilege necessary for the requesting role’s function, applied both horizontally and vertically, with periodic review against privilege creep.
+
+- *Applies to:* Every secure-access requirement states a least-privilege scope by construction — never a broad or administrative grant requested casually.
+- *Sources:* OWASP, *Authorization Cheat Sheet (OWASP Cheat Sheet Series)*
+
+**Evidence** — Current customer-onboarding practice passes sales-established context forward so the customer is not asked to start from scratch, and treats a defined value milestone — not checklist completion — as the onboarding success criterion.
+
+- *Applies to:* Justifies reading the signed handoff forward before asking the customer anything, and justifies the milestone transition guard requiring recorded completion evidence rather than exhausted tasks.
+- *Sources:* HubSpot, *Customer Onboarding: Definition, Best Practices, and Key Metrics*; Gainsight, *Customer Onboarding Metrics (Glossary)*
+- *Correction:* Both sources are customer-success vendor content aimed at SaaS businesses, not controlled studies, and neither is authoritative for a project-based professional-services firm. A third-party churn statistic on the HubSpot page was not independently verified and is not repeated here. Gainsight’s metric glossary does not cover "customer effort" at all despite being checked specifically for it.
+
 **Lab target** — Information already held in the record is never requested from the customer again without a recorded reason.
 
 - *Applies to:* The gap computation, which differences required against known before any request is composed.
@@ -905,7 +916,7 @@ Regardless of confidence, the system may never:
 
 ### Known failure modes
 
-See [FAILURE_MODE_REGISTER.md](FAILURE_MODE_REGISTER.md) for the full entries. This system declares 6: `CREDENTIAL_FAILURE`, `RETRY_DUPLICATE_SIDE_EFFECT`, `CONTRADICTORY_DATA`, `POLICY_VIOLATION`, `PARTIAL_SIDE_EFFECT`, `TIMEOUT`.
+See [FAILURE_MODE_REGISTER.md](FAILURE_MODE_REGISTER.md) for the full entries. This system declares 7: `CREDENTIAL_FAILURE`, `RETRY_DUPLICATE_SIDE_EFFECT`, `CONTRADICTORY_DATA`, `POLICY_VIOLATION`, `PARTIAL_SIDE_EFFECT`, `TIMEOUT`, `POLICY_VIOLATION`.
 
 ---
 

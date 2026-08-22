@@ -12,6 +12,7 @@ import type { AuthorityLevel, SystemDefinition } from '@/lib/model/system';
 import type { BusinessProfile } from '@/lib/model/profile';
 import type { ResolvedJudgment } from '@/lib/ports/decision-provider';
 import type { ResolvedExtraction } from '@/lib/ports/extraction-provider';
+import type { ResolvedProvision } from '@/lib/ports/resource-provisioner';
 import type { ResolvedSend, ResolvedVerify } from '@/lib/ports/side-effect-executor';
 import type {
   EngineInternals,
@@ -49,6 +50,7 @@ import type {
 export interface ExecutionOutcomes {
   readonly send: ReadonlyMap<string, ResolvedSend>;
   readonly verify: ReadonlyMap<string, ResolvedVerify>;
+  readonly provision: ReadonlyMap<string, ResolvedProvision>;
 }
 
 export interface StepDeps {
@@ -58,16 +60,20 @@ export interface StepDeps {
   readonly judgments: ReadonlyMap<string, ResolvedJudgment>;
   /** Optional: only Call-to-Proposal's handler reads this. See `HandlerContext.extractions`. */
   readonly extractions?: ReadonlyMap<string, ResolvedExtraction>;
+  /** Optional: only Client Onboarding's handler reads this. See `HandlerContext.provisions`. */
+  readonly provisions?: ReadonlyMap<string, ResolvedProvision>;
   readonly internals: EngineInternals;
   /**
-   * Pre-resolved send/verify outcomes, keyed by attemptId. Resolved async, before this
-   * runs. Optional: most call sites propose no execution-tracked effects and never need it.
+   * Pre-resolved send/verify/provision outcomes, keyed by attemptId. Resolved async,
+   * before this runs. Optional: most call sites propose no execution-tracked effects and
+   * never need it.
    */
   readonly executionOutcomes?: ExecutionOutcomes;
 }
 
-const EMPTY_EXECUTION_OUTCOMES: ExecutionOutcomes = { send: new Map(), verify: new Map() };
+const EMPTY_EXECUTION_OUTCOMES: ExecutionOutcomes = { send: new Map(), verify: new Map(), provision: new Map() };
 const EMPTY_EXTRACTIONS: ReadonlyMap<string, ResolvedExtraction> = new Map();
+const EMPTY_PROVISIONS: ReadonlyMap<string, ResolvedProvision> = new Map();
 
 export interface ApplyResult {
   readonly state: EngineState;
@@ -89,8 +95,14 @@ export function applyEvent(
   deps: StepDeps,
 ): ApplyResult {
   const { system, profile, handlers, judgments, internals } = deps;
+  // Callers that care about provisioning keep `executionOutcomes.provision` and
+  // `provisions` in sync by construction (see `reduceScenario`) — one resolved map,
+  // read here through two channels: the handler reads `provisions` directly to decide
+  // its own next transition, and `resolveEffect` reads `executionOutcomes.provision` to
+  // record the technical/status detail on the proposed side effect.
   const executionOutcomes = deps.executionOutcomes ?? EMPTY_EXECUTION_OUTCOMES;
   const extractions = deps.extractions ?? EMPTY_EXTRACTIONS;
+  const provisions = deps.provisions ?? EMPTY_PROVISIONS;
 
   const observation = internals.events.observe(event.source, event.sourceEventId, event.eventId);
   const isDuplicateEvent = observation === 'DUPLICATE';
@@ -107,6 +119,7 @@ export function applyEvent(
     profile,
     judgments,
     extractions,
+    provisions,
     ledger: { has: (key: string) => internals.effects.has(key) },
     isDuplicateEvent,
   });
@@ -270,6 +283,10 @@ function resolveEffect(
 
   if (proposed.execution.kind === 'VERIFY') {
     return resolveVerifyEffect(proposed, event, internals, executionOutcomes.verify);
+  }
+
+  if (proposed.execution.kind === 'PROVISION') {
+    return resolveProvisionEffect(proposed, event, executionOutcomes.provision);
   }
 
   return resolveSendEffect(proposed, event, internals, executionOutcomes.send);
@@ -457,6 +474,106 @@ function resolveVerifyEffect(
         technical: {
           ...baseTechnical,
           outcomeKind: 'STILL_UNKNOWN',
+          verificationStatus: 'PENDING',
+        },
+      };
+  }
+}
+
+/**
+ * Resolves a PROVISION effect. Deliberately does NOT touch `internals.effects` — the
+ * single-claim idempotency ledger exists because a second SEND attempt is unsafe by
+ * default; a second `ensure()` call is safe BY CONSTRUCTION (see
+ * `lib/ports/resource-provisioner.ts`), so gating it through that same ledger would
+ * either falsely refuse a legitimate reconciliation or require deforming the ledger's own
+ * "second claim is always a duplicate" contract. The provisioner's own outcome, resolved
+ * in the pre-pass, is the single source of truth here.
+ */
+function resolveProvisionEffect(
+  proposed: ProposedEffect,
+  event: CanonicalEvent,
+  provisionOutcomes: ReadonlyMap<string, ResolvedProvision>,
+): EffectResolution {
+  const execution = proposed.execution;
+  if (execution === undefined || execution.kind !== 'PROVISION') {
+    throw new Error(`resolveProvisionEffect called on effect "${proposed.id}" without a PROVISION execution`);
+  }
+
+  const resolved = provisionOutcomes.get(execution.attemptId);
+  if (resolved === undefined || resolved.status !== 'OK') {
+    const reason = resolved === undefined ? 'No provision outcome was resolved for this attempt.' : resolved.reason;
+    return {
+      status: 'FAILED',
+      detail: `Provisioning attempt contract violation or unavailable outcome: ${reason}`,
+      technical: {
+        attempt: 1,
+        provider: 'unknown',
+        attemptedAt: event.occurredAt,
+        outcomeKind: 'CONTRACT_VIOLATION',
+        retrySafety: 'SAFE',
+        verificationStatus: 'NOT_APPLICABLE',
+      },
+    };
+  }
+
+  const outcome = resolved.result;
+  const baseTechnical = { attempt: 1, provider: execution.provider, attemptedAt: event.occurredAt };
+
+  switch (outcome.kind) {
+    case 'CREATED':
+      return {
+        status: 'EXECUTED',
+        detail: outcome.externalId === undefined ? undefined : `Provisioner assigned id: ${outcome.externalId}.`,
+        technical: {
+          ...baseTechnical,
+          outcomeKind: 'CREATED',
+          ...(outcome.externalId === undefined ? {} : { externalId: outcome.externalId }),
+          retrySafety: 'NOT_APPLICABLE',
+          verificationStatus: 'NOT_APPLICABLE',
+        },
+      };
+    case 'ALREADY_EXISTS_MATCHING':
+      return {
+        status: 'SUPPRESSED_DUPLICATE',
+        detail: `A resource already exists at "${execution.resourceKey}" and matches the desired state. No second resource was created.`,
+        technical: {
+          ...baseTechnical,
+          outcomeKind: 'ALREADY_EXISTS_MATCHING',
+          ...(outcome.externalId === undefined ? {} : { externalId: outcome.externalId }),
+          retrySafety: 'NOT_APPLICABLE',
+          verificationStatus: 'NOT_APPLICABLE',
+        },
+      };
+    case 'EXISTS_DIFFERENT':
+      return {
+        status: 'CONFLICT_DETECTED',
+        detail: outcome.reason,
+        technical: {
+          ...baseTechnical,
+          outcomeKind: 'EXISTS_DIFFERENT',
+          retrySafety: 'UNSAFE',
+          verificationStatus: 'PENDING',
+        },
+      };
+    case 'FAILED_BEFORE_EFFECT':
+      return {
+        status: 'FAILED',
+        detail: outcome.reason,
+        technical: {
+          ...baseTechnical,
+          outcomeKind: 'FAILED_BEFORE_EFFECT',
+          retrySafety: 'SAFE',
+          verificationStatus: 'NOT_APPLICABLE',
+        },
+      };
+    case 'OUTCOME_UNKNOWN':
+      return {
+        status: 'OUTCOME_UNKNOWN',
+        detail: outcome.reason,
+        technical: {
+          ...baseTechnical,
+          outcomeKind: 'OUTCOME_UNKNOWN',
+          retrySafety: 'UNSAFE',
           verificationStatus: 'PENDING',
         },
       };

@@ -12,6 +12,7 @@ import type {
 import type { AuthorityLevel } from '@/lib/model/system';
 import type { ResolvedJudgment } from '@/lib/ports/decision-provider';
 import type { ResolvedExtraction } from '@/lib/ports/extraction-provider';
+import type { ResolvedProvision } from '@/lib/ports/resource-provisioner';
 import type { EventLedger, ExecutionLedger, SideEffectLedger } from './ledger';
 
 /**
@@ -65,6 +66,17 @@ export type EffectExecution =
       readonly attemptId: string;
       readonly targetIdempotencyKey: string;
       readonly provider: string;
+    }
+  | {
+      /**
+       * Routed through the `ResourceProvisioner` port instead of the `ExecutionLedger` —
+       * a durable resource's idempotency is a different question from a send's, and is
+       * never gated by that ledger. See `lib/ports/resource-provisioner.ts`.
+       */
+      readonly kind: 'PROVISION';
+      readonly attemptId: string;
+      readonly resourceKey: string;
+      readonly provider: string;
     };
 
 /** A side effect a handler WANTS. The core decides whether it actually happens. */
@@ -97,6 +109,14 @@ export interface HandlerContext {
    * `lib/ports/extraction-provider.ts` for why the two are not the same contract.
    */
   readonly extractions: ReadonlyMap<string, ResolvedExtraction>;
+  /**
+   * Pre-resolved resource-provisioning outcomes, keyed by attemptId. Unlike judgments and
+   * extractions, a handler needs this to decide its OWN next lifecycle transition (was the
+   * resource created, did it already match, or does it conflict and need a person) — so it
+   * is exposed here as well as folded into the effect-resolution path in the reducer. Empty
+   * for every system except Client Onboarding.
+   */
+  readonly provisions: ReadonlyMap<string, ResolvedProvision>;
   /** Read-only view; only the core may claim keys. */
   readonly ledger: { has(key: string): boolean };
   /** True when this exact source event was already observed. */

@@ -124,6 +124,12 @@ export const SIDE_EFFECT_STATUSES = [
    * honour the idempotency key (see `ExecutionAttemptSchema.honorsIdempotencyKey`).
    */
   'OUTCOME_UNKNOWN',
+  /**
+   * A durable resource was found at the target identity, but its state does not match
+   * what this run intended to create. NOT a duplicate: a duplicate is safe to ignore,
+   * this is not. Never resolved automatically — see `lib/ports/resource-provisioner.ts`.
+   */
+  'CONFLICT_DETECTED',
 ] as const;
 export const SideEffectStatusSchema = z.enum(SIDE_EFFECT_STATUSES);
 export type SideEffectStatus = z.infer<typeof SideEffectStatusSchema>;

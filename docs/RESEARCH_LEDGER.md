@@ -26,13 +26,13 @@ Research pass: **2026-08-21**.
 
 | Verification | Claims |
 | --- | --- |
-| Verified | 15 |
+| Verified | 17 |
 | Unverified (pending) | 2 |
 | Weak or disputed support | 1 |
 | Superseded | 0 |
 | Not applicable (policy / lab target) | 19 |
 
-Primary, official, or standards-body sources: 14 of 17.
+Primary, official, or standards-body sources: 15 of 20.
 
 ## Corrections this research pass produced
 
@@ -47,6 +47,10 @@ The cited profile is a governance framework, not a technical standard. It prescr
 ### Call-to-Proposal Revenue Agent — `cp-std-next-step-capture`
 
 The cited page documents a beta product feature, not a study of outcomes. It supports treating structured next-step capture as current practice, not that it causes better results.
+
+### Client Onboarding Operator — `co-std-handoff-and-value`
+
+Both sources are customer-success vendor content aimed at SaaS businesses, not controlled studies, and neither is authoritative for a project-based professional-services firm. A third-party churn statistic on the HubSpot page was not independently verified and is not repeated here. Gainsight’s metric glossary does not cover "customer effort" at all despite being checked specifically for it.
 
 ### Receivables / Invoice Recovery Agent — `rr-std-aging-convention`
 
@@ -174,6 +178,45 @@ Automation vendors frequently present FDCPA-style constraints as universally app
 | URL | https://cheatsheetseries.owasp.org/cheatsheets/Secrets_Management_Cheat_Sheet.html |
 
 *Limitations.* Community-maintained security guidance, widely accepted but not a certifiable standard and not versioned in a way that supports precise citation of a revision. States that secrets must not be hardcoded in source or littered through configuration files, that secrets appearing in logs require a removal process, that least privilege applies to secret access, and that secrets management must be centralised with defined creation, rotation, revocation, and expiry.
+
+### `owasp-authorization` — OWASP
+
+**Authorization Cheat Sheet (OWASP Cheat Sheet Series)**
+
+| | |
+| --- | --- |
+| Published | — |
+| Located and read | 2026-08-22 |
+| Primary / authoritative | yes |
+| URL | https://cheatsheetseries.owasp.org/cheatsheets/Authorization_Cheat_Sheet.html |
+
+*Limitations.* Community-maintained security guidance, same status as the Secrets Management Cheat Sheet above: widely accepted, not a certifiable standard, not precisely versioned. States least privilege as assigning users only the minimum privileges necessary for their function, applied both horizontally (peers should not all get the same broad access) and vertically (by role), and recommends periodic review against privilege creep. Does NOT itself specify time-boxed or expiring access grants in its least-privilege guidance; that expectation is carried instead by `owasp-secrets`, cited alongside it here.
+
+### `hubspot-customer-onboarding` — HubSpot
+
+**Customer Onboarding: Definition, Best Practices, and Key Metrics**
+
+| | |
+| --- | --- |
+| Published | — |
+| Located and read | 2026-08-22 |
+| Primary / authoritative | no |
+| URL | https://blog.hubspot.com/service/customer-onboarding |
+
+*Limitations.* Vendor blog content aimed at SaaS/customer-success teams, not a controlled study. Directly supports two general principles used here: passing sales-established context forward so the customer does not repeat themselves, and defining onboarding goals around the customer’s own outcome rather than a checklist of steps. The page also cites a third-party churn statistic from a 2025 Rocketlane report; that statistic was NOT independently located or verified and is deliberately not repeated in this canon. Kestrel is a project-based B2B professional-services firm, not a SaaS company, so transfer is for the general principle only, never for any onboarding-duration or churn benchmark.
+
+### `gainsight-onboarding-metrics` — Gainsight
+
+**Customer Onboarding Metrics (Glossary)**
+
+| | |
+| --- | --- |
+| Published | — |
+| Located and read | 2026-08-22 |
+| Primary / authoritative | no |
+| URL | https://www.gainsight.com/glossary/entry/customer-onboarding-metrics/ |
+
+*Limitations.* Vendor glossary content from a customer-success software company, explicitly written for SaaS onboarding. Corroborates time-to-value and onboarding-completion-rate as conventional onboarding metrics, independently of HubSpot. Notably does NOT cover "customer effort" as a metric at all among the seven it lists — checked specifically for this and absent, so this canon does not cite it as evidence for measuring customer effort. Not an authority on professional-services onboarding.
 
 ### `stripe-ar-aging` — Stripe
 
@@ -307,6 +350,8 @@ Automation vendors frequently present FDCPA-style constraints as universally app
 | Call-to-Proposal Revenue Agent | Facts supplied by a person during clarification are recorded with that person as their source, distinguishable from facts derived from the transcript. | LAB_TARGET | NOT_APPLICABLE | — |
 | Client Onboarding Operator | Secrets must not be hardcoded in source or scattered through configuration, must not be left in logs without a removal process, must be held in a centralised store under least privilege, and must have defined creation, rotation, revocation, and expiry. | EVIDENCE | VERIFIED | owasp-secrets |
 | Client Onboarding Operator | Operations that create resources must be idempotent, because delivery and retry semantics guarantee that a creation instruction can be received more than once. The established pattern is a caller-supplied key recorded before the operation. | EVIDENCE | VERIFIED | stripe-idempotency, stripe-webhooks |
+| Client Onboarding Operator | Access must be scoped to the minimum privilege necessary for the requesting role’s function, applied both horizontally and vertically, with periodic review against privilege creep. | EVIDENCE | VERIFIED | owasp-authorization |
+| Client Onboarding Operator | Current customer-onboarding practice passes sales-established context forward so the customer is not asked to start from scratch, and treats a defined value milestone — not checklist completion — as the onboarding success criterion. | EVIDENCE | VERIFIED | hubspot-customer-onboarding, gainsight-onboarding-metrics |
 | Client Onboarding Operator | Information already held in the record is never requested from the customer again without a recorded reason. | LAB_TARGET | NOT_APPLICABLE | — |
 | Client Onboarding Operator | Onboarding is complete when declared value criteria are satisfied, not when a checklist is exhausted. | LAB_TARGET | NOT_APPLICABLE | — |
 | Client Onboarding Operator | Missing information and contradictory information are distinct conditions with distinct paths. Contradiction requires a person; absence does not. | LAB_TARGET | NOT_APPLICABLE | — |

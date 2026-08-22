@@ -23,6 +23,12 @@ import {
   type SideEffectExecutor,
   type VerifyRequest,
 } from '@/lib/ports/side-effect-executor';
+import {
+  resolveProvision,
+  type ProvisionRequest,
+  type ResolvedProvision,
+  type ResourceProvisioner,
+} from '@/lib/ports/resource-provisioner';
 import { EventLedger, ExecutionLedger, SideEffectLedger } from './ledger';
 import { applyEvent, type ExecutionOutcomes } from './reducer';
 import { initialState, type EngineRun, type EngineState, type SystemHandlers } from './types';
@@ -86,6 +92,17 @@ const VerifyRequestPayloadSchema = z.object({
   provider: z.string().min(1),
 });
 
+// Non-strict for the same reason as the two schemas above: a handler may read fields off
+// its own attempt entry (e.g. `resourceType`) that this pre-pass does not need.
+const ProvisionRequestPayloadSchema = z.object({
+  attemptId: z.string().min(1),
+  resourceKey: z.string().min(1),
+  resourceType: z.string().min(1),
+  desiredStateFingerprint: z.string().min(1),
+  provider: z.string().min(1),
+  description: z.string().min(1),
+});
+
 export function extractSendRequests(event: CanonicalEvent): SendRequest[] {
   const raw = event.payload['sendAttempts'];
   if (!Array.isArray(raw)) return [];
@@ -101,6 +118,15 @@ export function extractVerifyRequests(event: CanonicalEvent): VerifyRequest[] {
   return raw
     .map((r) => VerifyRequestPayloadSchema.safeParse(r))
     .filter((r): r is { success: true; data: z.infer<typeof VerifyRequestPayloadSchema> } => r.success)
+    .map((r) => r.data);
+}
+
+export function extractProvisionRequests(event: CanonicalEvent): ProvisionRequest[] {
+  const raw = event.payload['provisionAttempts'];
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .map((r) => ProvisionRequestPayloadSchema.safeParse(r))
+    .filter((r): r is { success: true; data: z.infer<typeof ProvisionRequestPayloadSchema> } => r.success)
     .map((r) => r.data);
 }
 
@@ -142,6 +168,8 @@ export interface RunDeps {
   readonly executor?: SideEffectExecutor;
   /** Only required when a scenario declares an `extraction` request. Today, only Call-to-Proposal does. */
   readonly extractionProvider?: ExtractionProvider;
+  /** Only required when a scenario declares `provisionAttempts`. Today, only Client Onboarding does. */
+  readonly provisioner?: ResourceProvisioner;
 }
 
 /** Phase 1a. Walks the scenario in order and resolves each declared judgment once. */
@@ -193,7 +221,37 @@ export async function resolveExecutionAttempts(
 }
 
 /**
- * Phase 1c. Resolves every declared extraction request once. If a scenario declares
+ * Phase 1c. Resolves every declared provision attempt once, IN EVENT ORDER. Order matters
+ * here in a way it does not for send/verify: a `FixtureResourceProvisioner` genuinely
+ * accumulates state across calls (see `lib/ports/resource-provisioner.ts`), so resolving
+ * a scenario's two provisioning events out of order would change which one "creates" and
+ * which one "reconciles" — exactly the kind of accidental non-determinism the two-phase
+ * split exists to prevent. If a scenario declares none, this returns an empty map and
+ * never touches `provisioner`, so it stays genuinely optional for those callers.
+ */
+export async function resolveProvisionAttempts(
+  scenario: Scenario,
+  provisioner: ResourceProvisioner | undefined,
+): Promise<Map<string, ResolvedProvision>> {
+  const resolved = new Map<string, ResolvedProvision>();
+  const requests = scenario.events.flatMap(extractProvisionRequests);
+  if (requests.length === 0) return resolved;
+
+  if (provisioner === undefined) {
+    throw new Error(
+      `Scenario "${scenario.id}" declares ${requests.length} provision attempt(s) but no ResourceProvisioner was supplied.`,
+    );
+  }
+
+  for (const request of requests) {
+    if (resolved.has(request.attemptId)) continue;
+    resolved.set(request.attemptId, await resolveProvision(provisioner, request));
+  }
+  return resolved;
+}
+
+/**
+ * Phase 1d. Resolves every declared extraction request once. If a scenario declares
  * none (every scenario before Call-to-Proposal existed), this returns an empty map and
  * never touches `provider` — so `provider` stays genuinely optional for those callers.
  */
@@ -231,8 +289,9 @@ export function reduceScenario(
   scenario: Scenario,
   judgments: ReadonlyMap<string, ResolvedJudgment>,
   deps: ReduceDeps,
-  executionOutcomes: ExecutionOutcomes = { send: new Map(), verify: new Map() },
+  executionOutcomes: ExecutionOutcomes = { send: new Map(), verify: new Map(), provision: new Map() },
   extractions: ReadonlyMap<string, ResolvedExtraction> = new Map(),
+  provisions: ReadonlyMap<string, ResolvedProvision> = new Map(),
 ): EngineRun {
   const internals = {
     effects: new SideEffectLedger(),
@@ -249,6 +308,7 @@ export function reduceScenario(
       internals,
       executionOutcomes,
       extractions,
+      provisions,
     });
     state = result.state;
     timeline.push(...result.entries);
@@ -272,13 +332,15 @@ export function reduceScenario(
 
 export async function runScenario(scenario: Scenario, deps: RunDeps): Promise<EngineRun> {
   const judgments = await resolveJudgments(scenario, deps.provider);
-  const executionOutcomes = await resolveExecutionAttempts(scenario, deps.executor);
+  const { send, verify } = await resolveExecutionAttempts(scenario, deps.executor);
   const extractions = await resolveExtractions(scenario, deps.extractionProvider);
+  const provisions = await resolveProvisionAttempts(scenario, deps.provisioner);
   return reduceScenario(
     scenario,
     judgments,
     { system: deps.system, profile: deps.profile, handlers: deps.handlers },
-    executionOutcomes,
+    { send, verify, provision: provisions },
     extractions,
+    provisions,
   );
 }

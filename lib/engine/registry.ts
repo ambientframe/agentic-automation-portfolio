@@ -13,10 +13,12 @@ import {
   CALL_TO_PROPOSAL_EXTRACTIONS,
   CALL_TO_PROPOSAL_SCENARIOS,
 } from '@/data/profiles/kestrel/scenarios/call-to-proposal';
-import { LEAD_RESCUE, DORMANT_PIPELINE_RECOVERY, CALL_TO_PROPOSAL } from '@/data/systems';
+import { CLIENT_ONBOARDING_SCENARIOS } from '@/data/profiles/kestrel/scenarios/client-onboarding';
+import { LEAD_RESCUE, DORMANT_PIPELINE_RECOVERY, CALL_TO_PROPOSAL, CLIENT_ONBOARDING } from '@/data/systems';
 import { LEAD_RESCUE_HANDLERS } from '@/lib/engine/handlers/lead-rescue';
 import { DORMANT_PIPELINE_RECOVERY_HANDLERS } from '@/lib/engine/handlers/dormant-pipeline-recovery';
 import { CALL_TO_PROPOSAL_HANDLERS } from '@/lib/engine/handlers/call-to-proposal';
+import { CLIENT_ONBOARDING_HANDLERS } from '@/lib/engine/handlers/client-onboarding';
 import type { ExtractionResult } from '@/lib/ports/extraction-provider';
 import type { SystemHandlers } from './types';
 
@@ -68,6 +70,12 @@ export const RUNNABLE_SYSTEMS: readonly RunnableSystem[] = [
     profile: KESTREL,
     scenarios: CALL_TO_PROPOSAL_SCENARIOS,
     extractions: CALL_TO_PROPOSAL_EXTRACTIONS,
+  },
+  {
+    system: CLIENT_ONBOARDING,
+    handlers: CLIENT_ONBOARDING_HANDLERS,
+    profile: KESTREL,
+    scenarios: CLIENT_ONBOARDING_SCENARIOS,
   },
 ];
 

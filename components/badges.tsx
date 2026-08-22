@@ -142,6 +142,9 @@ const EFFECT_STYLE: Record<SideEffectStatus, CSSProperties> = {
   RATE_LIMITED: { color: 'var(--suppressed)', background: 'var(--warn-bg)', borderColor: 'var(--suppressed)' },
   // Deliberately the "bounded judgment" hue: an epistemic state, not a failure or a block.
   OUTCOME_UNKNOWN: { color: 'var(--prov-lab)', background: 'var(--prov-lab-bg)', borderColor: 'var(--prov-lab)' },
+  // Blocked's colour, but flagged with warn's background: more serious than a suppressed
+  // duplicate (existing state does not match intent) and distinct from an outright policy block.
+  CONFLICT_DETECTED: { color: 'var(--blocked)', background: 'var(--warn-bg)', borderColor: 'var(--blocked)' },
 };
 
 export function EffectStatusBadge({ status }: { status: SideEffectStatus }) {

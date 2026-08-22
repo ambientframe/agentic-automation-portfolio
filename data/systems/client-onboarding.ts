@@ -145,6 +145,28 @@ const RAW = {
         'Justifies keying every resource creation on engagement plus resource identity, which is what prevents duplicate folders, projects, and task lists on re-run.',
     },
     {
+      id: 'co-std-least-privilege',
+      statement:
+        'Access must be scoped to the minimum privilege necessary for the requesting role’s function, applied both horizontally and vertically, with periodic review against privilege creep.',
+      provenance: 'EVIDENCE',
+      verification: 'VERIFIED',
+      sourceIds: ['owasp-authorization'],
+      appliesTo:
+        'Every secure-access requirement states a least-privilege scope by construction — never a broad or administrative grant requested casually.',
+    },
+    {
+      id: 'co-std-handoff-and-value',
+      statement:
+        'Current customer-onboarding practice passes sales-established context forward so the customer is not asked to start from scratch, and treats a defined value milestone — not checklist completion — as the onboarding success criterion.',
+      provenance: 'EVIDENCE',
+      verification: 'VERIFIED',
+      sourceIds: ['hubspot-customer-onboarding', 'gainsight-onboarding-metrics'],
+      appliesTo:
+        'Justifies reading the signed handoff forward before asking the customer anything, and justifies the milestone transition guard requiring recorded completion evidence rather than exhausted tasks.',
+      correction:
+        'Both sources are customer-success vendor content aimed at SaaS businesses, not controlled studies, and neither is authoritative for a project-based professional-services firm. A third-party churn statistic on the HubSpot page was not independently verified and is not repeated here. Gainsight’s metric glossary does not cover "customer effort" at all despite being checked specifically for it.',
+    },
+    {
       id: 'co-lab-never-reask',
       statement:
         'Information already held in the record is never requested from the customer again without a recorded reason.',
@@ -187,7 +209,8 @@ const RAW = {
       escalationCondition: 'Any detected secret in persisted state. Treated as an incident, not a metric.',
       authorityRequired: 4,
       terminalState: 'NEEDS_HUMAN, with an incident record.',
-      verificationTest: 'Pending — scenario not yet authored.',
+      verificationTest:
+        'tests/client-onboarding.test.ts — the secret-screen test submits the reserved TEST_ONLY_SECRET_SENTINEL_DO_NOT_USE sentinel through an ordinary intake field and asserts it appears nowhere in final state or in any rendered decision/summary text.',
     },
     {
       id: 'co-fm-duplicate-resources',
@@ -202,7 +225,8 @@ const RAW = {
       escalationCondition: 'Duplicate resource rate above zero.',
       authorityRequired: 3,
       terminalState: 'No state change; creation recorded as SUPPRESSED_DUPLICATE.',
-      verificationTest: 'Pending — scenario not yet authored.',
+      verificationTest:
+        'tests/client-onboarding.test.ts — the duplicate-provisioning-reconciled scenario redelivers the access-confirmation event; both resources resolve ALREADY_EXISTS_MATCHING the second time and exactly two EXECUTED creations exist across the whole run.',
     },
     {
       id: 'co-fm-contradictory-data',
@@ -216,7 +240,8 @@ const RAW = {
       escalationCondition: 'Any contradiction on a commercially material field.',
       authorityRequired: 2,
       terminalState: 'NEEDS_HUMAN.',
-      verificationTest: 'Pending — scenario not yet authored.',
+      verificationTest:
+        'tests/client-onboarding.test.ts — resolveAuthoritativeValue direct tests prove the precedence gate never lets a signed-agreement value be silently overwritten and never picks a side between two same-rank disagreeing sources; a dedicated scenario-level test then drives the same contradiction through the real handler and asserts it reaches NEEDS_HUMAN with the conflicting field named.',
     },
     {
       id: 'co-fm-repeat-question',
@@ -230,7 +255,8 @@ const RAW = {
       escalationCondition: 'Repeated-information requests above zero.',
       authorityRequired: 3,
       terminalState: 'GAPS_COMPUTED.',
-      verificationTest: 'Pending — scenario not yet authored.',
+      verificationTest:
+        'tests/client-onboarding.test.ts — the signed-client-to-first-value scenario asserts the field already known from the handoff (named-owner) never appears in any "requested" list, and the gap-computation decision explicitly records it as reused.',
     },
     {
       id: 'co-fm-partial-provisioning',
@@ -245,7 +271,8 @@ const RAW = {
       escalationCondition: 'Reconciliation unable to determine what exists.',
       authorityRequired: 2,
       terminalState: 'NEEDS_HUMAN.',
-      verificationTest: 'Pending — scenario not yet authored.',
+      verificationTest:
+        'tests/client-onboarding.test.ts — the partial-provisioning direct test forces one resource attempt to OUTCOME_UNKNOWN while its sibling genuinely succeeds, and asserts the successful resource stays EXECUTED rather than being lost or recreated.',
     },
     {
       id: 'co-fm-timeout',
@@ -259,14 +286,30 @@ const RAW = {
       retryPolicy: 'Bounded attempts, each reconciling before acting.',
       escalationCondition: 'Reconciliation cannot determine whether the resource exists.',
       authorityRequired: 2,
-      terminalState: 'PROVISIONING retained, or NEEDS_HUMAN when reconciliation is inconclusive.',
-      verificationTest: 'Pending \u2014 scenario not yet authored.',
+      terminalState: 'NEEDS_HUMAN when reconciliation cannot confirm the outcome.',
+      verificationTest:
+        'tests/client-onboarding.test.ts \u2014 the partial-provisioning direct test forces an OUTCOME_UNKNOWN result on one attempt and asserts it is refused rather than assumed successful, routing to NEEDS_HUMAN instead of TASKS_ASSIGNED.',
+    },
+    {
+      id: 'co-fm-scope-drift',
+      class: 'POLICY_VIOLATION',
+      failure: 'A derived onboarding task implies a service or commitment the signed engagement did not buy.',
+      cause: 'Free-text handover notes or an onboarding requirement interpreted generously enough to suggest a bigger program than the one that was signed.',
+      businessImpact: 'The customer receives an implicit commitment nobody with commercial authority actually approved, and delivery is later asked to honour it.',
+      prevention: 'Every derived task is checked against the signed engagement\u2019s service line before it is admitted onto the plan; a task with no implied service is always a standard onboarding necessity and always passes.',
+      detection: 'Task-to-scope comparison at plan derivation.',
+      recovery: 'Refuse the task. It never becomes a client-visible commitment without a person separately approving an amended scope.',
+      escalationCondition: 'Any candidate task whose implied service differs from the signed engagement.',
+      authorityRequired: 2,
+      terminalState: 'CONTEXT_LOADED; the refused task never enters the plan.',
+      verificationTest:
+        'tests/client-onboarding.test.ts \u2014 admitOnboardingTask is exercised directly against a synthetic task implying a service line the signed handoff did not buy, and is refused by name; the same gate runs for real over every task in each scenario\u2019s derived plan.',
     },
   ],
 
-  maturity: 'CONCEPT',
+  maturity: 'SIMULATED',
   fidelityNote:
-    'Business canon, lifecycle graph, metrics, standards, and failure modes are defined and validated. No executable scenario exists yet, so nothing in this system runs. Labelled CONCEPT rather than SIMULATED until a scenario replays through the engine.',
+    'Two scenarios replay through the same engine core the first three systems proved: a signed engagement (continuing Call-to-Proposal’s own Bramwell Data opportunity, not a fresh fixture) carries its commercial context forward, requests only the two genuinely missing categories of information — ordinary fields and, separately, secure access — provisions its delivery resources exactly once, and reaches a first-value milestone that requires recorded completion evidence while one unrelated task is still open. A second scenario redelivers the access-confirmation event and shows both a resource-provisioning port and the core lifecycle engine independently refusing to duplicate the same outcome, for two different reasons. A draft or despatched proposal is not sufficient authority to begin onboarding; only a payload asserting kind=SIGNED_AGREEMENT is. Resource provisioning introduced a genuine third port — see STATUS.md for why SideEffectExecutor’s retry-safety contract does not fit an operation that is safe to repeat by construction. As with the first three systems, nothing here is live: no resource was created anywhere real, no model was called, and the business is fictional.',
 } satisfies Parameters<typeof SystemDefinitionSchema.parse>[0];
 
 export const CLIENT_ONBOARDING: SystemDefinition = SystemDefinitionSchema.parse(RAW);
