@@ -47,7 +47,7 @@ Then open the printed URL. Eleven incidents across four systems replay through t
 npm run verify
 ```
 
-Typecheck, lint, and 270 tests. The interesting ones are not smoke tests:
+Typecheck, lint, and 280 tests. The interesting ones are not smoke tests:
 
 | Test | Asserts |
 | --- | --- |
@@ -55,7 +55,8 @@ Typecheck, lint, and 270 tests. The interesting ones are not smoke tests:
 | `tests/dormant-pipeline-recovery.test.ts` | The re-entry reason is a genuine date comparison, never a narrated yes; suppression is evaluated before any re-entry reason and produces zero side effects when it applies |
 | `tests/call-to-proposal.test.ts` | Every admitted buyer fact cites a real transcript passage; a claim asserting scope with **zero** citations is refused before a draft can exist; a stale approval does not authorise a revised artifact; a claim stating a prohibited commitment is blocked regardless of source |
 | `tests/extraction-provider.test.ts` | A citation pointing at a segment the transcript never supplied is refused at the port boundary — a malformed evidence reference cannot silently validate a buyer claim |
-| `tests/client-onboarding.test.ts` | A field already known from the signed handoff is never re-requested; a reserved secret sentinel submitted through an ordinary field never persists or renders anywhere; an existing resource with a different desired state is never overwritten; a same-rank contradiction routes to a person, never resolved by recency |
+| `tests/client-onboarding.test.ts` | A field already known from the signed handoff is never re-requested; a reserved secret sentinel submitted through an ordinary intake field *or* as an access-grant channel reference never persists, renders, or gets marked confirmed/complete; an existing resource with a different desired state is never overwritten; a same-rank contradiction routes to a person, never resolved by recency |
+| `tests/handoff-boundary.test.ts` | The System 3 → 4 handoff translator reproduces exactly the fixture Client Onboarding consumes when re-run live against Call-to-Proposal's own scenario, and changes when an admitted claim changes; a proposal blocked at `NEEDS_HUMAN` or a stale approval produces **no** handoff at all; a translated handoff cannot expand signed scope and still authorises onboarding through to first value end to end |
 | `tests/resource-provisioner.test.ts` | `ensure()` genuinely compares desired-state fingerprints rather than reciting a scripted outcome; no external id is ever fabricated |
 | `tests/engine.test.ts` | An undeclared transition is rejected and the state does not move; no transition can leave a terminal state; a naive retry on an unresolved uncertain outcome is refused by the core; a PROVISION effect never claims the single-shot idempotency ledger a SEND effect does |
 | `tests/side-effect-executor.test.ts` | The provider port never fabricates an external id, and converts every provider failure into data rather than throwing |

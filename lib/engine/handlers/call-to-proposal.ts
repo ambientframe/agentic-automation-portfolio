@@ -257,7 +257,13 @@ export function canDeliver(artifact: ProposalArtifact): boolean {
 const CLAIMS_FACT_KEY = 'commercialRecordClaimsJson';
 const ARTIFACT_FACT_KEY = 'proposalArtifactJson';
 
-function readClaims(facts: Readonly<Record<string, string>>): Claim[] {
+/**
+ * Exported (unlike the `write*` half below) because this is the read side of the System
+ * 3 -> System 4 boundary: `lib/engine/handoffs/proposal-to-onboarding-handoff.ts` reads
+ * the claims this system itself admitted, rather than a caller re-typing them. See that
+ * file for why the boundary reads through here instead of duplicating the fact-key shape.
+ */
+export function readClaims(facts: Readonly<Record<string, string>>): Claim[] {
   const raw = facts[CLAIMS_FACT_KEY];
   return raw === undefined ? [] : (JSON.parse(raw) as Claim[]);
 }
@@ -266,7 +272,8 @@ function writeClaims(claims: readonly Claim[]): Record<string, string> {
   return { [CLAIMS_FACT_KEY]: JSON.stringify(claims) };
 }
 
-function readArtifact(facts: Readonly<Record<string, string>>): ProposalArtifact | null {
+/** Exported for the same reason as `readClaims` above. */
+export function readArtifact(facts: Readonly<Record<string, string>>): ProposalArtifact | null {
   const raw = facts[ARTIFACT_FACT_KEY];
   return raw === undefined ? null : (JSON.parse(raw) as ProposalArtifact);
 }

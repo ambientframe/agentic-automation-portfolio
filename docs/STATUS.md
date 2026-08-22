@@ -1,7 +1,9 @@
 # Status
 
-**As of 2026-08-22 · Client Onboarding Operator — the first cross-system handoff, and a
-third port for a problem shape neither existing port fit**
+**As of 2026-08-22 · Client Onboarding Operator — the first cross-system handoff, a third
+port for a problem shape neither existing port fit, and a fidelity-closure pass proving
+that handoff is translated from authoritative upstream state rather than merely
+resembling it**
 
 ## Portfolio maturity
 
@@ -31,8 +33,56 @@ a coordinated operating environment without losing context, re-asking for what i
 known, duplicating infrastructure, or mishandling a credential. The central risk this pass
 tests is not "did we assert something nobody said" but "did we lose, duplicate, or leak
 something we already had." It is also the portfolio's first genuine cross-system test: the
-handoff into this system is authored to continue Call-to-Proposal's own Bramwell Data
-opportunity rather than a fresh, disconnected fixture.
+handoff into this system continues Call-to-Proposal's own Bramwell Data opportunity rather
+than a fresh, disconnected fixture — and, as of this pass, is provably *translated* from
+Call-to-Proposal's authoritative admitted claims rather than merely narrated to resemble
+them (see "Cross-system boundary closure" below).
+
+## Cross-system boundary closure (this pass)
+
+A red-team of the existing handoff found that, despite the continuity claim above being
+true at the level of values matching, nothing in the codebase actually computed the
+handoff from Call-to-Proposal's own engine output — `BRAMWELL_HANDOFF` in
+`data/profiles/kestrel/scenarios/client-onboarding.ts` was a hand-typed object literal
+authored to look consistent with Call-to-Proposal's Bramwell scenario, including several
+prose fields (`scopeSummary`, `exclusions`, `customerCommitments`, `successCriteria`) with
+no code-level connection to any `Claim` Call-to-Proposal actually admitted. One of those
+fields had silently drifted into a real defect: the original `customerCommitments`
+asserted "provide read-only access to in-scope systems," a fact the Bramwell transcript
+never established — exactly the unsupported-inference failure mode Call-to-Proposal's own
+`admitClaim` gate exists to catch, reintroduced because this fixture was typed by hand
+instead of derived from an admitted claim.
+
+This pass closes that gap with the smallest contract the repository's own constraints
+allow: `lib/engine/handoffs/proposal-to-onboarding-handoff.ts` exports
+`exportSignedEngagementHandoff`, a pure function (no new port — both sides are already
+fully resolved engine output by the time it runs) that reads Call-to-Proposal's own
+`ProposalArtifact` and `Claim[]` (via two functions on `call-to-proposal.ts` promoted from
+private to exported for exactly this read) and either refuses — for a draft, an
+unsupported claim, a stale approval, or an approved artifact missing a claim field the
+translation needs — or produces a `SignedEngagementHandoff` whose commercially meaningful
+fields are each traceable to a specific admitted claim or the seller's own catalog/profile
+data, never re-typed prose. `client-onboarding.ts` still imports nothing from
+`call-to-proposal.ts`; only this new boundary file is allowed to know about both systems'
+shapes. `data/profiles/kestrel/scenarios/client-onboarding.ts` keeps `BRAMWELL_HANDOFF` as
+a pinned literal — the fixture stays a synchronous data module, and no runtime coupling was
+introduced between the two handlers — but `tests/handoff-boundary.test.ts` re-runs
+Call-to-Proposal's own Bramwell scenario live on every test run and asserts the translation
+equals that literal exactly, plus drives a live-translated handoff through Client
+Onboarding to `FIRST_VALUE_REACHED` end to end. Edit Call-to-Proposal's Bramwell scenario
+and this test fails until the pinned fixture is updated to match, rather than silently
+diverging.
+
+The same red-team pass on the secure-access model found a second, independent gap: the
+secret-pattern screen (`screenForSecretLikeContent`) was applied to ordinary customer-intake
+values but never to an `access.grant.confirmed` event's `externalReference` — a field typed
+as a bare non-empty string with nothing stopping a secret-shaped value from being persisted
+as a `SecureAccessRequirement.channelReference` and rendered into decision text. Fixed in
+`handleAccessGrantConfirmed`: a secret-shaped reference is now screened, withheld exactly
+like a leaked intake value, and its access requirement is never marked `CONFIRMED` nor its
+task marked `COMPLETE` on the strength of it. The `SecureAccessRequirement` type itself
+needed no change — it already modelled requirement/reference/status/owner rather than the
+secret value; this was a control-flow gap, not a type-shape gap.
 
 ## What is REAL
 
@@ -189,7 +239,10 @@ Everything else stayed exactly as domain-specific as the first three systems' ow
   exactly one system consumes the handoff contract today, and designing a shared
   cross-system envelope now would be guessing at a shape a fifth or sixth system might need.
   The coupling to Call-to-Proposal's own Bramwell scenario is matching fixture data, not a
-  code import; `client-onboarding.ts` imports nothing from `call-to-proposal.ts`.
+  code import; `client-onboarding.ts` imports nothing from `call-to-proposal.ts`. As of this
+  pass that fixture data is provably derived, not merely narrated to match — see
+  "Cross-system boundary closure" above and `lib/engine/handoffs/proposal-to-onboarding-handoff.ts`,
+  the one file allowed to know about both systems' shapes.
 - **Payload-schema duplication continues**, matching the existing three handlers' own choice
   to stay dependency-light on engine orchestration.
 - **Four transitions remain declared but unexercised**: the two wait-elapsed edges
@@ -201,7 +254,7 @@ Everything else stayed exactly as domain-specific as the first three systems' ow
 ## Verification
 
 ```
-npm run verify     # typecheck + lint + 270 tests
+npm run verify     # typecheck + lint + 280 tests
 npm run build      # 21 pages prerender; the engine executes at build time
 npm run docs       # regenerate canon from the model
 ```
@@ -223,10 +276,19 @@ whole point of that scenario.
 3. **Four Client Onboarding transitions are declared but unexercised**: `co-t07`/`co-t09`
    (wait-elapsed timeouts) have no driving event, and `BLOCKED` itself — `co-t13` in,
    `co-t14`/`co-t15` out — is never reached by either scenario. All three are small,
-   well-scoped additions to the existing handler, not a redesign.
-4. **The declared AI-judgment surfaces are not exercised.** Both scenarios use structured,
-   schema-validated intake; neither `DecisionProvider` nor `ExtractionProvider` is invoked by
-   this system this pass, despite two `aiJudgments` being declared in its canon.
+   well-scoped additions to the existing handler, not a redesign. This pass's boundary-closure
+   and secure-access work were checked for a natural `BLOCKED` fit and did not find one — every
+   corruption path they exercise resolves to a validation refusal or `NEEDS_HUMAN`, not a
+   "waiting on something outside the system's control" condition — so this remains open rather
+   than being forced.
+4. **One of two declared AI-judgment surfaces is not exercised.** Both scenarios use
+   structured, schema-validated intake, so `DecisionProvider`/`ExtractionProvider` are not
+   invoked. This pass narrowed the free-text-interpretation judgment's own canon wording to
+   state explicitly that it does not apply when the inbound handoff is already a structured,
+   translated artifact — which this pass just proved is the Bramwell path — rather than leaving
+   the canon implying a judgment this system's real behaviour never actually calls. The second
+   judgment (interpreting whether a customer reply supplies a requested item) remains genuinely
+   open and unrelated to this pass's scope.
 5. **The scope-drift and precedence gates cover one field pattern each.** `admitOnboardingTask`
    and `resolveAuthoritativeValue` are proven correct and are exercised for real, but a
    production system would need more than one synthetic drifting-task shape and more than
@@ -237,6 +299,12 @@ whole point of that scenario.
    close to `PARTIALLY_LIVE`.
 
 ## Single recommended next fidelity gap
+
+This pass closed the cross-system boundary gap and a secret-screening gap in the
+secure-access path, both found by direct red-team rather than assumed in advance; it
+deliberately left `BLOCKED` deferred (see gap 3 above) rather than forcing an artificial
+fixture unrelated to boundary-contract fidelity. The prior recommendation therefore still
+holds, now with a fifth data point:
 
 Three comparable options, now with a fourth data point on how the architecture behaves
 under load:

@@ -425,7 +425,7 @@ Coverage: 23 distinct failure classes across 43 entries.
 | **Escalates when** | Any detected secret in persisted state. Treated as an incident, not a metric. |
 | **Authority required** | 4 · EXECUTE AND MANAGE BOUNDED DOWNSTREAM CONSEQUENCES |
 | **Resolves into** | NEEDS_HUMAN, with an incident record. |
-| **Verification** | tests/client-onboarding.test.ts — the secret-screen test submits the reserved TEST_ONLY_SECRET_SENTINEL_DO_NOT_USE sentinel through an ordinary intake field and asserts it appears nowhere in final state or in any rendered decision/summary text. |
+| **Verification** | tests/client-onboarding.test.ts — the secret-screen test submits the reserved TEST_ONLY_SECRET_SENTINEL_DO_NOT_USE sentinel through an ordinary intake field, and a second test submits it as an access-grant channel reference; both assert it appears nowhere in final state or in any rendered decision/summary text, and that the corresponding requirement is never marked confirmed or complete on the strength of the withheld value. |
 
 ### RETRY DUPLICATE SIDE EFFECT — Re-running onboarding creates a second project, folder, or task list.
 

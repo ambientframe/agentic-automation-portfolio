@@ -296,6 +296,45 @@ describe('Client Onboarding — direct behavioural tests', () => {
     expect(screenForSecretLikeContent('TEST_ONLY_SECRET_SENTINEL_DO_NOT_USE')).not.toBeNull();
   });
 
+  it('secret screen: a secret-shaped access-grant reference is refused as a channel reference, never confirmed or completed', async () => {
+    const scenario = {
+      ...scenarioA,
+      id: 'co-scenario-access-secret-leak-test',
+      slug: 'co-access-secret-leak-test',
+      events: [
+        scenarioA.events[0]!,
+        scenarioA.events[1]!,
+        {
+          ...scenarioA.events[2]!,
+          payload: {
+            confirmedBy: 'granting-system:bramwell-identity',
+            grants: [
+              { requirementId: 'cloud-access', externalReference: 'TEST_ONLY_SECRET_SENTINEL_DO_NOT_USE' },
+              { requirementId: 'idp-access', externalReference: 'okta-app-integration:kestrel-readonly' },
+              { requirementId: 'scm-access', externalReference: 'github-app-install:kestrel-readonly' },
+            ],
+            provisionAttempts: (scenarioA.events[2]!.payload as { provisionAttempts: unknown }).provisionAttempts,
+          },
+        },
+      ],
+      expectedFinalState: 'TASKS_ASSIGNED',
+    };
+
+    const run = await runClientOnboarding(scenario);
+
+    const serializedFacts = JSON.stringify(run.finalState.facts);
+    expect(serializedFacts).not.toContain('TEST_ONLY_SECRET_SENTINEL_DO_NOT_USE');
+    const serializedTimeline = JSON.stringify(run.decisions) + JSON.stringify(run.timeline.map((t) => t.summary));
+    expect(serializedTimeline).not.toContain('TEST_ONLY_SECRET_SENTINEL_DO_NOT_USE');
+
+    const access = JSON.parse(run.finalState.facts['secureAccessJson'] ?? '{}') as Record<string, { status: string }>;
+    expect(access['cloud-access']?.status).toBe('REQUESTED'); // never advanced to CONFIRMED on the strength of a withheld value
+    expect(access['idp-access']?.status).toBe('CONFIRMED');
+
+    const tasks = JSON.parse(run.finalState.facts['onboardingTasksJson'] ?? '[]') as { id: string; status: string }[];
+    expect(tasks.find((t) => t.id === 'request-access-cloud-access')?.status).not.toBe('COMPLETE');
+  });
+
   it('an existing conflicting resource is never blindly overwritten', async () => {
     const workspaceKey = 'onboarding:eng-bramwell:workspace';
     const provisioner = new FixtureResourceProvisioner({

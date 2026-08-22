@@ -1165,7 +1165,21 @@ function handleAccessGrantConfirmed(ctx: HandlerContext): HandlerOutcome {
   const { confirmedBy, grants, provisionAttempts } = parsed.data;
   const access = readAccess(state.facts);
   const nextAccess: Record<string, SecureAccessRequirement> = { ...access };
+  // `externalReference` is a reference INTO the granting system (e.g. an IAM role arn or
+  // an app-integration id), never the credential itself — but the payload only requires a
+  // non-empty string, so nothing upstream of this screen stops a secret-shaped value from
+  // arriving here instead of a genuine reference. This is the same gate
+  // `handleCustomerIntakeSupplied` already runs on `item.value`; a generic access-grant
+  // field cannot become trusted canonical state by holding a secret-shaped value either.
+  const leakedGrants: { requirementId: string; reason: string }[] = [];
+  const confirmedGrants: typeof grants = [];
   for (const g of grants) {
+    const secretReason = screenForSecretLikeContent(g.externalReference);
+    if (secretReason !== null) {
+      leakedGrants.push({ requirementId: g.requirementId, reason: secretReason });
+      continue;
+    }
+    confirmedGrants.push(g);
     const existing = nextAccess[g.requirementId];
     if (existing !== undefined) {
       nextAccess[g.requirementId] = { ...existing, status: 'CONFIRMED', channelReference: g.externalReference };
@@ -1178,7 +1192,10 @@ function handleAccessGrantConfirmed(ctx: HandlerContext): HandlerOutcome {
       label: 'Access confirmed',
       atOffsetSeconds: 0,
       transitionTo: 'PROVISIONING',
-      summary: `${grants.length} access grant(s) confirmed by the granting system(s), read from that system rather than asserted by the requester.`,
+      summary:
+        leakedGrants.length === 0
+          ? `${grants.length} access grant(s) confirmed by the granting system(s), read from that system rather than asserted by the requester.`
+          : `${confirmedGrants.length} access grant(s) confirmed. ${leakedGrants.length} carried a secret-shaped reference and were withheld — see the secret-handling decision below.`,
       decisions: [
         decision({
           id: id('d-access-confirmed'),
@@ -1187,10 +1204,13 @@ function handleAccessGrantConfirmed(ctx: HandlerContext): HandlerOutcome {
           objective: 'Confirm access from the granting system’s own record before beginning resource provisioning.',
           relevantState: 'ACCESS_REQUESTED',
           evidenceRefs: [`event.payload.confirmedBy=${confirmedBy}`],
-          deterministicFacts: grants.map((g) => ({ label: g.requirementId, value: `confirmed via ${g.externalReference}` })),
+          deterministicFacts: confirmedGrants.map((g) => ({ label: g.requirementId, value: `confirmed via ${g.externalReference}` })),
           missingInformation: [],
           permittedActions: ['begin_provisioning'],
-          forbiddenActions: ['trust_a_customer_claim_of_access_without_granting_system_confirmation'],
+          forbiddenActions: [
+            'trust_a_customer_claim_of_access_without_granting_system_confirmation',
+            'persist_a_secret_shaped_reference_as_a_channel_reference',
+          ],
           selectedAction: 'begin_provisioning',
           applicablePolicy: ['Confirmation is read from the granting system, never asserted by the requester.'],
           authority: 3,
@@ -1201,6 +1221,37 @@ function handleAccessGrantConfirmed(ctx: HandlerContext): HandlerOutcome {
       statePatch: { facts: { [ACCESS_FACT_KEY]: JSON.stringify(nextAccess) } },
     },
   ];
+
+  if (leakedGrants.length > 0) {
+    steps.push({
+      id: id('access-secret-handling'),
+      label: 'Secret-like content intercepted',
+      atOffsetSeconds: 1,
+      summary: `${leakedGrants.length} access-grant reference(s) matched a secret-like pattern and were refused as an ordinary channel reference: ${leakedGrants.map((l) => l.requirementId).join(', ')}. ${REDACTED}`,
+      decisions: [
+        decision({
+          id: id('d-access-secret-handling'),
+          eventId: event.eventId,
+          mechanism: 'DETERMINISTIC_RULE',
+          objective: 'Ensure a secret-shaped value submitted as a granting-system reference is never persisted as a channel reference.',
+          relevantState: 'ACCESS_REQUESTED',
+          evidenceRefs: leakedGrants.map((l) => `grant.${l.requirementId}`),
+          deterministicFacts: leakedGrants.map((l) => ({ label: l.requirementId, value: `${REDACTED} (${l.reason})` })),
+          missingInformation: leakedGrants.map((l) => l.requirementId),
+          permittedActions: ['route_to_secure_handling'],
+          forbiddenActions: ['persist_raw_secret_value', 'render_raw_secret_value', 'confirm_access_on_a_secret_shaped_reference'],
+          selectedAction: 'route_to_secure_handling',
+          applicablePolicy: [
+            'co-fm-credential-leak: client credentials submitted through an ordinary field are never captured into workflow state.',
+          ],
+          escalationReason: `Secret-like value submitted as a channel reference for: ${leakedGrants.map((l) => l.requirementId).join(', ')}.`,
+          authority: 4,
+        }),
+      ],
+      effects: [],
+      verifications: [],
+    });
+  }
 
   // --- Propose one RESOURCE_PROVISION effect per declared attempt -----------
   const effects: ProposedEffect[] = provisionAttempts.map((a) => ({
@@ -1289,7 +1340,7 @@ function handleAccessGrantConfirmed(ctx: HandlerContext): HandlerOutcome {
   // leaving `deliver-initial-gap-baseline` permanently blocked on tasks nothing ever closes.
   const tasks = markTasksComplete(readTasks(state.facts), [
     'provision-workspace',
-    ...grants.map((g) => `request-access-${g.requirementId}`),
+    ...confirmedGrants.map((g) => `request-access-${g.requirementId}`),
   ]);
   const unowned = tasks.filter((t) => t.owner.trim().length === 0);
 
