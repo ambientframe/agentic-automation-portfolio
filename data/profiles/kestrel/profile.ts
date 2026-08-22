@@ -534,6 +534,25 @@ const RAW = {
       appliesTo:
         'Client Onboarding Operator access provisioning. Implements the secrets-handling evidence standard as a concrete firm rule.',
     },
+    {
+      id: 'kestrel-analysis-freshness',
+      statement:
+        'A contributing input is not used in an owner-facing analysis once it is older than the configured staleness tolerance. The window is held rather than concluded on a stale read.',
+      provenance: 'CLIENT_POLICY',
+      verification: 'NOT_APPLICABLE',
+      sourceIds: [],
+      appliesTo: 'Owner Revenue Intelligence freshness gate, evaluated before any variance comparison.',
+    },
+    {
+      id: 'kestrel-exception-materiality',
+      statement:
+        'A metric’s period-over-period variance must exceed the configured materiality threshold before it is treated as an exception candidate rather than normal variation.',
+      provenance: 'CLIENT_POLICY',
+      verification: 'NOT_APPLICABLE',
+      sourceIds: [],
+      appliesTo:
+        'Owner Revenue Intelligence exception-candidate threshold, which keeps ordinary variation from being surfaced as a false alarm.',
+    },
   ],
 
   operatingParameters: [
@@ -546,6 +565,8 @@ const RAW = {
     { key: 'dormantCoolingOffDays', label: 'Cooling-off before re-entry', value: 90, unit: 'days', policyId: 'kestrel-outreach-cadence' },
     { key: 'collectionEscalationDays', label: 'Escalation to founder past due', value: 45, unit: 'days past due', policyId: 'kestrel-collection-cadence' },
     { key: 'proposalAuthorityCeiling', label: 'Maximum authority for outbound commercial documents', value: 2, unit: 'authority level', policyId: 'kestrel-proposal-authority' },
+    { key: 'inputStalenessToleranceHours', label: 'Analysis input staleness tolerance', value: 96, unit: 'hours', policyId: 'kestrel-analysis-freshness' },
+    { key: 'exceptionVarianceThresholdPct', label: 'Exception-candidate variance threshold', value: 12, unit: 'percent', policyId: 'kestrel-exception-materiality' },
   ],
 } satisfies Parameters<typeof BusinessProfileSchema.parse>[0];
 

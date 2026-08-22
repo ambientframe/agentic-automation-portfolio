@@ -620,7 +620,7 @@ Coverage: 23 distinct failure classes across 43 entries.
 | **Escalates when** | Repeated staleness from the same source. |
 | **Authority required** | 1 · RECOMMEND |
 | **Resolves into** | STALE_DATA_FLAGGED, then INSUFFICIENT_EVIDENCE. |
-| **Verification** | Pending — scenario not yet authored. |
+| **Verification** | tests/owner-revenue-intelligence.test.ts — the stale-concentration-read scenario blocks on a first read older than the configured tolerance; a direct test drives a second refresh attempt that is still stale and asserts it resolves to INSUFFICIENT_EVIDENCE rather than concluding on a partial refresh. |
 
 ### AI UNSUPPORTED INFERENCE — A narrative asserts why a metric moved without evidence for that cause.
 
@@ -634,7 +634,7 @@ Coverage: 23 distinct failure classes across 43 entries.
 | **Escalates when** | Any unsupported causal claim reaching the owner. |
 | **Authority required** | 1 · RECOMMEND |
 | **Resolves into** | EXCEPTION_SURFACED without a causal claim. |
-| **Verification** | Pending — scenario not yet authored. |
+| **Verification** | tests/owner-revenue-intelligence.test.ts — the cash-collection scenario asserts the bounded judgment’s decision record forbids asserting a cause or presenting the recommendation as fact, and carries a non-empty "declined to infer" list rather than a determined root cause. |
 
 ### CONTRADICTORY DATA — The same metric name resolves to different figures in different systems.
 
@@ -676,4 +676,4 @@ Coverage: 23 distinct failure classes across 43 entries.
 | **Escalates when** | Any blocked aggregation, since it indicates a metric was specified without checking its inputs. |
 | **Authority required** | 2 · PREPARE / HUMAN APPROVES |
 | **Resolves into** | INSUFFICIENT_EVIDENCE, recorded as blocked by policy. |
-| **Verification** | Pending — scenario not yet authored. |
+| **Verification** | tests/owner-revenue-intelligence.test.ts — a direct test supplies a corroborating observation flagged as requiring cross-client aggregation and asserts it is excluded before comparison, resolving to INSUFFICIENT_EVIDENCE at authority level 2 with the confidentiality policy named in the decision record, rather than composed into the metric. |

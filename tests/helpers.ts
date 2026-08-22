@@ -5,12 +5,13 @@ import {
 } from '@/data/profiles/kestrel/scenarios/lead-rescue';
 import { CALL_TO_PROPOSAL_EXTRACTIONS } from '@/data/profiles/kestrel/scenarios/call-to-proposal';
 import { RECEIVABLES_RECOVERY_EXTRACTIONS } from '@/data/profiles/kestrel/scenarios/receivables-recovery';
-import { LEAD_RESCUE, DORMANT_PIPELINE_RECOVERY, CALL_TO_PROPOSAL, CLIENT_ONBOARDING, RECEIVABLES_RECOVERY } from '@/data/systems';
+import { LEAD_RESCUE, DORMANT_PIPELINE_RECOVERY, CALL_TO_PROPOSAL, CLIENT_ONBOARDING, RECEIVABLES_RECOVERY, OWNER_REVENUE_INTELLIGENCE } from '@/data/systems';
 import { LEAD_RESCUE_HANDLERS } from '@/lib/engine/handlers/lead-rescue';
 import { DORMANT_PIPELINE_RECOVERY_HANDLERS } from '@/lib/engine/handlers/dormant-pipeline-recovery';
 import { CALL_TO_PROPOSAL_HANDLERS } from '@/lib/engine/handlers/call-to-proposal';
 import { CLIENT_ONBOARDING_HANDLERS } from '@/lib/engine/handlers/client-onboarding';
 import { RECEIVABLES_RECOVERY_HANDLERS } from '@/lib/engine/handlers/receivables-recovery';
+import { OWNER_REVENUE_INTELLIGENCE_HANDLERS } from '@/lib/engine/handlers/owner-revenue-intelligence';
 import { runScenario } from '@/lib/engine/run';
 import type { EngineRun } from '@/lib/engine/types';
 import type { Scenario } from '@/lib/model/runtime';
@@ -78,5 +79,15 @@ export async function runReceivablesRecovery(scenario: Scenario): Promise<Engine
     handlers: RECEIVABLES_RECOVERY_HANDLERS,
     provider: new FixtureDecisionProvider(scenario.judgments),
     extractionProvider: new FixtureExtractionProvider(RECEIVABLES_RECOVERY_EXTRACTIONS),
+  });
+}
+
+/** Runs an Owner Revenue Intelligence scenario exactly as the application does. */
+export async function runOwnerRevenueIntelligence(scenario: Scenario): Promise<EngineRun> {
+  return runScenario(scenario, {
+    system: OWNER_REVENUE_INTELLIGENCE,
+    profile: KESTREL,
+    handlers: OWNER_REVENUE_INTELLIGENCE_HANDLERS,
+    provider: new FixtureDecisionProvider(scenario.judgments),
   });
 }

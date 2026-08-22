@@ -179,7 +179,8 @@ const RAW = {
       escalationCondition: 'Repeated staleness from the same source.',
       authorityRequired: 1,
       terminalState: 'STALE_DATA_FLAGGED, then INSUFFICIENT_EVIDENCE.',
-      verificationTest: 'Pending — scenario not yet authored.',
+      verificationTest:
+        'tests/owner-revenue-intelligence.test.ts — the stale-concentration-read scenario blocks on a first read older than the configured tolerance; a direct test drives a second refresh attempt that is still stale and asserts it resolves to INSUFFICIENT_EVIDENCE rather than concluding on a partial refresh.',
     },
     {
       id: 'or-fm-unsupported-causal',
@@ -193,7 +194,8 @@ const RAW = {
       escalationCondition: 'Any unsupported causal claim reaching the owner.',
       authorityRequired: 1,
       terminalState: 'EXCEPTION_SURFACED without a causal claim.',
-      verificationTest: 'Pending — scenario not yet authored.',
+      verificationTest:
+        'tests/owner-revenue-intelligence.test.ts — the cash-collection scenario asserts the bounded judgment’s decision record forbids asserting a cause or presenting the recommendation as fact, and carries a non-empty "declined to infer" list rather than a determined root cause.',
     },
     {
       id: 'or-fm-metric-ambiguity',
@@ -235,13 +237,14 @@ const RAW = {
       escalationCondition: 'Any blocked aggregation, since it indicates a metric was specified without checking its inputs.',
       authorityRequired: 2,
       terminalState: 'INSUFFICIENT_EVIDENCE, recorded as blocked by policy.',
-      verificationTest: 'Pending — scenario not yet authored.',
+      verificationTest:
+        'tests/owner-revenue-intelligence.test.ts — a direct test supplies a corroborating observation flagged as requiring cross-client aggregation and asserts it is excluded before comparison, resolving to INSUFFICIENT_EVIDENCE at authority level 2 with the confidentiality policy named in the decision record, rather than composed into the metric.',
     },
   ],
 
-  maturity: 'CONCEPT',
+  maturity: 'SIMULATED',
   fidelityNote:
-    'Business canon, lifecycle graph, metrics, standards, and failure modes are defined and validated. No executable scenario exists yet, so nothing in this system runs. Labelled CONCEPT rather than SIMULATED until a scenario replays through the engine.',
+    'Two scenarios replay through the same engine core the first five systems proved, closing the horizontal portfolio. A complex path shows the point of the canon’s single bounded-judgment transition: cash collected falls sharply while revenue invoiced holds steady, which read alone would misdiagnose as a demand problem; the variance is only surfaced once an independent source — days sales outstanding, reported by a different system — corroborates that collection quality, not demand, is worsening. The bounded judgment then composes a plain-language explanation and one recommendation from a small closed set, both structurally marked as a recommendation rather than fact, and the owner records a decision against the evidence that produced it. A guardrail path shows an input older than the configured staleness tolerance blocking the conclusion outright, then a refreshed read landing well inside the configured materiality threshold and being correctly left alone rather than surfaced as a false alarm — reusing the business profile’s own declared referral-partner concentration figure as the metric under evaluation. Corroboration that disagrees in direction, and a candidate corroborating source that would require aggregating data across client accounts, each independently resolve to insufficient evidence rather than a surfaced exception, the latter citing the confidentiality policy the profile had already declared for exactly this system before this pass began. As with the first five systems, nothing here is live: no notification left this process, no model was called, and the business and its figures are fictional.',
 } satisfies Parameters<typeof SystemDefinitionSchema.parse>[0];
 
 export const OWNER_REVENUE_INTELLIGENCE: SystemDefinition = SystemDefinitionSchema.parse(RAW);

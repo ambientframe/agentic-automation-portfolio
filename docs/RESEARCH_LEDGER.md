@@ -383,3 +383,5 @@ engine actually compares against is linked to the policy it implements.
 | Cooling-off before re-entry | 90 | days | `kestrel-outreach-cadence` |
 | Escalation to founder past due | 45 | days past due | `kestrel-collection-cadence` |
 | Maximum authority for outbound commercial documents | 2 | authority level | `kestrel-proposal-authority` |
+| Analysis input staleness tolerance | 96 | hours | `kestrel-analysis-freshness` |
+| Exception-candidate variance threshold | 12 | percent | `kestrel-exception-materiality` |

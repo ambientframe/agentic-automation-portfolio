@@ -18,12 +18,14 @@ import {
   RECEIVABLES_RECOVERY_EXTRACTIONS,
   RECEIVABLES_RECOVERY_SCENARIOS,
 } from '@/data/profiles/kestrel/scenarios/receivables-recovery';
-import { LEAD_RESCUE, DORMANT_PIPELINE_RECOVERY, CALL_TO_PROPOSAL, CLIENT_ONBOARDING, RECEIVABLES_RECOVERY } from '@/data/systems';
+import { OWNER_REVENUE_INTELLIGENCE_SCENARIOS } from '@/data/profiles/kestrel/scenarios/owner-revenue-intelligence';
+import { LEAD_RESCUE, DORMANT_PIPELINE_RECOVERY, CALL_TO_PROPOSAL, CLIENT_ONBOARDING, RECEIVABLES_RECOVERY, OWNER_REVENUE_INTELLIGENCE } from '@/data/systems';
 import { LEAD_RESCUE_HANDLERS } from '@/lib/engine/handlers/lead-rescue';
 import { DORMANT_PIPELINE_RECOVERY_HANDLERS } from '@/lib/engine/handlers/dormant-pipeline-recovery';
 import { CALL_TO_PROPOSAL_HANDLERS } from '@/lib/engine/handlers/call-to-proposal';
 import { CLIENT_ONBOARDING_HANDLERS } from '@/lib/engine/handlers/client-onboarding';
 import { RECEIVABLES_RECOVERY_HANDLERS } from '@/lib/engine/handlers/receivables-recovery';
+import { OWNER_REVENUE_INTELLIGENCE_HANDLERS } from '@/lib/engine/handlers/owner-revenue-intelligence';
 import type { ExtractionResult } from '@/lib/ports/extraction-provider';
 import type { SystemHandlers } from './types';
 
@@ -88,6 +90,12 @@ export const RUNNABLE_SYSTEMS: readonly RunnableSystem[] = [
     profile: KESTREL,
     scenarios: RECEIVABLES_RECOVERY_SCENARIOS,
     extractions: RECEIVABLES_RECOVERY_EXTRACTIONS,
+  },
+  {
+    system: OWNER_REVENUE_INTELLIGENCE,
+    handlers: OWNER_REVENUE_INTELLIGENCE_HANDLERS,
+    profile: KESTREL,
+    scenarios: OWNER_REVENUE_INTELLIGENCE_SCENARIOS,
   },
 ];
 

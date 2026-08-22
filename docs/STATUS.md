@@ -1,17 +1,16 @@
 # Status
 
-**As of 2026-08-22 · Receivables / Invoice Recovery Agent — the fifth system, and the
-horizontal portfolio's last system built from an already-authored CONCEPT canon rather
-than from nothing**
+**As of 2026-08-22 · Owner Revenue Intelligence Agent — the sixth and final system,
+completing the horizontal portfolio at `SIMULATED`**
 
 ## Portfolio maturity
 
 **INTERACTIVE PROTOTYPE** — the application runs, all six systems are open and inspectable,
-and five of them execute real operating logic: Lead Rescue against five scenarios, Dormant
+and now all six execute real operating logic: Lead Rescue against five scenarios, Dormant
 Pipeline Recovery against two, Call-to-Proposal Revenue Agent against two, Client
-Onboarding Operator against two, and Receivables / Invoice Recovery Agent against two,
-plus one smaller executable path exercising a third declared transition pair in
-Call-to-Proposal.
+Onboarding Operator against two, Receivables / Invoice Recovery Agent against two, and
+Owner Revenue Intelligence Agent against two, plus one smaller executable path exercising
+a third declared transition pair in Call-to-Proposal.
 
 | # | System | Maturity | Runs? |
 | --- | --- | --- | --- |
@@ -20,25 +19,24 @@ Call-to-Proposal.
 | 3 | Call-to-Proposal Revenue Agent | `SIMULATED` | Yes — 2 scenarios execute end to end |
 | 4 | Client Onboarding Operator | `SIMULATED` | Yes — 2 scenarios execute end to end |
 | 5 | Receivables / Invoice Recovery Agent | `SIMULATED` | Yes — 2 scenarios execute end to end |
-| 6 | Owner Revenue Intelligence Agent | `CONCEPT` | No |
+| 6 | Owner Revenue Intelligence Agent | `SIMULATED` | Yes — 2 scenarios execute end to end |
 
-System 6 holds complete, schema-validated canon but no executable scenario, per the same
-rule recorded in [CANON_DIVERGENCES.md §1](CANON_DIVERGENCES.md). It is now the only
-remaining `CONCEPT` system — the horizontal portfolio is one system away from complete.
+**The horizontal portfolio is now complete.** Every system holds schema-validated canon
+and at least one scenario that replays through the shared engine core. This closes the
+build strategy recorded in every prior pass's own "next fidelity gap" section: explore all
+six systems to credible simulated depth before vertically hardening any one of them. What
+comes next is a deliberate portfolio-wide fidelity review, not an assumed Lead Rescue
+feature — see "Single recommended next fidelity gap" below.
 
-**This pass built the fifth system from an already-authored CONCEPT canon**, not from a
-blank page: the lifecycle graph (12 states, 33 transitions), metrics, standards, and
-failure modes for Receivables / Invoice Recovery Agent already existed, written before any
-scenario proved them out. The central question this pass answered was whether that
-pre-authored canon actually held together once forced through a real handler and a real
-scenario — it did, needing zero new lifecycle states or transitions, because the existing
-`ESCALATED`/`DISPUTED` states and a `collectionEscalationDays` parameter the profile had
-already declared were exactly what the handler needed. This is also the portfolio's second
-genuine use of two bounded-judgment ports on the same input: a reply is classified (dispute
-/ promise / neither) through `DecisionProvider`, exactly as Dormant Pipeline Recovery
-established, and — only when it reads as a promise — a committed date is extracted with
-citation through `ExtractionProvider`, exactly as Call-to-Proposal established. Neither
-port changed. See "Receivables / Invoice Recovery Agent — this pass" below.
+**This pass built the sixth system from an already-authored CONCEPT canon**, the same
+starting condition as Receivables one pass ago: the lifecycle graph (12 states, 14
+transitions), metrics, standards, and failure modes for Owner Revenue Intelligence already
+existed. Unlike every prior system, this one needed **zero new lifecycle states,
+transitions, profile schema fields, or ports** — the existing `DecisionProvider` port,
+reused completely unchanged, was sufficient for the system's one bounded-judgment
+transition, and every one of the system's 14 declared transitions is now exercised by a
+scenario or a direct test, a first for this portfolio. See "Owner Revenue Intelligence
+Agent — this pass" below.
 
 ## Cross-system boundary closure (System 3 → 4, prior pass)
 
@@ -128,6 +126,64 @@ lifecycle states, transitions, side-effect kinds, or profile fields were needed:
 canon's existing `ESCALATED` state and the already-declared `collectionEscalationDays`
 operating parameter were sufficient for the day-45 escalation path, exercised directly.
 
+## Owner Revenue Intelligence Agent — this pass
+
+Two scenarios. A complex path (`cash-collection-quietly-worsens`) whose primary signal —
+cash collected falling sharply while revenue invoiced holds steady — would misdiagnose as a
+demand problem if read alone; the exception is only surfaced once an independent source, a
+different reporting system entirely, corroborates that collection quality is genuinely
+worsening. The bounded judgment then composes a plain-language explanation and one
+recommendation from a small closed set, structurally separated from the facts that
+prompted it, and the owner records a decision against the evidence. A guardrail path
+(`stale-concentration-read-dismissed`) reuses the business profile's own declared
+referral-partner concentration figure: a read older than the configured staleness
+tolerance blocks the conclusion outright, and a refreshed read landing well inside the
+configured materiality threshold is correctly left alone rather than surfaced as a false
+alarm.
+
+Genuinely computed, not narrated: freshness is a transition guard, not an annotation — an
+input's age against a configured tolerance decides whether the analysis proceeds at all,
+verified directly by driving a second refresh attempt that is still stale and asserting it
+resolves to `INSUFFICIENT_EVIDENCE` rather than concluding on a partial refresh. Variance
+is a pure percentage computation against a configured materiality threshold. Corroboration
+is a genuine agreement check — a candidate corroborating source is filtered for admissibility
+(a source requiring cross-client aggregation is excluded before the direction check ever
+runs, citing the confidentiality policy the profile had already declared for exactly this
+system) and then checked against its *own* declared worsening direction, not against the
+primary metric's raw sign — the two metrics in the proving scenario move in opposite raw
+directions (cash collected down, days-sales-outstanding up) while genuinely corroborating
+the same underlying condition, which a naive same-sign check would have missed entirely.
+
+Every one of the system's 14 declared transitions is exercised by a scenario or a direct
+test — the two guardrail transitions into `INSUFFICIENT_EVIDENCE` (a disagreeing
+corroborator; a confidentiality-excluded one), the below-confidence-floor hold, and the
+owner dismissing rather than acknowledging a routed recommendation are each proven directly
+rather than through a full scenario, the same "smallest necessary" discipline every prior
+system's gap list already reflects — but this is the first system in the portfolio to reach
+full transition coverage at all.
+
+One port reused with zero changes: `DecisionProvider`, for the single bounded judgment this
+system's canon declares (composing a plain-language explanation and a candidate action from
+a small closed set). No `ExtractionProvider`, no `ResourceProvisioner`, and no
+`SideEffectExecutor` were needed — this system's only side effect is a `NOTIFICATION`
+proposed at authority level 1, which the engine core's own authority gate refuses
+automatically, exactly the structural proof the canon's "authority is capped at RECOMMEND
+for the entire system" guardrail calls for. No new lifecycle states, transitions,
+side-effect kinds, or core engine files were needed: the profile gained two new operating
+parameters (`inputStalenessToleranceHours`, `exceptionVarianceThresholdPct`), each linked to
+a new client policy, and nothing else outside the new handler, scenario, and test files
+changed. Precise cost, across the whole shared engine surface: zero lines, in any of
+`lib/model/`, `lib/engine/reducer.ts`, `lib/engine/run.ts`, or `lib/engine/types.ts`.
+
+Cross-system evidence is used, deliberately, through the narrowest possible seam: the
+window-closed event's observations are authored fixture data carrying their own
+`sourceSystem` label (`accounting-system`, `workflow-store`, `crm`), exactly the same shape
+every other system's events already use to represent a read from an external system of
+record. No other system's handler, scenario, or engine run is imported, executed, or
+otherwise coupled to this one — the narrow-boundary-artifact question the design brief
+posed for this pass resolved to "the existing fixture-event pattern is already sufficient,"
+not to a new abstraction.
+
 ## What is REAL
 
 Real in the sense of *actually executing code*, not *connected to the outside world*.
@@ -137,9 +193,35 @@ Everything already true of Lead Rescue, Dormant Pipeline Recovery, and Call-to-P
 the lifecycle state machine, the idempotency ledger, the event ledger, the authority gate,
 the policy gate, deterministic decisions, schema validation of all canon, profile
 consistency — is unchanged and still holds, and now also holds for Client Onboarding,
-running through the same reducer and the same two-phase runner.
+Receivables / Invoice Recovery, and Owner Revenue Intelligence, all six running through the
+same reducer and the same two-phase runner.
 
-New this pass:
+New this pass (Owner Revenue Intelligence):
+
+- **A freshness gate that genuinely blocks, not annotates.** An input older than the
+  configured tolerance halts the analysis at `STALE_DATA_FLAGGED` before any variance is
+  computed, and a refresh that still cannot establish freshness resolves to
+  `INSUFFICIENT_EVIDENCE` rather than concluding on a partial read — verified directly by
+  driving exactly that sequence.
+- **A genuine per-metric direction check, not a same-sign shortcut.** Corroboration checks
+  whether an independent source moves in *its own* declared worsening direction, not
+  whether its raw sign matches the primary metric's — the proving scenario's two metrics
+  move in opposite raw directions while genuinely agreeing, which a same-sign check would
+  have missed.
+- **A confidentiality gate that excludes evidence before it is ever compared.** A candidate
+  corroborating source flagged as requiring cross-client aggregation is filtered out ahead
+  of the direction check, citing the policy the profile had already declared for exactly
+  this system, and is recorded at authority level 2 rather than silently used.
+- **The authority ceiling enforced structurally, not by handler discipline.** This system's
+  one proposed side effect — notifying the owner — is authority level 1, and the engine
+  core's own authority gate refuses it automatically. No code in this handler decides not
+  to notify; it cannot notify, because nothing above `RECOMMEND` is available to it.
+- **Full transition coverage, a first for this portfolio.** All 14 declared transitions are
+  exercised, most through direct tests rather than a full scenario — the same "smallest
+  necessary" discipline every other system's gap list reflects, applied until nothing was
+  left declared-but-unexercised.
+
+New in the Client Onboarding pass (prior), retained for continuity:
 
 - **A genuine precedence gate.** `resolveAuthoritativeValue()` decides what a field's known
   value actually is when more than one source asserts it: a higher-ranked source always
@@ -225,6 +307,12 @@ Unchanged in kind from the first three systems:
   handlers, its profile, and its scenarios to `RUNNABLE_SYSTEMS` in `lib/engine/registry.ts`
   was sufficient for the portfolio index, the dossier, and the simulator to pick it up,
   fourth time running.
+- **Owner Revenue Intelligence — the smallest cost of any system built so far.** Zero new
+  lifecycle states, transitions, side-effect kinds, ports, or core engine files. The profile
+  gained two new operating parameters and their linked policies; everything else lived
+  entirely in the new handler, scenario, and test files. Even `RUNNABLE_SYSTEMS` needed only
+  the same four-line entry every prior system's registration already established, with no
+  `sendOutcomes`, `verifyOutcomes`, or `extractions` fields required at all.
 
 ## What did not generalize, and whether provisioning needed a third port
 
@@ -298,71 +386,79 @@ Everything else stayed exactly as domain-specific as the first three systems' ow
 ## Verification
 
 ```
-npm run verify     # typecheck + lint + 310 tests
-npm run build      # 23 pages prerender; the engine executes at build time
+npm run verify     # typecheck + lint + 335 tests
+npm run build      # 25 pages prerender; the engine executes at build time
 npm run docs       # regenerate canon from the model
 ```
 
-All passing. Visual inspection performed on the portfolio index (now reading "5 SIMULATED ·
-1 CONCEPT"), the Receivables dossier, and both new scenario pages — the run-summary panel's
-existing generic counters render correctly with no new UI component: scenario A shows 7
-steps, 4 transitions accepted, 0 rejected, 2 effects executed (the two reminders), 2 keys
-claimed; scenario B shows 7 steps, 5 transitions accepted (three bucket hops in one event,
-the dispute, and the resolution), 0 side effects, matching the "a dispute halts everything"
-claim exactly.
+All passing. Visual inspection performed on the portfolio index (now reading "6
+SIMULATED · 0 CONCEPT"), the Owner Revenue Intelligence dossier, and both new scenario
+pages — the run-summary panel's existing generic counters render correctly with no new UI
+component: scenario A (`cash-collection-quietly-worsens`) shows 9 steps, 8 transitions
+accepted, 0 rejected, 0 side effects executed, 1 blocked by policy (the notification, at
+authority level 1); scenario B (`stale-concentration-read-dismissed`) shows 4 steps, 4
+transitions accepted (stale flag, refresh, and dismissal across two events), 0 side
+effects, matching the "ordinary variation is left alone" claim exactly.
 
 ## Known fidelity gaps
 
-1. **One system does not run.** Owner Revenue Intelligence Agent holds complete,
-   schema-validated canon but no scenario replays through the engine.
-2. **Two Lead Rescue, three Dormant Pipeline Recovery, and two Call-to-Proposal transitions
+1. **Two Lead Rescue, three Dormant Pipeline Recovery, and two Call-to-Proposal transitions
    remain declared but unexercised**, unchanged by this pass.
-3. **Four Client Onboarding transitions are declared but unexercised**: `co-t07`/`co-t09`
+2. **Four Client Onboarding transitions are declared but unexercised**: `co-t07`/`co-t09`
    (wait-elapsed timeouts) have no driving event, and `BLOCKED` itself — `co-t13` in,
    `co-t14`/`co-t15` out — is never reached by either scenario. Checked twice now (the
-   boundary-closure pass and this one) for a natural fit and found none both times — every
-   corruption path exercised so far resolves to a validation refusal, `NEEDS_HUMAN`, or (in
-   Receivables) `ESCALATED`, never a genuine "waiting on something outside the system's
-   control" condition — so this remains open rather than being forced a third time.
-4. **One of Client Onboarding's two declared AI-judgment surfaces is not exercised**
+   boundary-closure pass and the Receivables pass) for a natural fit and found none both
+   times — every corruption path exercised so far resolves to a validation refusal,
+   `NEEDS_HUMAN`, or (in Receivables) `ESCALATED`, never a genuine "waiting on something
+   outside the system's control" condition — so this remains open rather than being forced
+   a third time.
+3. **One of Client Onboarding's two declared AI-judgment surfaces is not exercised**
    (interpreting whether a customer reply supplies a requested item); the other was narrowed
    to state explicitly that it does not apply to a structured, translated handoff.
-5. **Several Receivables transitions and both human-only actions beyond dispute resolution
+4. **Several Receivables transitions and both human-only actions beyond dispute resolution
    are declared but not exercised through a full scenario**: `PAYMENT_PLAN` and
    `WRITE_OFF_REVIEW`/`WRITTEN_OFF` have no driving event yet; dispute-timeout-to-`ESCALATED`
    (`rr-t29`) is undriven; and `DUE_SOON`/`PAST_DUE_61_90` accepting a dispute reply and
    `PAST_DUE_90_PLUS` accepting neither a dispute nor a promise reply (a real, minor canon
-   asymmetry this pass found and left as-is rather than generalising without a scenario to
-   justify it) are untested directly. Escalation, partial payment, and a broken promise are
-   exercised directly rather than through a full scenario, per the same "smallest necessary"
-   discipline the other four systems' gap lists already reflect.
+   asymmetry left as-is rather than generalising without a scenario to justify it) are
+   untested directly.
+5. **Two of Owner Revenue Intelligence's five declared failure modes remain pending**:
+   `or-fm-metric-ambiguity` (the same metric name resolving to different figures in
+   different systems) and `or-fm-alert-fatigue` (decision rate trending toward zero across
+   consecutive windows) have no driving scenario or direct test — genuinely different
+   shapes of gap from anything the other five systems left open, and left honestly recorded
+   rather than forced. Only one of the four declared recommendation classes
+   (`INVESTIGATE_COLLECTION_PROCESS`) is ever returned by an authored fixture; the other
+   three (`REVIEW_PRICING_OR_TERMS`, `ESCALATE_CONCENTRATION_RISK`, `MONITOR_ONLY`) are
+   declared in the closed set but never exercised.
 6. **The scope-drift and precedence gates cover one field pattern each** (Client Onboarding);
    the dispute/promise classification and date-extraction judgments are proven on one
-   ambiguous-reply shape each (Receivables). A production system would need more synthetic
-   variations to be confident across each system's full requirement catalog.
+   ambiguous-reply shape each (Receivables); the variance/corroboration gates are proven on
+   one metric pattern each (Owner Revenue Intelligence). A production system would need more
+   synthetic variations to be confident across each system's full requirement catalog.
 7. **No reliability/evidence view, no true step-execute simulator, no persistence.**
-   Unchanged from every prior pass; still why none of the five running systems is close to
+   Unchanged from every prior pass; still why none of the six running systems is close to
    `PARTIALLY_LIVE`.
 
 ## Single recommended next fidelity gap
 
-**Widen to Owner Revenue Intelligence Agent's first scenario.** This is now the only
-`CONCEPT` system left, and the portfolio's own governing build strategy — explore all six
-systems to credible simulated depth before vertically hardening any one of them — makes
-completing the horizontal pass the highest-leverage move available, not a default
-assumption: this pass re-confirmed the architecture generalises with zero core changes for
-a third consecutive system built from a pre-authored canon (Receivables needed no new
-lifecycle states, transitions, or profile fields, and reused both existing bounded-judgment
-ports unmodified), so there is no accumulating cross-cutting defect that would justify
-interrupting breadth to go fix something narrower first. The two deferred, single-system
-gaps that keep recurring — Client Onboarding's `BLOCKED` state and Dormant Pipeline
-Recovery's cadence-retry loop — remain genuinely smaller and lower-priority than finishing
-the sixth system, for the same reason widening lost to closing gaps in the prior two
-passes: once the sixth system exists, the portfolio's breadth claim is complete and every
-remaining gap becomes a candidate for the *next* kind of decision — which single-system gap
-to close, or when to begin pushing Lead Rescue toward production depth — made from a
-finished horizontal baseline instead of a partial one.
+**Run a portfolio-wide fidelity-gap assessment before choosing anything else.** The
+horizontal portfolio is now complete — all six systems are `SIMULATED`, and the build
+strategy that has governed every pass so far (explore all six to credible simulated depth
+before vertically hardening any one) has no further breadth work to justify. This is
+itself the decision point the strategy always pointed toward, not a default next step:
+five consecutive systems have now proven the shared engine core generalises across
+materially different business domains with zero-to-minimal core changes, so there is no
+accumulating cross-cutting defect forcing an interruption, and no single-system gap in the
+list above is self-evidently more urgent than the others without weighing them against
+each other directly. The honest move is to compare the accumulated gap list — the
+unexercised transitions across five systems, Client Onboarding's `BLOCKED` state, Dormant
+Pipeline Recovery's cadence-retry loop, Owner Revenue Intelligence's two pending failure
+modes, and the complete absence of a reliability/evidence view — against Lead Rescue's own
+production-readiness requirements, and select the first Lead Rescue work package from that
+comparison, not from this document's own recommendation made in advance of it.
 
-**Do not begin real n8n implementation yet, and do not begin Lead Rescue production
-hardening before Owner Revenue Intelligence exists.** The next fidelity gap should continue
-to be selected from evidence the build produces, not assumed in advance.
+**Do not begin real n8n implementation, and do not begin Lead Rescue production hardening,
+before that assessment has actually been made.** The next fidelity gap should continue to
+be selected from evidence the build produces, not assumed in advance — the same discipline
+that kept every prior pass from guessing at System 6's shape before inspecting its canon.

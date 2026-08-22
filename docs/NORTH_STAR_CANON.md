@@ -68,7 +68,7 @@ Maturity is descriptive, not aspirational.
 | 3. Call-to-Proposal Revenue Agent | SIMULATED |
 | 4. Client Onboarding Operator | SIMULATED |
 | 5. Receivables / Invoice Recovery Agent | SIMULATED |
-| 6. Owner Revenue Intelligence Agent | CONCEPT |
+| 6. Owner Revenue Intelligence Agent | SIMULATED |
 
 ## Canon at a glance
 
@@ -1127,9 +1127,9 @@ See [FAILURE_MODE_REGISTER.md](FAILURE_MODE_REGISTER.md) for the full entries. T
 
 ## 6. Owner Revenue Intelligence Agent
 
-**Maturity: CONCEPT**
+**Maturity: SIMULATED**
 
-Business canon, lifecycle graph, metrics, standards, and failure modes are defined and validated. No executable scenario exists yet, so nothing in this system runs. Labelled CONCEPT rather than SIMULATED until a scenario replays through the engine.
+Two scenarios replay through the same engine core the first five systems proved, closing the horizontal portfolio. A complex path shows the point of the canon’s single bounded-judgment transition: cash collected falls sharply while revenue invoiced holds steady, which read alone would misdiagnose as a demand problem; the variance is only surfaced once an independent source — days sales outstanding, reported by a different system — corroborates that collection quality, not demand, is worsening. The bounded judgment then composes a plain-language explanation and one recommendation from a small closed set, both structurally marked as a recommendation rather than fact, and the owner records a decision against the evidence that produced it. A guardrail path shows an input older than the configured staleness tolerance blocking the conclusion outright, then a refreshed read landing well inside the configured materiality threshold and being correctly left alone rather than surfaced as a false alarm — reusing the business profile’s own declared referral-partner concentration figure as the metric under evaluation. Corroboration that disagrees in direction, and a candidate corroborating source that would require aggregating data across client accounts, each independently resolve to insufficient evidence rather than a surfaced exception, the latter citing the confidentiality policy the profile had already declared for exactly this system before this pass began. As with the first five systems, nothing here is live: no notification left this process, no model was called, and the business and its figures are fictional.
 
 ### Business problem
 
