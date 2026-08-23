@@ -3,6 +3,7 @@ import { LEAD_RESCUE } from '@/data/systems';
 import { KESTREL } from '@/data/profiles/kestrel/profile';
 import { LEAD_RESCUE_HANDLERS } from './handlers/lead-rescue';
 import { FileWaitIncidentStore } from '@/lib/persistence/wait-incident-store';
+import { FileOperationClaimStore } from '@/lib/persistence/operation-claim-store';
 import type { WaitResumeDeps } from './wait-resume';
 
 /**
@@ -22,9 +23,26 @@ export const LEAD_RESCUE_WAIT_STORE_PATH = path.join(process.cwd(), '.data', 'le
 
 export const leadRescueWaitStore = new FileWaitIncidentStore(LEAD_RESCUE_WAIT_STORE_PATH);
 
+/**
+ * Durable, cross-process-exclusive claims on wait-elapsed side effects (today, only the
+ * lr-t14 notification) — see `lib/persistence/operation-claim-store.ts` and
+ * `lib/engine/wait-resume.ts` for why the wait store's own revision guard is not sufficient
+ * on its own. A sibling directory to the incident store's file, same `.data/` durability
+ * scope, same gitignore coverage.
+ */
+export const LEAD_RESCUE_CLAIM_STORE_DIR = path.join(process.cwd(), '.data', 'lead-rescue-operation-claims');
+
+export const leadRescueClaimStore = new FileOperationClaimStore(LEAD_RESCUE_CLAIM_STORE_DIR);
+
 export const LEAD_RESCUE_WAIT_DEPS: WaitResumeDeps = {
   system: LEAD_RESCUE,
   profile: KESTREL,
   handlers: LEAD_RESCUE_HANDLERS,
   reevaluationEventType: 'lead.wait.reevaluated',
 };
+
+/**
+ * Opaque per-process identity for claim records' `claimedBy` field — inspectability only,
+ * never read to make a safety decision (see `OperationClaimStore.claim`'s own contract).
+ */
+export const LEAD_RESCUE_WAIT_RUNTIME_ID = `route:${process.pid}`;

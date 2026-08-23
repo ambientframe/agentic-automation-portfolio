@@ -167,6 +167,7 @@ export default function LeadRescueWaitPage() {
               <li>· A check before the deadline is a genuine no-op: no transition, no side effect, the record untouched.</li>
               <li>· A check after the deadline fires lr-t14 through the ordinary authority and idempotency gates, same as any other transition.</li>
               <li>· Restarting the dev server does not lose a waiting incident — the file on disk is the only place this state lives.</li>
+              <li>· The notification itself is durably claimed before it is trusted: two overlapping checks on the same incident can never both report it EXECUTED. A claim that is recorded but never confirmed (e.g. a crash mid-check) surfaces as an <code>UNCERTAIN</code> result rather than being silently retried — visible in the raw result below as <code>outcome: &quot;UNCERTAIN&quot;</code>.</li>
             </ul>
           </div>
           <div className="space-y-2">

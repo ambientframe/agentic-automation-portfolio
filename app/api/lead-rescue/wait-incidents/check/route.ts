@@ -3,8 +3,14 @@ import { z } from 'zod';
 import { KESTREL } from '@/data/profiles/kestrel/profile';
 import { numberParam } from '@/lib/model/profile';
 import { checkAllWaitingIncidents, checkWaitIncident } from '@/lib/engine/wait-resume';
-import { leadRescueWaitStore, LEAD_RESCUE_WAIT_DEPS } from '@/lib/engine/lead-rescue-wait-runtime';
+import {
+  leadRescueWaitStore,
+  leadRescueClaimStore,
+  LEAD_RESCUE_WAIT_DEPS,
+  LEAD_RESCUE_WAIT_RUNTIME_ID,
+} from '@/lib/engine/lead-rescue-wait-runtime';
 import { MalformedWaitRecordError } from '@/lib/persistence/wait-incident-store';
+import { MalformedOperationClaimError } from '@/lib/persistence/operation-claim-store';
 
 export const dynamic = 'force-dynamic';
 
@@ -31,15 +37,28 @@ export async function POST(request: Request): Promise<NextResponse> {
   try {
     if (incidentId !== undefined) {
       const now = await resolveNow(incidentId, advancePastDeadline === true);
-      const result = await checkWaitIncident(leadRescueWaitStore, incidentId, now, LEAD_RESCUE_WAIT_DEPS);
+      const result = await checkWaitIncident(
+        leadRescueWaitStore,
+        leadRescueClaimStore,
+        incidentId,
+        now,
+        LEAD_RESCUE_WAIT_DEPS,
+        LEAD_RESCUE_WAIT_RUNTIME_ID,
+      );
       return NextResponse.json({ now, result });
     }
 
     const now = new Date().toISOString();
-    const results = await checkAllWaitingIncidents(leadRescueWaitStore, now, LEAD_RESCUE_WAIT_DEPS);
+    const results = await checkAllWaitingIncidents(
+      leadRescueWaitStore,
+      leadRescueClaimStore,
+      now,
+      LEAD_RESCUE_WAIT_DEPS,
+      LEAD_RESCUE_WAIT_RUNTIME_ID,
+    );
     return NextResponse.json({ now, results });
   } catch (error) {
-    if (error instanceof MalformedWaitRecordError) {
+    if (error instanceof MalformedWaitRecordError || error instanceof MalformedOperationClaimError) {
       return NextResponse.json({ error: error.message }, { status: 409 });
     }
     throw error;

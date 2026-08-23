@@ -15,8 +15,14 @@ import {
   type WaitIncidentRecord,
   type WaitIncidentStore,
 } from '@/lib/persistence/wait-incident-store';
+import { InMemoryOperationClaimStore, type OperationClaimStore } from '@/lib/persistence/operation-claim-store';
 import { checkWaitIncident, parkWaitingIncident, type WaitResumeDeps } from '@/lib/engine/wait-resume';
 import type { Scenario } from '@/lib/model/runtime';
+
+/** Every test in this file that doesn't care about cross-runtime races gets its own fresh in-memory claim store. */
+function freshClaimStore(): OperationClaimStore {
+  return new InMemoryOperationClaimStore();
+}
 
 /**
  * FALSIFYING TESTS for genuine Lead Rescue wait/resume — see
@@ -69,7 +75,7 @@ describe('Lead Rescue wait/resume — persisted incidents', () => {
     const parked = await parkSolaceIncident(store);
     const oneHourLater = hoursAfter(parked.engineState.facts.waitStartedAt ?? '', 1);
 
-    const result = await checkWaitIncident(store, 'lead-solace', oneHourLater, DEPS);
+    const result = await checkWaitIncident(store, freshClaimStore(), 'lead-solace', oneHourLater, DEPS, 'runtime-a');
 
     expect(result.outcome).toBe('STILL_WAITING');
     expect(result.state?.lifecycleState).toBe('WAITING_FOR_REPLY');
@@ -85,7 +91,7 @@ describe('Lead Rescue wait/resume — persisted incidents', () => {
     const parked = await parkSolaceIncident(store);
     const wellPastDeadline = hoursAfter(parked.engineState.facts.waitStartedAt ?? '', 30);
 
-    const result = await checkWaitIncident(store, 'lead-solace', wellPastDeadline, DEPS);
+    const result = await checkWaitIncident(store, freshClaimStore(), 'lead-solace', wellPastDeadline, DEPS, 'runtime-a');
 
     expect(result.outcome).toBe('ELAPSED');
     expect(result.state?.lifecycleState).toBe('NEEDS_HUMAN');
@@ -120,7 +126,14 @@ describe('Lead Rescue wait/resume — persisted incidents', () => {
       // would leave behind.
       const secondProcessStore = new FileWaitIncidentStore(filePath);
       const wellPastDeadline = hoursAfter(parked.engineState.facts.waitStartedAt ?? '', 30);
-      const resumed = await checkWaitIncident(secondProcessStore, 'lead-solace', wellPastDeadline, DEPS);
+      const resumed = await checkWaitIncident(
+        secondProcessStore,
+        freshClaimStore(),
+        'lead-solace',
+        wellPastDeadline,
+        DEPS,
+        'runtime-b',
+      );
 
       expect(resumed.outcome).toBe('ELAPSED');
       expect(resumed.state?.lifecycleState).toBe('NEEDS_HUMAN');
@@ -143,37 +156,33 @@ describe('Lead Rescue wait/resume — persisted incidents', () => {
     const store = new InMemoryWaitIncidentStore();
     const parked = await parkSolaceIncident(store);
     const wellPastDeadline = hoursAfter(parked.engineState.facts.waitStartedAt ?? '', 30);
+    const claimStore = freshClaimStore();
 
-    const first = await checkWaitIncident(store, 'lead-solace', wellPastDeadline, DEPS);
+    const first = await checkWaitIncident(store, claimStore, 'lead-solace', wellPastDeadline, DEPS, 'runtime-a');
     expect(first.outcome).toBe('ELAPSED');
 
-    const second = await checkWaitIncident(store, 'lead-solace', wellPastDeadline, DEPS);
+    const second = await checkWaitIncident(store, claimStore, 'lead-solace', wellPastDeadline, DEPS, 'runtime-a');
     expect(second.outcome).toBe('NOT_FOUND');
     expect(second.entries).toBeUndefined();
     expect(second.state).toBeUndefined();
   });
 
-  it('4b. duplicate resume (concurrent): two overlapping checks on the same elapsed incident never both report ELAPSED', async () => {
-    const store = new InMemoryWaitIncidentStore();
-    const parked = await parkSolaceIncident(store);
-    const wellPastDeadline = hoursAfter(parked.engineState.facts.waitStartedAt ?? '', 30);
-
-    const [a, b] = await Promise.all([
-      checkWaitIncident(store, 'lead-solace', wellPastDeadline, DEPS),
-      checkWaitIncident(store, 'lead-solace', wellPastDeadline, DEPS),
-    ]);
-
-    const outcomes = [a.outcome, b.outcome].sort();
-    // Exactly one caller resolves it and reports ELAPSED. The loser sees NOT_FOUND — by
-    // the time it calls resolve(), the winner has already deleted the record — never a
-    // second ELAPSED and never a second notification.
-    expect(outcomes).toEqual(['ELAPSED', 'NOT_FOUND'].sort());
-    expect(await store.load('lead-solace')).toBeUndefined();
-  });
+  // 4b (genuinely concurrent, independently constructed runtimes racing on the same
+  // durable snapshot) moved to tests/lead-rescue-wait-resume-concurrency.test.ts, which
+  // proves the stronger property this pass added: not just "never two ELAPSED", but
+  // "never two EXECUTED notifications", falsified against independently constructed
+  // engine internals and claim stores rather than relying on this file's shared instances.
 
   it('resuming an incident that was never parked is a safe no-op (NOT_FOUND), not an error', async () => {
     const store = new InMemoryWaitIncidentStore();
-    const result = await checkWaitIncident(store, 'lead-never-parked', '2026-08-12T00:00:00-04:00', DEPS);
+    const result = await checkWaitIncident(
+      store,
+      freshClaimStore(),
+      'lead-never-parked',
+      '2026-08-12T00:00:00-04:00',
+      DEPS,
+      'runtime-a',
+    );
     expect(result.outcome).toBe('NOT_FOUND');
   });
 
@@ -188,9 +197,9 @@ describe('Lead Rescue wait/resume — persisted incidents', () => {
       );
       const store = new FileWaitIncidentStore(filePath);
 
-      await expect(checkWaitIncident(store, 'lead-corrupt', '2026-08-12T00:00:00-04:00', DEPS)).rejects.toBeInstanceOf(
-        MalformedWaitRecordError,
-      );
+      await expect(
+        checkWaitIncident(store, freshClaimStore(), 'lead-corrupt', '2026-08-12T00:00:00-04:00', DEPS, 'runtime-a'),
+      ).rejects.toBeInstanceOf(MalformedWaitRecordError);
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }

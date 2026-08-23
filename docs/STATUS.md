@@ -1,8 +1,8 @@
 # Status
 
-**As of 2026-08-22 · Lead Rescue wait/resume — the portfolio's first vertical fidelity
-increment: `WAITING_FOR_REPLY` now genuinely persists and resumes across a process
-boundary**
+**As of 2026-08-23 · Lead Rescue wait/resume reliability closure — the notification
+`WAITING_FOR_REPLY` escalates into is now safe against two independent runtimes racing on
+the same durable incident, not merely against a single process's in-memory ledger**
 
 ## Portfolio maturity
 
@@ -22,13 +22,18 @@ a third declared transition pair in Call-to-Proposal.
 | 5 | Receivables / Invoice Recovery Agent | `SIMULATED` | Yes — 2 scenarios execute end to end |
 | 6 | Owner Revenue Intelligence Agent | `SIMULATED` | Yes — 2 scenarios execute end to end |
 
-**The horizontal portfolio finished the prior pass; this one is the first vertical climb.**
-`docs/FIDELITY_ASSESSMENT.md` (committed the prior pass, untouched by this one) built an
-evidence-based fidelity matrix across all six systems and selected exactly one work
-package: give `WAITING_FOR_REPLY` a genuine wait/resume mechanism. This pass implements and
-independently verifies it, and is the first pass anywhere in this portfolio to promote a
-system's `maturity` field past `SIMULATED` — see "Lead Rescue wait/resume — this pass"
-below for what that promotion does and does not claim.
+**The horizontal portfolio finished two passes ago; the vertical climb into Lead Rescue
+continues.** The prior pass gave `WAITING_FOR_REPLY` a genuine wait/resume mechanism —
+durable persistence across a process boundary, an in-memory revision guard against a
+duplicate resume. This pass falsified that guard specifically for the property it was never
+actually proven against: two INDEPENDENT runtimes, each with its own freshly constructed
+engine dependencies, racing to resume the SAME durably persisted incident. The falsification
+was real, not hypothetical — see "Lead Rescue wait/resume reliability closure — this pass"
+below — and the repair is a narrow, durable, cross-process-exclusive claim on the
+notification side effect itself, layered underneath the existing revision guard rather than
+replacing it. `maturity` does not change this pass: still `INTERACTIVE_PROTOTYPE`, still
+`NOT_LIVE`, exactly as the prior pass left it — see that section below for what that
+promotion does and does not claim.
 
 **This pass built the sixth system from an already-authored CONCEPT canon**, the same
 starting condition as Receivables one pass ago: the lifecycle graph (12 states, 14
@@ -275,6 +280,86 @@ considered and rejected — the revision-based optimistic-concurrency guard alre
 single-process prototype, and a lock file's own failure modes (staleness, cleanup on crash)
 would be new complexity with no concrete consumer yet.
 
+## Lead Rescue wait/resume reliability closure — this pass
+
+**The falsifying question.** The prior pass's own writeup named the limitation precisely:
+`WaitIncidentStore.resolve()`'s revision guard "is not to support true multi-process
+locking, which this prototype does not attempt." This pass asked whether that limitation was
+merely theoretical or a genuine, provable gap — by tracing the exact execution order inside
+`checkWaitIncident` (`lib/engine/wait-resume.ts`) rather than assuming either answer.
+
+**What tracing found.** `checkWaitIncident` builds a brand-new `SideEffectLedger` /
+`ExecutionLedger` on every call (`EngineInternals`, freshly constructed, never shared across
+calls or persisted) and calls `applyEvent` with it BEFORE ever touching
+`WaitIncidentStore.resolve()`. That means: two calls that each load the same unresolved
+snapshot independently compute the wait-elapsed notification as `EXECUTED` — each against
+its own empty ledger, so neither has any memory of the other — and only AFTER that
+computation does the revision guard decide which caller gets to remove the incident record.
+The guard was gating record deletion, never effect execution. A throwaway reproduction of
+the exact pre-fix code path (two independent calls racing on one `InMemoryWaitIncidentStore`
+snapshot) confirmed this empirically: both calls computed `EXECUTED`, not one — the losing
+call's `NOT_FOUND` outcome was masking a duplicate computation that had already happened, not
+preventing it.
+
+A second, independent gap surfaced from the same trace: `FileWaitIncidentStore.resolve()`'s
+own read-check-write is not atomic across two independent OS processes either. Two instances
+can both read the same unresolved revision before either writes, and both then believe they
+alone resolved it — the classic TOCTOU race a "revision check after the fact" cannot close
+on its own, exactly the failure mode the task briefing for this pass named by name.
+
+**The repair.** `lib/persistence/operation-claim-store.ts` is a new, narrowly scoped durable
+primitive: an exclusive claim on a side effect's own identity, established BEFORE that
+effect's `EXECUTED` status is trusted enough to return or act on, using `fs.open(path, 'wx')`
+— POSIX `O_CREAT | O_EXCL` — for the one operation that must be genuinely atomic across
+independent processes on a local filesystem. `checkWaitIncident` now claims every side effect
+`applyEvent` marked `EXECUTED` before the incident's revision guard ever runs; a caller that
+loses the claim (or finds it claimed-but-unconfirmed — the crash-window case) has its own
+locally computed `EXECUTED` downgraded to `SUPPRESSED_DUPLICATE` or `OUTCOME_UNKNOWN` before
+that result is ever returned to anyone. The claim identity is the effect's own
+`idempotencyKey` scoped by the incident record's own `revision` — stable across every
+repeated or concurrent check of one parked incident, but distinct across a legitimate
+re-park, so a stale claim from before a corrected engine state can never suppress the
+corrected cycle's own notification (proven directly: `tests/lead-rescue-wait-resume-concurrency.test.ts`,
+case 10b).
+
+**What this honestly does and does not claim.** Nothing here talks to a real notification
+provider — `executionMode: 'SIMULATED'` is unchanged, and the guarantee this pass adds is
+about SUPPRESSING DUPLICATE AUTOMATIC ATTEMPTS within this system, not about exactly-once
+EXTERNAL delivery, which no system without a provider-honoured idempotency key or a
+verifiable receipt can honestly claim. A claim that is durably recorded but never confirmed
+(the crash window) is surfaced as `UNCERTAIN` and blocks automatic replay permanently, until
+a human clears it out of band — this pass does not build that clearing workflow, since doing
+so would mean inventing a provider acknowledgement this codebase does not have.
+
+**Falsifying tests, all passing.** `tests/lead-rescue-wait-resume-concurrency.test.ts` (8
+tests) proves: two independently constructed runtimes (own `WaitIncidentStore` instance, own
+`OperationClaimStore` instance, own engine dependencies, sharing only the files on disk)
+racing on the identical durable snapshot never produce two `EXECUTED` notifications; a
+precisely traced deterministic interleaving where the loser observes the winner's
+claimed-but-unconfirmed record and reports `UNCERTAIN` rather than guessing; a simulated
+crash between claiming and confirming that a freshly constructed recovery runtime refuses to
+retry automatically, leaving the incident visibly still parked; a confirmed claim that stays
+confirmed after the claim store is reconstructed; a hand-corrupted claim record that fails
+closed with `MalformedOperationClaimError`; distinct incidents claiming independently; and a
+re-parked (still-waiting) incident whose corrected cycle is not suppressed by a stale claim
+against the superseded revision. `tests/operation-claim-store.test.ts` (18 tests) proves the
+new store's own contract in isolation, including genuine cross-process-style exclusivity
+(two independently constructed `FileOperationClaimStore` instances racing to claim the same
+operation id) and durability across reconstruction. `tests/lead-rescue-wait-resume.test.ts`
+(now 6 tests — the original concurrent-resume case moved into the new file, where it belongs
+alongside its stronger replacement) re-verifies every property the prior pass proved is
+still intact: too-early, elapsed, restart durability, sequential duplicate resume, missing
+incident, malformed incident record.
+
+**Files changed.** One new file (`lib/persistence/operation-claim-store.ts`); one narrowly
+extended file (`lib/engine/wait-resume.ts` — the claim gate, plus a revision-scoped claim-id
+helper and an effect-downgrade helper, no change to its exported `WaitResumeDeps` shape);
+`lib/engine/lead-rescue-wait-runtime.ts` and the `check` route threading the new store and an
+opaque per-process `runtimeId` through; zero changes to `lib/engine/reducer.ts`,
+`lib/engine/run.ts`, `lib/engine/handlers/lead-rescue.ts`, `lib/persistence/wait-incident-store.ts`,
+or any other system's code. The reducer's purity is unchanged — no clock, no I/O, no
+randomness inside `applyEvent`, still.
+
 ## What is REAL
 
 Real in the sense of *actually executing code*, not *connected to the outside world*.
@@ -306,6 +391,12 @@ New this pass (Lead Rescue wait/resume):
 - **A malformed persisted record fails loudly, not silently.** A hand-corrupted record
   throws `MalformedWaitRecordError` naming what was wrong, rather than being coerced into a
   plausible-looking but wrong `WaitIncidentRecord`.
+- **The wait-elapsed notification cannot execute twice across independent runtimes, this
+  pass.** A durable, cross-process-exclusive claim (`lib/persistence/operation-claim-store.ts`)
+  gates every side effect `applyEvent` marks `EXECUTED` before `checkWaitIncident` trusts or
+  returns that status — closing the gap the prior pass's own writeup named but left open:
+  its in-memory ledgers gave zero protection across independent calls, and the revision guard
+  alone ran too late to prevent (only to partially mask) a duplicate execution.
 
 New in the Owner Revenue Intelligence pass (prior), retained for continuity:
 
@@ -503,20 +594,21 @@ Everything else stayed exactly as domain-specific as the first three systems' ow
 ## Verification
 
 ```
-npm run verify     # typecheck + lint + 362 tests
+npm run verify     # typecheck + lint + 387 tests
 npm run build      # 27 pages prerender or route; the engine executes at build/request time
 npm run docs       # regenerate canon from the model
 ```
 
-All passing as of this pass, including `tests/wait-incident-store.test.ts` (20 tests) and
-`tests/lead-rescue-wait-resume.test.ts` (7 tests). `npm run build` now reports two routes as
-`ƒ` (server-rendered on demand) rather than prerendered — `/api/lead-rescue/wait-incidents`
-and its `/check` sibling — the first dynamic routes anywhere in this portfolio; every other
-route remains `○` static or `●` SSG, unchanged. Live-verified in the browser, not only by
-the automated suite: parked a demo incident, confirmed an immediate real-clock check left it
-`STILL_WAITING` with the record unchanged, then used the "simulate past deadline" control to
-confirm the same check path reaches `NEEDS_HUMAN` via `lr-t14`, executes the notification,
-and removes the incident from the waiting list.
+All passing as of this pass, including `tests/wait-incident-store.test.ts` (20 tests),
+`tests/lead-rescue-wait-resume.test.ts` (6 tests, re-verifying the prior pass's properties),
+`tests/operation-claim-store.test.ts` (18 tests, new this pass), and
+`tests/lead-rescue-wait-resume-concurrency.test.ts` (8 tests, new this pass — the
+cross-runtime falsification and its repair). `npm run build` still reports two routes as `ƒ`
+(server-rendered on demand) rather than prerendered — `/api/lead-rescue/wait-incidents` and
+its `/check` sibling — unchanged from the prior pass; every other route remains `○` static or
+`●` SSG. `npm run docs` was not re-run this pass: nothing under `data/` changed, and
+`tests/docs.test.ts` (part of the 387) confirms the generated canon is still current against
+the unchanged model.
 
 Visual inspection performed on the portfolio index, the Owner Revenue Intelligence dossier,
 and both new scenario pages — the run-summary panel's existing generic counters render
@@ -578,20 +670,33 @@ effects, matching the "ordinary variation is left alone" claim exactly.
    matches plus `isLive()`. Not fixed this pass — a shared layout component is outside a
    Lead Rescue-scoped work package, and the direction of the error (understating advancement)
    does not violate "nothing simulated may read as live."
+9. **An `UNCERTAIN` operation claim has no clearing workflow.** This pass's reliability
+   closure correctly refuses to auto-retry a claimed-but-unconfirmed notification and blocks
+   the incident from resolving — but nothing in this pass lets an operator durably mark that
+   claim resolved once they've established what actually happened out of band. Building that
+   would mean either a real provider acknowledgement (excluded this pass — no live
+   notification provider exists to acknowledge anything) or an unverified manual override
+   that could just as easily paper over a genuine duplicate as fix a false positive. Left
+   open deliberately rather than forced: the `OperationClaimStore` interface has room for it
+   (`confirm()` already exists; a symmetric manual `abandon()`/override would be additive,
+   not a redesign), but no consumer of this demo-scale prototype needs it yet.
 
 ## Single recommended next fidelity gap
 
 **`lr-t22` ("Offer unanswered"), using the exact wait/resume mechanism this pass built,
 with zero new architecture.** `docs/FIDELITY_ASSESSMENT.md` named `WAITING_FOR_REPLY`'s
-wait/resume gap as the highest-leverage next step and this pass closed it, independently
-re-verified against the four falsifying tests the assessment specified. `lr-t22` is the
-identical shape — a lifecycle state waiting for an external response, no logic anywhere
-that notices time has passed — on `BOOKING_READY` instead of `WAITING_FOR_REPLY`. Closing it
-would mean, concretely: a second `waitStartedAt`-equivalent fact at the point an offer is
-made, a second operating parameter for the response window (already declared in canon as a
-configured window, not yet in `profile.operatingParameters`), and a second handler branch
-following `handleWaitReevaluation`'s exact shape — no change to `WaitIncidentStore`,
-`checkWaitIncident`, or any file under `lib/persistence/`.
+wait/resume gap as the highest-leverage next step; two passes closed it — first genuine
+persistence and resume, then (this pass) the durable, cross-runtime-safe effect-execution
+guarantee that persistence alone did not provide. `lr-t22` is the identical shape — a
+lifecycle state waiting for an external response, no logic anywhere that notices time has
+passed — on `BOOKING_READY` instead of `WAITING_FOR_REPLY`. Closing it would mean,
+concretely: a second `waitStartedAt`-equivalent fact at the point an offer is made, a second
+operating parameter for the response window (already declared in canon as a configured
+window, not yet in `profile.operatingParameters`), and a second handler branch following
+`handleWaitReevaluation`'s exact shape — no change to `WaitIncidentStore`, `checkWaitIncident`,
+or `OperationClaimStore`: `checkWaitIncident`'s claim gate already loops over every side
+effect a handler proposes, generically, so `lr-t22`'s own notification would inherit the same
+cross-runtime protection this pass built, at zero additional cost.
 
 **Why this outranks generalising to a second system.** Client Onboarding's `BLOCKED` state,
 Dormant Pipeline Recovery's cadence-retry loop, and Receivables' promise-elapsed check all
