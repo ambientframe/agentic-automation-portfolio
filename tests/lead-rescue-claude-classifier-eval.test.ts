@@ -4,6 +4,7 @@ import { ENQUIRY_CLASSES, REPLY_CLASSES } from '@/lib/engine/handlers/lead-rescu
 import { ClaudeDecisionProvider } from '@/lib/ports/claude-decision-provider';
 import { INGRESS_FIXTURE_LEAD_MESSAGE } from '@/lib/engine/lead-ingress';
 import type { ClassificationResult } from '@/lib/model/runtime';
+import { LIVE_AI_EVAL_ENV_VAR, resolveLiveEvalGate } from '@/lib/config/decision-provider-config';
 
 /**
  * EVALUATION CORPUS for the bounded classification judgments `ClaudeDecisionProvider` serves.
@@ -280,10 +281,16 @@ describe('Lead Rescue classifier evaluation — structural (no credential requir
   });
 });
 
-const LIVE_CREDENTIAL_AVAILABLE = Boolean(process.env['ANTHROPIC_API_KEY']?.trim());
+/**
+ * BOTH a usable credential AND an explicit opt-in (`RUN_LIVE_AI_EVAL=1`) are required before
+ * this suite makes a genuine network call — a credential alone (e.g. exported in a developer's
+ * shell for an unrelated reason) must never cause `npm test` / `npm run verify` / CI to spend
+ * against the real Anthropic API. See `lib/config/decision-provider-config.ts`.
+ */
+const LIVE_EVAL_GATE = resolveLiveEvalGate(process.env);
 
-describe.skipIf(!LIVE_CREDENTIAL_AVAILABLE)(
-  'Lead Rescue classifier evaluation — LIVE (genuine Anthropic API call; only runs when ANTHROPIC_API_KEY is configured)',
+describe.skipIf(LIVE_EVAL_GATE.kind !== 'READY')(
+  `Lead Rescue classifier evaluation — LIVE (genuine Anthropic API call; only runs when ${LIVE_AI_EVAL_ENV_VAR}=1 and a credential are both configured)`,
   () => {
     it('evaluates the full corpus against the real claude-opus-5 model and reports results honestly', async () => {
       const provider = new ClaudeDecisionProvider();
@@ -305,16 +312,29 @@ describe.skipIf(!LIVE_CREDENTIAL_AVAILABLE)(
   },
 );
 
-if (!LIVE_CREDENTIAL_AVAILABLE) {
+if (LIVE_EVAL_GATE.kind === 'DISABLED') {
   describe('Lead Rescue classifier evaluation — LIVE', () => {
-    it('UNVERIFIED_LIVE: no ANTHROPIC_API_KEY configured in this environment, so the real network call was not executed', () => {
+    it(`UNVERIFIED_LIVE: ${LIVE_AI_EVAL_ENV_VAR} is not set to "1" in this environment, so the real network call was not executed`, () => {
       console.log(
-        '[claude-decision-provider eval] UNVERIFIED_LIVE — ANTHROPIC_API_KEY is not set in this environment. ' +
-          'The structural harness above proves the evaluation logic against a fake provider; the corpus is fully ' +
-          'built and ready, but no genuine call to the Anthropic API has been made. Set ANTHROPIC_API_KEY and re-run ' +
+        `[claude-decision-provider eval] UNVERIFIED_LIVE — ${LIVE_AI_EVAL_ENV_VAR} is not set to "1" in this ` +
+          'environment (a credential alone is never sufficient). The structural harness above proves the ' +
+          'evaluation logic against a fake provider; the corpus is fully built and ready. Set ANTHROPIC_API_KEY ' +
+          `(or ANTHROPIC_AUTH_TOKEN) AND ${LIVE_AI_EVAL_ENV_VAR}=1, then re-run ` +
           '`npx vitest run tests/lead-rescue-claude-classifier-eval.test.ts` to execute it for real.',
       );
-      expect(LIVE_CREDENTIAL_AVAILABLE).toBe(false);
+      expect(LIVE_EVAL_GATE.kind).toBe('DISABLED');
+    });
+  });
+}
+
+if (LIVE_EVAL_GATE.kind === 'MISSING_CREDENTIAL') {
+  describe('Lead Rescue classifier evaluation — LIVE', () => {
+    it(`${LIVE_AI_EVAL_ENV_VAR}=1 is set but no usable credential is configured — failing explicitly rather than pretending live verification occurred`, () => {
+      expect.fail(
+        `${LIVE_AI_EVAL_ENV_VAR}=1 opted in to live evaluation, but neither ANTHROPIC_API_KEY nor ` +
+          'ANTHROPIC_AUTH_TOKEN is configured. Refusing to silently skip: either unset ' +
+          `${LIVE_AI_EVAL_ENV_VAR} or configure a credential.`,
+      );
     });
   });
 }

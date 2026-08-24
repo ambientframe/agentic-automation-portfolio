@@ -1,5 +1,27 @@
 # Status
 
+**As of 2026-08-24 (later pass, same day) · Corrected: provider activation was credential-driven,
+not explicit — fixed before any higher-stakes external side effect was considered.** The pass
+below ("Lead Rescue's bounded intake/reply classification...") wired `ClaudeDecisionProvider`
+into the n8n ingress seam gated on `ANTHROPIC_API_KEY` presence ALONE, and gated the live
+evaluation suite on that same presence check alone. Both are real activation defects: a
+credential is a secret, not a feature flag, and a developer or CI runner with one exported for
+an unrelated reason (a shared shell profile, a copied `.env`) would have silently gotten live
+model calls and live spend with no explicit request to do either. Corrected with one small, pure
+configuration boundary, `lib/config/decision-provider-config.ts`: real-provider activation now
+requires an explicit `LEAD_RESCUE_DECISION_PROVIDER=claude` selection IN ADDITION TO a usable
+credential; the live evaluation suite now requires an explicit `RUN_LIVE_AI_EVAL=1` opt-in IN
+ADDITION TO a usable credential. Explicit real mode with no usable credential fails safe — never
+a silent fallback to fixture output presented as real — by returning a provider whose
+`classify()` throws the SAME `JudgmentUnavailableError` a genuine network failure would, routing
+through the existing `UNAVAILABLE` → `NEEDS_HUMAN` handling with zero new logic. 15 new falsifying
+tests (`tests/decision-provider-config.test.ts`) prove all four combinations (fixture/claude ×
+credential present/absent) plus that no credential value is ever echoed anywhere. No genuine
+network call occurred while making this correction (no credential and no opt-in were present in
+this environment). Maturity unchanged: `INTERACTIVE_PROTOTYPE`, `NOT_LIVE`; the live classification
+network boundary remains `UNVERIFIED_LIVE`. See "Lead Rescue live classification seam," below,
+for the corrected activation semantics section.
+
 **As of 2026-08-24 · Lead Rescue's bounded intake/reply classification can now be genuinely
 performed by a live model.** `ClaudeDecisionProvider` (`lib/ports/claude-decision-provider.ts`)
 is the second implementation of the `DecisionProvider` port — `claude-opus-5`, structured JSON
@@ -7,9 +29,11 @@ output validated at runtime against the same contract `FixtureDecisionProvider` 
 enforces, closed to `request.permittedClassifications`, exactly one re-request on malformed
 output per `lr-fm-malformed-ai`'s own declared retry policy, and every provider/network failure
 routed to `UNAVAILABLE` — never a chance to authorize a side effect. Wired through the existing
-n8n ingress seam (`app/api/lead-rescue/ingress/route.ts`) as an injected, optional dependency:
-absent a configured `ANTHROPIC_API_KEY`, behavior is byte-for-byte unchanged from before this
-pass. No credential was available in this environment, so the live network path is honestly
+n8n ingress seam (`app/api/lead-rescue/ingress/route.ts`) as an injected, optional dependency.
+**Corrected by the later pass above:** this pass originally gated activation on `ANTHROPIC_API_KEY`
+presence alone; real-provider selection now additionally requires an explicit
+`LEAD_RESCUE_DECISION_PROVIDER=claude` setting — see `lib/config/decision-provider-config.ts`.
+No credential was available in this environment, so the live network path is honestly
 `UNVERIFIED_LIVE` — the adapter, its full falsifying test suite (structural, no network), and a
 9-case labelled evaluation corpus are all built and ready. Also fixes a real, pre-existing bug
 found while wiring provenance through: the handler hard-coded `providerId: 'fixture-decision-provider'`
@@ -60,7 +84,7 @@ a third declared transition pair in Call-to-Proposal.
 
 | # | System | Maturity | Runs? |
 | --- | --- | --- | --- |
-| 1 | Lead Rescue | `INTERACTIVE_PROTOTYPE` | Yes — 7 scenarios execute end to end, a live wait/resume demo covering both prospect-response waiting categories and both operator-attention timeout categories, a real n8n-driven ingress path for new leads, a real n8n-driven scheduled sweep that wakes waiting incidents on its own, and a genuine live-model classification seam (`claude-opus-5`, `UNVERIFIED_LIVE` in this environment — no credential configured) reachable through the same ingress path |
+| 1 | Lead Rescue | `INTERACTIVE_PROTOTYPE` | Yes — 7 scenarios execute end to end, a live wait/resume demo covering both prospect-response waiting categories and both operator-attention timeout categories, a real n8n-driven ingress path for new leads, a real n8n-driven scheduled sweep that wakes waiting incidents on its own, and a genuine live-model classification seam (`claude-opus-5`, `UNVERIFIED_LIVE` in this environment) reachable through the same ingress path only via an explicit `LEAD_RESCUE_DECISION_PROVIDER=claude` selection — never by credential presence alone |
 | 2 | Dormant Pipeline Recovery | `SIMULATED` | Yes — 2 scenarios execute end to end |
 | 3 | Call-to-Proposal Revenue Agent | `SIMULATED` | Yes — 2 scenarios execute end to end |
 | 4 | Client Onboarding Operator | `SIMULATED` | Yes — 2 scenarios execute end to end |
@@ -1857,6 +1881,21 @@ credential) is logged at the point of a successful classification for lightweigh
 observability; nothing about this is persisted into replayable engine state, which stays exactly
 as clock-free and pure as before.
 
+**CORRECTED by a later same-day pass — activation was credential-driven, not explicit.** This
+section originally described the ingress route as constructing `ClaudeDecisionProvider`
+whenever `ANTHROPIC_API_KEY` was present. That was a real defect: a credential is a secret, not
+a feature flag, and its mere presence must never by itself select the real provider or
+authorize a live call. The activation decision now lives in one small, pure module,
+`lib/config/decision-provider-config.ts`: real-provider selection requires an explicit
+`LEAD_RESCUE_DECISION_PROVIDER=claude` setting IN ADDITION TO a usable credential. Fixture mode
+is the default and stays fully deterministic regardless of whether a credential happens to be
+configured. An explicit `claude` selection with no usable credential fails safe rather than
+silently reusing fixture output: `resolveIngressDecisionProvider` returns a provider whose
+`classify()` throws the same `JudgmentUnavailableError` a genuine network failure would, so it
+routes through the existing `UNAVAILABLE` → `NEEDS_HUMAN` handling with zero new logic anywhere
+downstream. See "Lead Rescue provider-activation semantics correction," below, for the full
+account and its falsifying tests.
+
 **Falsifying tests, written before implementation.** `tests/claude-decision-provider.test.ts`
 (11 tests, zero network) injects a fake `AnthropicMessagesClient` — a minimal
 `{messages: {create}}` shape both the real SDK client and a test double satisfy — and proves:
@@ -1891,14 +1930,21 @@ not hard-coded to intake. Every expected label was fixed before any model saw th
 never rewritten to match what a run produces. A structural suite scores the harness itself
 against a deterministic fake provider (proving the evaluation/reporting logic independent of
 model quality); a second, `describe.skipIf`-gated suite runs the full corpus against the REAL
-model and asserts on it, but only when `ANTHROPIC_API_KEY` is configured.
+model and asserts on it. **CORRECTED by a later same-day pass:** this originally read "but only
+when `ANTHROPIC_API_KEY` is configured" — a credential alone would have let the suite spend
+against the real API merely because one happened to be present in the environment. It now
+additionally requires `RUN_LIVE_AI_EVAL=1`; see "Lead Rescue provider-activation semantics
+correction," below.
 
 **Live verification: `UNVERIFIED_LIVE`.** `ANTHROPIC_API_KEY` and `ANTHROPIC_AUTH_TOKEN` were
 both checked for presence (never printed) in this environment and found absent; no `ant` CLI
 was available either. Per the task's own explicit instruction, no live result was fabricated —
 the adapter, all 11+2 falsifying tests, and the full 9-case evaluation corpus are built and
-pass completely without a credential; the live evaluation suite is written, gated, and will run
-for real the moment a credential is configured, with no code change required.
+pass completely without a credential. **CORRECTED by a later same-day pass:** this originally
+said the live evaluation suite "will run for real the moment a credential is configured" — that
+was the same activation defect stated in terms of the eval suite. It now runs for real only once
+BOTH a usable credential AND `RUN_LIVE_AI_EVAL=1` are configured; a credential with no opt-in
+still reports honest `UNVERIFIED_LIVE` and makes no network call.
 
 **What this does NOT do.** No credential was created, printed, committed, or embedded anywhere
 — confirmed by direct search of the diff for credential-shaped strings before this pass was
@@ -1925,18 +1971,108 @@ added to a hand-constructed test fixture each, to satisfy the extended `Resolved
 no behavior change). `package.json`/`package-lock.json` (`@anthropic-ai/sdk`, the only new
 dependency). Zero changes to `data/systems/lead-rescue.ts`, `data/profiles/kestrel/profile.ts`,
 the reducer, the authority gate, `WaitIncidentStore`, `OperationClaimStore`, or any n8n workflow.
+**CORRECTED by a later same-day pass:** the `app/api/lead-rescue/ingress/route.ts` line above
+originally read "constructs `ClaudeDecisionProvider` only when `ANTHROPIC_API_KEY` is present" —
+the activation defect this section's correction addresses. The route now delegates the whole
+decision to `resolveIngressDecisionProvider` (`lib/config/decision-provider-config.ts`), which
+requires an explicit `LEAD_RESCUE_DECISION_PROVIDER=claude` selection in addition to a usable
+credential; see "Lead Rescue provider-activation semantics correction," below.
+
+## Lead Rescue provider-activation semantics correction — this pass
+
+**The defect.** The prior pass ("Lead Rescue live classification seam," above) wired activation
+two ways, both keyed on the SAME single signal — `ANTHROPIC_API_KEY` presence — never its value,
+but presence alone: `app/api/lead-rescue/ingress/route.ts` constructed a real
+`ClaudeDecisionProvider` whenever the key was present, and
+`tests/lead-rescue-claude-classifier-eval.test.ts` gated its live-network suite on the same
+check. Both are activation defects, not implementation defects — the adapter itself
+(`lib/ports/claude-decision-provider.ts`) is unchanged by this pass. A credential is a secret,
+not a feature flag: anyone with `ANTHROPIC_API_KEY` exported for an unrelated reason (a shared
+shell profile, a copied `.env`, a CI secret meant for a different job) would have silently
+gotten live model calls on every inbound lead, and `npm test`/`npm run verify`/CI would have
+silently spent against the real Anthropic API — neither ever explicitly requested.
+
+**The fix — one small, pure configuration boundary.** `lib/config/decision-provider-config.ts`
+is now the ONLY place either environment variable is read. `resolveDecisionProviderSelection`
+and `resolveLiveEvalGate` are pure functions — no `process.env` read, no SDK construction — that
+take an `env` record and return a decision as data:
+```
+resolveDecisionProviderSelection(env) → { kind: 'FIXTURE' }
+                                       | { kind: 'CLAUDE' }
+                                       | { kind: 'CLAUDE_MISSING_CREDENTIAL'; reason }
+
+resolveLiveEvalGate(env) → { kind: 'DISABLED' } | { kind: 'MISSING_CREDENTIAL' } | { kind: 'READY' }
+```
+`FIXTURE`/`DISABLED` is the outcome whenever the explicit switch (`LEAD_RESCUE_DECISION_PROVIDER
+=claude` for the route, `RUN_LIVE_AI_EVAL=1` for the eval suite) is absent, REGARDLESS of
+whether a credential exists — credential presence is checked only after the explicit switch is
+already `claude`/`1`. `resolveIngressDecisionProvider` is the thin, non-pure composition-root
+wrapper the route actually calls (`env` defaults to `process.env`); it is the only function in
+the module that constructs a real `ClaudeDecisionProvider`.
+
+**Fail-safe, not silent fallback.** `LEAD_RESCUE_DECISION_PROVIDER=claude` with no usable
+credential does NOT fall back to fixture output — that would silently substitute simulated
+classification for an explicitly requested real one while reporting the request as honoured.
+Instead `resolveIngressDecisionProvider` returns a provider (`claude-decision-provider-unavailable`)
+whose `classify()` immediately throws `JudgmentUnavailableError` — the SAME typed error
+`ClaudeDecisionProvider` itself throws on a genuine network failure — which `resolveJudgment`
+converts into the existing `UNAVAILABLE` outcome, routed by every Lead Rescue handler's
+already-existing rule to `NEEDS_HUMAN`. Misconfiguration fails exactly like a live network
+failure would; zero new handling was added anywhere downstream to make this true.
+
+**Provenance.** The ingress route's `classifierProvider` response field now takes one of three
+honest values instead of two: `'fixture-decision-provider'`, `'claude-decision-provider'`, or
+`'claude-decision-provider-unavailable'` — an operator reading the response can always tell
+whether classification was simulated, genuinely live, or explicitly requested-but-unusable.
+Never a credential value in any of the three.
+
+**Falsifying tests, written before the fix (RED confirmed: the import failed because
+`lib/config/decision-provider-config.ts` did not yet exist).** `tests/decision-provider-config.test.ts`
+— 15 tests, zero network — prove: credential present with no explicit mode selects fixture, never
+the real provider; explicit `claude` mode with a credential selects the real provider; explicit
+`claude` mode with no credential fails safe (a provider is returned, but `classify()` rejects
+with `JudgmentUnavailableError`) rather than silently reusing fixture output; an unrecognized
+mode value is treated as fixture, never as an implicit real selection; `ANTHROPIC_AUTH_TOKEN`
+alone is an equally usable credential; no credential value is ever echoed into a selection or
+reason string; and the live-eval gate requires BOTH `RUN_LIVE_AI_EVAL=1` and a credential —
+credential alone never reaches `READY`. `tests/lead-rescue-claude-classifier-eval.test.ts` was
+updated to gate on `resolveLiveEvalGate` instead of a raw credential check, and now fails
+explicitly (`expect.fail`, never a silent skip) if `RUN_LIVE_AI_EVAL=1` is set but no credential
+is configured — an operator who opted in and then finds it failing gets a clear reason, not a
+suite that quietly did nothing.
+
+**What this does NOT do.** No credential was created, printed, committed, or embedded — the diff
+was searched directly for credential-shaped strings before this pass was considered complete. No
+change to `ClaudeDecisionProvider` itself, `lib/engine/lead-ingress.ts`, the reducer, replay, or
+idempotency — `deps.provider` and its existing undefined-falls-back-to-fixture behavior in
+`ingestExternalLead` are untouched, so every existing fixture-mode test continues to pass
+unmodified. No outbound provider, credential provisioning, or n8n change — out of scope, per this
+pass's own non-goals. Maturity does not change: `INTERACTIVE_PROTOTYPE`, `NOT_LIVE`; the live
+classification network boundary remains honestly `UNVERIFIED_LIVE` — this pass corrected
+activation semantics, it did not cross the network boundary.
+
+**Files changed.** `lib/config/decision-provider-config.ts` (new — the configuration boundary).
+`app/api/lead-rescue/ingress/route.ts` (delegates provider resolution to the new module; removes
+the credential-presence-only local function). `tests/lead-rescue-claude-classifier-eval.test.ts`
+(gates on `resolveLiveEvalGate` instead of a raw `ANTHROPIC_API_KEY` check; explicit failure path
+for opted-in-but-missing-credential). `tests/decision-provider-config.test.ts` (new, 15 tests).
+`docs/STATUS.md` (this correction, plus the false claims it corrects marked inline above). Zero
+changes to `data/`, the reducer, `lib/ports/claude-decision-provider.ts`,
+`lib/ports/decision-provider.ts`, `lib/engine/lead-ingress.ts`, or any n8n workflow.
 
 ## Verification
 
 ```
-npm run verify     # typecheck + lint + 511 tests (+1 live-eval test skipped without a credential)
+npm run verify     # typecheck + lint + 526 tests (+1 live-eval test skipped without RUN_LIVE_AI_EVAL=1)
 npm run build      # 29 pages prerender; 5 dynamic (ƒ) API routes; the engine executes at build/request time
 npm run docs       # regenerate canon from the model — no diff this pass
 ```
 
-All passing as of this pass, including the one intentionally-`skipIf`'d live evaluation suite
-(no `ANTHROPIC_API_KEY` in this environment — see "Lead Rescue live classification seam,"
-above, for the honest `UNVERIFIED_LIVE` accounting). `tests/claude-decision-provider.test.ts`
+Counts as of the later same-day provider-activation correction pass (511 tests + 15 new
+falsifying tests in `tests/decision-provider-config.test.ts` = 526; the one `skipIf`'d live
+evaluation test is skipped because `RUN_LIVE_AI_EVAL` is not set to `1` in this environment, not
+merely because a credential is absent — see "Lead Rescue provider-activation semantics
+correction," below). `tests/claude-decision-provider.test.ts`
 (new, 11 tests) and `tests/lead-rescue-claude-classifier-eval.test.ts` (new, corpus + harness)
 prove the adapter; `tests/lead-rescue-ingress.test.ts` (+2) proves the live seam and its
 idempotency through the real orchestration path. `npm run build` still reports 5 dynamic (`ƒ`)
@@ -2087,14 +2223,23 @@ effects, matching the "ordinary variation is left alone" claim exactly.
     ever called it except a person clicking "Check all waiting now." See "Lead Rescue scheduled
     n8n sweep," above: a real n8n Schedule Trigger, live-verified across an autonomous first tick
     and a container-restart boundary, now wakes it on its own, with zero new engine code.
+17. **CLOSED this pass.** The prior pass's own real-provider activation was credential-driven —
+    `ANTHROPIC_API_KEY` presence alone selected `ClaudeDecisionProvider` and alone gated the
+    live evaluation suite, so an incidentally-exported credential would have silently triggered
+    real model calls and real spend. See "Lead Rescue provider-activation semantics correction,"
+    above: both now require an explicit opt-in (`LEAD_RESCUE_DECISION_PROVIDER=claude`,
+    `RUN_LIVE_AI_EVAL=1` respectively) in addition to a usable credential, and an explicit real
+    selection with no usable credential fails safe through the existing `UNAVAILABLE` →
+    `NEEDS_HUMAN` path rather than silently reusing fixture output.
 
 ## Single recommended next fidelity gap
 
-**Bounded real AI classification, recommended two passes ago, is now built this pass** — see
-"Lead Rescue live classification seam," above. Its own live-network leg remains
-`UNVERIFIED_LIVE` (no `ANTHROPIC_API_KEY` configured in this environment); everything else
-about it is complete and green. That leaves two candidates from the portfolio's own prior
-assessment:
+**Bounded real AI classification, recommended two passes ago, was built two passes ago, and its
+activation semantics were corrected this pass** — see "Lead Rescue live classification seam" and
+"Lead Rescue provider-activation semantics correction," both above. Its own live-network leg
+remains `UNVERIFIED_LIVE` (`RUN_LIVE_AI_EVAL` is not set to `1` in this environment); everything
+else about it, including the corrected activation gate, is complete and green. That leaves the
+same two candidates named two passes ago, unchanged by this pass's own scope:
 
 **Real outbound provider execution — wiring a live messaging send behind the existing
 `SideEffectExecutor` port, the same "swap the fixture for a real implementation" shape this
@@ -2118,4 +2263,9 @@ this pass's own live classifier once wired, since reply interpretation uses the 
 **Do not begin closing either gap from this document.** Recorded here as the evidence-based next
 candidates, the same discipline every prior pass's "next fidelity gap" section applied — not as
 a plan to execute without its own re-verification, and not a decision to add a live credential
-or contact a real message provider without the user's own explicit go-ahead.
+or contact a real message provider without the user's own explicit go-ahead. This applies with
+particular force to real outbound provider execution specifically: it remains the
+highest-stakes candidate named above, not a recommendation, and this pass's own correction (an
+explicit opt-in required in addition to a credential, never credential presence alone) is the
+activation pattern any future real-provider work — outbound or otherwise — should reuse rather
+than reinvent.

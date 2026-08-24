@@ -4,19 +4,7 @@ import { LeadRescueIngressEnvelopeSchema } from '@/lib/ingress/lead-rescue-ingre
 import { leadRescueWaitStore, leadRescueClaimStore, LEAD_RESCUE_WAIT_DEPS, LEAD_RESCUE_WAIT_RUNTIME_ID } from '@/lib/engine/lead-rescue-wait-runtime';
 import { MalformedWaitRecordError } from '@/lib/persistence/wait-incident-store';
 import { MalformedOperationClaimError } from '@/lib/persistence/operation-claim-store';
-import { ClaudeDecisionProvider } from '@/lib/ports/claude-decision-provider';
-
-/**
- * The one place this route decides fixture vs. live classification — a composition-root
- * concern, deliberately kept out of `lib/engine/lead-ingress.ts` (which only ever accepts an
- * already-constructed `DecisionProvider`, never reads the environment itself). Presence of
- * `ANTHROPIC_API_KEY` is checked, never its value: absent, `ingestExternalLead` falls back to
- * its own existing single-fixture behavior unchanged; present, every inbound message is
- * genuinely classified by `claude-opus-5` instead of matching against the one authored fixture.
- */
-function resolveIngressDecisionProvider(): ClaudeDecisionProvider | undefined {
-  return process.env['ANTHROPIC_API_KEY'] ? new ClaudeDecisionProvider() : undefined;
-}
+import { resolveIngressDecisionProvider } from '@/lib/config/decision-provider-config';
 
 /**
  * THE CANONICAL LEAD RESCUE INGRESS ENDPOINT — the seam n8n's "Invoke Lead Rescue" node
@@ -52,9 +40,9 @@ export async function POST(request: Request): Promise<NextResponse> {
   }
 
   const nowIso = new Date().toISOString();
-  const provider = resolveIngressDecisionProvider();
-  // Non-secret provenance only — the provider's own id, never a credential value.
-  const classifierProvider = provider?.id ?? 'fixture-decision-provider';
+  // See `lib/config/decision-provider-config.ts` — activation requires an explicit
+  // `LEAD_RESCUE_DECISION_PROVIDER=claude` selection, never a credential alone.
+  const { provider, classifierProvider } = resolveIngressDecisionProvider();
 
   try {
     const result = await ingestExternalLead(
