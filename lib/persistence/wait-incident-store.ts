@@ -20,6 +20,21 @@ import { z } from 'zod';
  * against two overlapping re-checks racing to resolve the same incident — not to support
  * true multi-process locking, which this prototype does not attempt (see
  * `lib/engine/wait-resume.ts` for the reasoning).
+ *
+ * `revision` is also, since the wait/resume reliability-closure pass, a genuinely
+ * NEVER-REUSED identifier for one incidentId's entire history, not merely for its current
+ * active record. An earlier version of this store computed revision from the ACTIVE record
+ * alone (`existing?.revision ?? 0`), which meant a fully resolved-and-deleted incident's
+ * revision counter silently reset to 0 — so a later, genuinely new wait cycle re-parked
+ * under the SAME incidentId (a legitimate operation this store has always permitted; see
+ * `park()`) could be assigned the exact same revision number an earlier, already-CONFIRMED
+ * cycle used. Anything keying durable identity off `${incidentId, revision}` — which is
+ * exactly what `lib/persistence/operation-claim-store.ts`'s claim identity does — would then
+ * treat the new cycle's notification as an already-completed duplicate of the old one and
+ * permanently suppress it. Each implementation below now persists a revision high-water
+ * mark that survives `resolve()`, independently of the active record, so this collision is
+ * structurally impossible: see `tests/wait-incident-store.test.ts`'s
+ * "revision survives a full resolve/delete/re-park cycle" cases for the falsifying proof.
  */
 
 export const WaitIncidentRecordSchema = z.strictObject({
@@ -93,10 +108,13 @@ export interface WaitIncidentStore {
  */
 export class InMemoryWaitIncidentStore implements WaitIncidentStore {
   private readonly records = new Map<string, WaitIncidentRecord>();
+  /** Never deleted by `resolve()` — see the module docstring's revision note. */
+  private readonly revisionHighWaterMarks = new Map<string, number>();
 
   async park(record: Omit<WaitIncidentRecord, 'revision'>): Promise<WaitIncidentRecord> {
-    const existing = this.records.get(record.incidentId);
-    const stored: WaitIncidentRecord = { ...record, revision: (existing?.revision ?? 0) + 1 };
+    const nextRevision = (this.revisionHighWaterMarks.get(record.incidentId) ?? 0) + 1;
+    this.revisionHighWaterMarks.set(record.incidentId, nextRevision);
+    const stored: WaitIncidentRecord = { ...record, revision: nextRevision };
     this.records.set(record.incidentId, stored);
     return stored;
   }
@@ -138,6 +156,43 @@ export class InMemoryWaitIncidentStore implements WaitIncidentStore {
 export class FileWaitIncidentStore implements WaitIncidentStore {
   constructor(private readonly filePath: string) {}
 
+  /**
+   * A sibling file, deliberately separate from the main incidents file rather than a
+   * reserved key inside it: `load()`/`listWaiting()` parse every top-level entry of the main
+   * file as a `WaitIncidentRecord`, so a reserved key sharing that file would either collide
+   * with a real incidentId or need every read path to special-case skipping it. A separate
+   * file needs no such carve-out and cannot be corrupted by, or confused with, incident data.
+   */
+  private get highWaterMarkPath(): string {
+    return `${this.filePath}.revisions.json`;
+  }
+
+  private async readHighWaterMarks(): Promise<Record<string, number>> {
+    const fs = await import('node:fs/promises');
+    let raw: string;
+    try {
+      raw = await fs.readFile(this.highWaterMarkPath, 'utf8');
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') return {};
+      throw error;
+    }
+    if (raw.trim().length === 0) return {};
+    const parsed: unknown = JSON.parse(raw);
+    if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+      throw new Error(`Wait incident revision file "${this.highWaterMarkPath}" does not contain a JSON object.`);
+    }
+    return parsed as Record<string, number>;
+  }
+
+  private async writeHighWaterMarks(marks: Record<string, number>): Promise<void> {
+    const fs = await import('node:fs/promises');
+    const path = await import('node:path');
+    await fs.mkdir(path.dirname(this.highWaterMarkPath), { recursive: true });
+    const tmpPath = `${this.highWaterMarkPath}.${process.pid}.${Date.now()}.${Math.random().toString(36).slice(2)}.tmp`;
+    await fs.writeFile(tmpPath, JSON.stringify(marks, null, 2), 'utf8');
+    await fs.rename(tmpPath, this.highWaterMarkPath);
+  }
+
   private async readAll(): Promise<Record<string, unknown>> {
     const fs = await import('node:fs/promises');
     let raw: string;
@@ -165,13 +220,17 @@ export class FileWaitIncidentStore implements WaitIncidentStore {
   }
 
   async park(record: Omit<WaitIncidentRecord, 'revision'>): Promise<WaitIncidentRecord> {
+    // Reserve the next revision FIRST, durably, before the incident record itself is
+    // written. A crash between these two writes only "burns" a revision number — safe,
+    // since nothing ever claimed it — never reuses one, which is the unsafe direction (two
+    // distinct wait cycles sharing an identity). See the module docstring.
+    const marks = await this.readHighWaterMarks();
+    const nextRevision = (marks[record.incidentId] ?? 0) + 1;
+    marks[record.incidentId] = nextRevision;
+    await this.writeHighWaterMarks(marks);
+
     const all = await this.readAll();
-    const existingRaw = all[record.incidentId];
-    const existingRevision =
-      existingRaw !== undefined && typeof existingRaw === 'object' && existingRaw !== null && 'revision' in existingRaw
-        ? Number((existingRaw as { revision: unknown }).revision)
-        : 0;
-    const stored: WaitIncidentRecord = { ...record, revision: existingRevision + 1 };
+    const stored: WaitIncidentRecord = { ...record, revision: nextRevision };
     all[record.incidentId] = stored;
     await this.writeAll(all);
     return stored;

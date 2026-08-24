@@ -351,6 +351,74 @@ describe('Lead Rescue wait/resume — cross-runtime effect-execution safety', ()
     expect(notificationStatuses(elapsed.entries, 'notify:lead-reparked:wait-elapsed')).toEqual(['EXECUTED']);
   });
 
+  it('10c. a FULL resolve/delete/re-park cycle for the same incidentId: the second cycle\'s notification is not permanently suppressed by the first cycle\'s already-CONFIRMED claim', async () => {
+    // This is the case the prior pass's own completion report flagged as a real, unfixed
+    // risk: WaitIncidentStore.park() originally computed `revision` from the ACTIVE record
+    // alone, so a fully resolved-and-deleted incident's revision counter silently reset —
+    // meaning a genuinely new second wait cycle for the SAME incidentId could be assigned
+    // the exact same `${incidentId, revision}` pair an earlier, already-CONFIRMED cycle
+    // used, and the claim store would then treat the new cycle's notification as an
+    // already-completed duplicate and suppress it forever. Fixed at the root this pass: see
+    // `lib/persistence/wait-incident-store.ts`'s revision high-water mark, which now
+    // survives `resolve()`. This test proves the fix holds through the REAL
+    // `checkWaitIncident` orchestration path, not only at the store's own unit level
+    // (`tests/wait-incident-store.test.ts` proves the store's own guarantee directly).
+    const sharedStore = new InMemoryWaitIncidentStore();
+    const claimStore = new InMemoryOperationClaimStore();
+
+    // Cycle 1: park, elapse, confirm, and fully resolve (delete) the incident record.
+    const firstPark = await parkIncident(sharedStore, 'lead-full-cycle');
+    const firstElapsed = await checkWaitIncident(
+      sharedStore,
+      claimStore,
+      'lead-full-cycle',
+      hoursAfter(firstPark.engineState.facts.waitStartedAt ?? '', 30),
+      DEPS,
+      'runtime-a',
+    );
+    expect(firstElapsed.outcome).toBe('ELAPSED');
+    expect(notificationStatuses(firstElapsed.entries, 'notify:lead-full-cycle:wait-elapsed')).toEqual(['EXECUTED']);
+    // Genuinely resolved — the record is gone, not merely marked done.
+    expect(await sharedStore.load('lead-full-cycle')).toBeUndefined();
+
+    // Cycle 2: the SAME incidentId, parked again as a genuinely new waiting cycle — reusing
+    // every identifier the real application can legitimately reuse. The fixture scenario
+    // authors the SAME `waitStartedAt` fixture timestamp both times (the enquiry event's own
+    // `occurredAt` is fixed in the authored fixture), and `parkIncident` reuses the identical
+    // correlationId-construction pattern — exactly the "identifiers/timestamps the actual
+    // application can legitimately reuse" the task calls for, not an artificially varied
+    // stand-in.
+    const secondPark = await parkIncident(sharedStore, 'lead-full-cycle');
+    expect(secondPark.engineState.facts.waitStartedAt).toBe(firstPark.engineState.facts.waitStartedAt);
+    expect(secondPark.revision).toBeGreaterThan(firstPark.revision);
+
+    const secondElapsed = await checkWaitIncident(
+      sharedStore,
+      claimStore,
+      'lead-full-cycle',
+      hoursAfter(secondPark.engineState.facts.waitStartedAt ?? '', 30),
+      DEPS,
+      'runtime-a',
+    );
+
+    // The decisive assertion: the second, genuinely new and independently authorized
+    // notification is NOT suppressed by the first cycle's confirmed claim.
+    expect(secondElapsed.outcome).toBe('ELAPSED');
+    expect(notificationStatuses(secondElapsed.entries, 'notify:lead-full-cycle:wait-elapsed')).toEqual(['EXECUTED']);
+
+    // A repeated check WITHIN cycle 2 still correctly suppresses — the stable-identity
+    // property must survive alongside the collision fix, not be traded away for it.
+    const thirdCheck = await checkWaitIncident(
+      sharedStore,
+      claimStore,
+      'lead-full-cycle',
+      hoursAfter(secondPark.engineState.facts.waitStartedAt ?? '', 30),
+      DEPS,
+      'runtime-a',
+    );
+    expect(thirdCheck.outcome).toBe('NOT_FOUND');
+  });
+
   it('11. normal wait behavior is unaffected by the claim gate: an early check proposes no side effect and claims nothing', async () => {
     const sharedStore = new InMemoryWaitIncidentStore();
     const claimStore = new InMemoryOperationClaimStore();

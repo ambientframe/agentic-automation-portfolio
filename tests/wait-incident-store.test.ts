@@ -105,6 +105,33 @@ describe.each([
     expect(second.revision).toBe(first.revision + 1);
     expect(await store.resolve('lead-test-001', first.revision)).toBe('STALE_REVISION');
   });
+
+  it('revision survives a full resolve/delete/re-park cycle: the next wait cycle for the same incidentId never reuses a resolved cycle\'s revision', async () => {
+    const store = makeStore();
+    const first = await store.park(sampleRecord());
+    expect(await store.resolve('lead-test-001', first.revision)).toBe('RESOLVED');
+    expect(await store.load('lead-test-001')).toBeUndefined();
+
+    // A genuinely new wait cycle for the SAME incidentId, reusing the exact same
+    // waitStartedAt an application could legitimately reuse (e.g. an authored fixture
+    // timestamp, or two occurrences a millisecond apart that round to the same second).
+    const second = await store.park(sampleRecord());
+
+    expect(second.revision).not.toBe(first.revision);
+    expect(second.revision).toBeGreaterThan(first.revision);
+  });
+
+  it('the revision high-water mark keeps advancing across repeated resolve/re-park cycles, not just once', async () => {
+    const store = makeStore();
+    const revisions: number[] = [];
+    for (let i = 0; i < 4; i += 1) {
+      const parked = await store.park(sampleRecord());
+      revisions.push(parked.revision);
+      expect(await store.resolve('lead-test-001', parked.revision)).toBe('RESOLVED');
+    }
+    expect(revisions).toEqual([1, 2, 3, 4]);
+    expect(new Set(revisions).size).toBe(4);
+  });
 });
 
 describe('FileWaitIncidentStore durability across reconstruction', () => {
@@ -131,6 +158,20 @@ describe('FileWaitIncidentStore durability across reconstruction', () => {
 
     const third = new FileWaitIncidentStore(filePath);
     expect(await third.load('lead-test-001')).toBeUndefined();
+  });
+
+  it('the revision high-water mark survives resolve/delete and reconstruction, so a later re-park through a wholly new instance never reuses a resolved revision', async () => {
+    const filePath = tempStorePath();
+    const first = new FileWaitIncidentStore(filePath);
+    const parked = await first.park(sampleRecord());
+    expect(await first.resolve('lead-test-001', parked.revision)).toBe('RESOLVED');
+
+    // A THIRD, wholly independent instance re-parks the same incidentId — simulating a
+    // different process handling the second wait cycle entirely.
+    const third = new FileWaitIncidentStore(filePath);
+    const reparked = await third.park(sampleRecord());
+
+    expect(reparked.revision).toBeGreaterThan(parked.revision);
   });
 
   it('load() throws MalformedWaitRecordError for a hand-corrupted record rather than crashing ambiguously', async () => {

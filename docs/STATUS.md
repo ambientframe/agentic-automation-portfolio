@@ -1,8 +1,9 @@
 # Status
 
-**As of 2026-08-23 · Lead Rescue wait/resume reliability closure — the notification
-`WAITING_FOR_REPLY` escalates into is now safe against two independent runtimes racing on
-the same durable incident, not merely against a single process's in-memory ledger**
+**As of 2026-08-23 · Lead Rescue wait/resume execution-boundary closure — the observable
+action a wait-elapsed notification stands for is now genuinely gated behind the durable
+claim (not merely the data label describing it), and an incident's operation identity now
+survives a full resolve/delete/re-park cycle for the same incidentId**
 
 ## Portfolio maturity
 
@@ -22,18 +23,22 @@ a third declared transition pair in Call-to-Proposal.
 | 5 | Receivables / Invoice Recovery Agent | `SIMULATED` | Yes — 2 scenarios execute end to end |
 | 6 | Owner Revenue Intelligence Agent | `SIMULATED` | Yes — 2 scenarios execute end to end |
 
-**The horizontal portfolio finished two passes ago; the vertical climb into Lead Rescue
-continues.** The prior pass gave `WAITING_FOR_REPLY` a genuine wait/resume mechanism —
-durable persistence across a process boundary, an in-memory revision guard against a
-duplicate resume. This pass falsified that guard specifically for the property it was never
-actually proven against: two INDEPENDENT runtimes, each with its own freshly constructed
-engine dependencies, racing to resume the SAME durably persisted incident. The falsification
-was real, not hypothetical — see "Lead Rescue wait/resume reliability closure — this pass"
-below — and the repair is a narrow, durable, cross-process-exclusive claim on the
-notification side effect itself, layered underneath the existing revision guard rather than
-replacing it. `maturity` does not change this pass: still `INTERACTIVE_PROTOTYPE`, still
-`NOT_LIVE`, exactly as the prior pass left it — see that section below for what that
-promotion does and does not claim.
+**The horizontal portfolio finished three passes ago; the vertical climb into Lead Rescue
+continues.** Two passes ago, `WAITING_FOR_REPLY` gained genuine wait/resume — durable
+persistence across a process boundary. The prior pass closed a real cross-runtime
+duplicate-notification gap with a durable `OperationClaimStore`. This pass asked a sharper
+question the prior pass's own completion report left ambiguous: was that claim actually
+gating an OBSERVABLE action, or only a pure data label describing one? Traced with real
+instrumentation — a test-only observable sink wired through the same `SideEffectExecutor`
+port every other live-send path in this codebase already uses — the honest answer was: no
+observable action existed anywhere to gate; `EXECUTED` was, and had always been, a pure plan
+computed with zero I/O. This pass makes that distinction explicit, adds a genuinely
+observable (still `SIMULATED`) execution step behind the SAME claim, and separately closes a
+second, independently real defect the prior pass's own report had flagged but left
+unfixed: a resolved-then-reused incidentId could reuse a confirmed operation's identity and
+be permanently suppressed. See "Lead Rescue wait/resume execution-boundary closure — this
+pass" below for both, each empirically falsified before being repaired. `maturity` does not
+change this pass: still `INTERACTIVE_PROTOTYPE`, still `NOT_LIVE`.
 
 **This pass built the sixth system from an already-authored CONCEPT canon**, the same
 starting condition as Receivables one pass ago: the lifecycle graph (12 states, 14
@@ -360,6 +365,106 @@ opaque per-process `runtimeId` through; zero changes to `lib/engine/reducer.ts`,
 or any other system's code. The reducer's purity is unchanged — no clock, no I/O, no
 randomness inside `applyEvent`, still.
 
+## Lead Rescue wait/resume execution-boundary closure — this pass
+
+**The question the prior pass's own report left ambiguous.** Its completion report said the
+durable claim is acquired "after `applyEvent` computes its candidate result but before that
+result is trusted" — true, but silent on whether anything OBSERVABLE happens before that
+point. This pass answered it by instrumentation, not inference: a test-only recording
+`SideEffectExecutor` (`tests/lead-rescue-wait-resume-execution-boundary.test.ts`) wired into
+the exact point a live send would occur, counting real invocations independently of whatever
+status label `checkWaitIncident` later returns.
+
+**What tracing and instrumentation found.** `resolveEffect` (`lib/engine/reducer.ts`) has two
+paths for a side effect that clears the authority/policy gate: an execution-TRACKED `SEND`
+path that reads an already-resolved outcome a pre-pass fetched from a real
+`SideEffectExecutor`, and the plain path Lead Rescue's wait-elapsed notification actually
+takes (`proposed.execution === undefined`) — a claim against a per-call, in-memory
+`SideEffectLedger`, then an unconditional `{status: 'EXECUTED'}`. That second path performs
+no I/O and calls no executor; `EXECUTED` from it is, and was always, a PURE PLAN — "the
+deterministic core authorized this" — never itself an action. The recording sink confirms
+this directly: with no executor configured, nothing is ever invoked, by construction.
+
+**The repair — an observable boundary that only exists behind the claim.**
+`WaitResumeDeps.executor`, added this pass, is an OPTIONAL `SideEffectExecutor` — the SAME
+port every other live-send path in this codebase already uses, not a new abstraction. When
+absent (unchanged default), the plan remains the whole honest story. When present, the claim
+loop in `checkWaitIncident` invokes it exactly once per EXECUTED effect, and ONLY inside the
+branch already guarded by a successful claim — structurally unreachable any earlier. Every
+recorded invocation in the falsifying tests carries proof of this ordering: the claim store
+already shows `CLAIMED` at the exact moment the sink is called, in every single case, across
+two independently constructed racing runtimes, a simulated crash immediately after claiming
+(sink never invoked), and a simulated crash immediately after invoking but before confirming
+(sink invoked exactly once, a fresh recovery runtime invokes it zero further times). This
+required no changes to `applyEvent`, `resolveEffect`, `run.ts`'s pre-pass, or the Lead Rescue
+handler — the existing two-phase (async I/O, then pure reduce) architecture already had the
+right shape; this pass added one more orchestration-only step after the plan, not inside it.
+The live demo (`lib/engine/lead-rescue-wait-runtime.ts`) now wires a small, honestly labelled
+`AlwaysSucceedsNotificationExecutor` — `SIMULATED`, deterministic, no provider — so this
+ordering is exercised by the running application, not only by tests; verified directly in the
+browser, with the resulting `.data/lead-rescue-operation-claims/*.json` record showing
+`status: "CONFIRMED"` only after a genuine `attemptSend` round trip.
+
+**A second, independently real defect: revision-reset identity collisions.** The prior pass's
+own report named the risk without closing it: `WaitIncidentStore.park()` computed `revision`
+from the ACTIVE record alone, so a fully resolved-and-deleted incident's revision counter
+silently reset. A genuinely new second wait cycle for the SAME `incidentId` — legitimate;
+`park()` has always permitted re-parking — could then be assigned the exact same
+`${incidentId, revision}` pair an earlier, already-CONFIRMED cycle used, and the claim store
+would treat the new cycle's notification as an already-completed duplicate, suppressing it
+forever. Falsified empirically before repair: reverting only `wait-incident-store.ts` and
+re-running the new tests produced 6 failures across the store's own unit tests and the
+full-cycle integration test, all showing revision `1` reused where a fresh cycle needed a new
+one.
+
+**The repair.** Both `WaitIncidentStore` implementations now persist a revision high-water
+mark PER incidentId that survives `resolve()` — a `Map` for the in-memory store, a sibling
+JSON file (`{filePath}.revisions.json`, same gitignored `.data/` scope, same temp-then-rename
+durability) for the file-backed one, deliberately kept separate from the main incidents file
+so `load()`/`listWaiting()`'s existing per-entry schema parsing needed no carve-out. `park()`
+reserves the next revision durably FIRST, then writes the incident record — a crash between
+the two only burns a revision number (safe: nothing claimed it), never reuses one (unsafe).
+`revision`'s existing role as the `resolve()` concurrency token, and as the operation-claim
+identity's revision suffix, is completely unchanged — this is a correctness fix to how
+`revision` is COMPUTED, not a new field, a new concept, or a change to any consumer.
+
+**Falsifying tests, all passing.** `tests/lead-rescue-wait-resume-execution-boundary.test.ts`
+(7 tests, new this pass) proves the execution-boundary ordering: cross-runtime racing with
+the sink invoked at most once; the pre-claim crash window demonstrated unreachable; both
+post-claim crash windows (before invoke, after invoke) recovering to `UNCERTAIN` without a
+second invocation; an authority-blocked effect never reaching the sink at all; confirmed
+completion surviving full reconstruction; and the honest no-executor default. Deliberately
+verified as genuinely falsifying, not vacuous: temporarily reordering the claim and the
+invoke inside `checkWaitIncident` made 5 of these 7 tests fail, each showing the sink invoked
+more than once or before a claim existed — confirmed, then reverted.
+`tests/wait-incident-store.test.ts` gained 3 tests proving the revision high-water mark
+survives resolve/delete/re-park and reconstruction, each empirically confirmed to fail
+against the pre-fix store (5 failures across both store implementations).
+`tests/lead-rescue-wait-resume-concurrency.test.ts` gained one integration-level test (10c)
+driving the full resolve/delete/re-park cycle through the real `checkWaitIncident`
+orchestration path, reusing the exact `waitStartedAt` and correlationId-construction pattern
+the real application already reuses — not an artificially varied stand-in — and confirmed to
+fail against the pre-fix store as well.
+
+**What this honestly does and does not claim.** The executor added this pass is still
+`SIMULATED` — `AlwaysSucceedsNotificationExecutor` invokes nothing external and always
+reports success; this pass proves the ARCHITECTURE correctly gates whatever eventually sits
+behind that port, not that a real provider now exists. A definite, confirmed-clean failure
+(`FAILED_BEFORE_EFFECT`/`RATE_LIMITED`) is treated identically to a genuinely uncertain one —
+conservative by choice: this build has no independent verification channel to trust a clean
+failure report over a hopeful retry, so both block automatic replay rather than risk a second
+unprotected send. A faster, more available path for provably-safe retries is a reasonable
+future addition, not a gap this pass leaves silently unaddressed.
+
+**Files changed.** `lib/persistence/wait-incident-store.ts` (revision high-water mark, both
+implementations); `lib/engine/wait-resume.ts` (the executor seam and invoke-then-confirm
+step, additive to the existing claim loop); `lib/engine/lead-rescue-wait-runtime.ts` (the
+demo's `AlwaysSucceedsNotificationExecutor`). Zero changes to `lib/engine/reducer.ts`,
+`lib/engine/run.ts`, `lib/engine/handlers/lead-rescue.ts`, `lib/persistence/operation-claim-store.ts`,
+or any other system. One narrow UI addition: `app/lead-rescue/wait/page.tsx`'s existing raw
+JSON result panel already surfaces every new field with no code change; no further UI edit
+was needed or made this pass.
+
 ## What is REAL
 
 Real in the sense of *actually executing code*, not *connected to the outside world*.
@@ -397,6 +502,20 @@ New this pass (Lead Rescue wait/resume):
   returns that status — closing the gap the prior pass's own writeup named but left open:
   its in-memory ledgers gave zero protection across independent calls, and the revision guard
   alone ran too late to prevent (only to partially mask) a duplicate execution.
+- **The observable execution boundary — when one is configured — is genuinely gated behind
+  that same claim, proven by instrumentation.** `WaitResumeDeps.executor`
+  (`lib/engine/wait-resume.ts`, new this pass) is invoked, when present, only inside the
+  branch a durable claim has already won; a test-only recording sink confirms this ordering
+  empirically for every invocation it observes, and reverting the ordering to test-before-
+  claim made the majority of the execution-boundary test suite fail. With no executor
+  configured (the demo's own default before this pass, and every caller's default now),
+  `EXECUTED` remains an honestly labelled pure plan — verified directly, not assumed.
+- **An incident's operation identity survives a full resolve/delete/re-park cycle for the
+  same `incidentId`, this pass.** `WaitIncidentStore`'s revision high-water mark
+  (`lib/persistence/wait-incident-store.ts`) now persists per incidentId independently of
+  whether an active record exists, closing a real (empirically falsified) collision: a
+  resolved-then-reused incidentId could previously be assigned a revision an earlier,
+  already-CONFIRMED cycle used, permanently suppressing the new cycle's notification.
 
 New in the Owner Revenue Intelligence pass (prior), retained for continuity:
 
@@ -594,20 +713,22 @@ Everything else stayed exactly as domain-specific as the first three systems' ow
 ## Verification
 
 ```
-npm run verify     # typecheck + lint + 387 tests
+npm run verify     # typecheck + lint + 400 tests
 npm run build      # 27 pages prerender or route; the engine executes at build/request time
 npm run docs       # regenerate canon from the model
 ```
 
-All passing as of this pass, including `tests/wait-incident-store.test.ts` (20 tests),
-`tests/lead-rescue-wait-resume.test.ts` (6 tests, re-verifying the prior pass's properties),
-`tests/operation-claim-store.test.ts` (18 tests, new this pass), and
-`tests/lead-rescue-wait-resume-concurrency.test.ts` (8 tests, new this pass — the
-cross-runtime falsification and its repair). `npm run build` still reports two routes as `ƒ`
-(server-rendered on demand) rather than prerendered — `/api/lead-rescue/wait-incidents` and
-its `/check` sibling — unchanged from the prior pass; every other route remains `○` static or
-`●` SSG. `npm run docs` was not re-run this pass: nothing under `data/` changed, and
-`tests/docs.test.ts` (part of the 387) confirms the generated canon is still current against
+All passing as of this pass, including `tests/wait-incident-store.test.ts` (25 tests — 5 new
+this pass, proving the revision high-water mark), `tests/lead-rescue-wait-resume.test.ts` (6
+tests, re-verifying the prior pass's properties unchanged), `tests/operation-claim-store.test.ts`
+(18 tests), `tests/lead-rescue-wait-resume-concurrency.test.ts` (9 tests — 1 new this pass,
+the full resolve/delete/re-park cycle), and `tests/lead-rescue-wait-resume-execution-boundary.test.ts`
+(7 tests, new this pass — the observable-execution falsification and its repair). `npm run
+build` still reports two routes as `ƒ` (server-rendered on demand) rather than prerendered —
+`/api/lead-rescue/wait-incidents` and its `/check` sibling — unchanged from the prior pass;
+every other route remains `○` static or `●` SSG. `npm run docs` was not re-run this pass:
+nothing under `data/` changed, and `tests/docs.test.ts` (part of the 400) confirms the
+generated canon is still current against
 the unchanged model.
 
 Visual inspection performed on the portfolio index, the Owner Revenue Intelligence dossier,
@@ -680,6 +801,17 @@ effects, matching the "ordinary variation is left alone" claim exactly.
    open deliberately rather than forced: the `OperationClaimStore` interface has room for it
    (`confirm()` already exists; a symmetric manual `abandon()`/override would be additive,
    not a redesign), but no consumer of this demo-scale prototype needs it yet.
+10. **A definite, confirmed-clean executor failure (`FAILED_BEFORE_EFFECT`, `RATE_LIMITED`)
+    is treated identically to a genuinely uncertain one, this pass.** Both leave the claim
+    unconfirmed and block automatic replay, even though a definite failure is, by the
+    `SendOutcome` contract's own documentation, retry-safe. Deliberately conservative rather
+    than fast-pathing the distinction: this build has no independent way to verify a clean
+    failure report actually reflects reality (no `attemptVerify` implementation is wired to
+    the wait/resume boundary), so collapsing "definitely safe to retry" and "genuinely
+    unknown" into two different automatic behaviors would be exactly the kind of
+    overconfident retry this pass's whole reliability story argues against. A future pass
+    with a genuine verification channel is where that nuance belongs — `OperationClaimStore`
+    already has room for a third, "abandoned" terminal state without a redesign.
 
 ## Single recommended next fidelity gap
 
@@ -694,9 +826,11 @@ concretely: a second `waitStartedAt`-equivalent fact at the point an offer is ma
 operating parameter for the response window (already declared in canon as a configured
 window, not yet in `profile.operatingParameters`), and a second handler branch following
 `handleWaitReevaluation`'s exact shape — no change to `WaitIncidentStore`, `checkWaitIncident`,
-or `OperationClaimStore`: `checkWaitIncident`'s claim gate already loops over every side
-effect a handler proposes, generically, so `lr-t22`'s own notification would inherit the same
-cross-runtime protection this pass built, at zero additional cost.
+`OperationClaimStore`, or `wait-resume.ts`'s executor seam: `checkWaitIncident`'s claim loop
+already loops over every side effect a handler proposes, generically, so `lr-t22`'s own
+notification would inherit BOTH the cross-runtime claim protection the prior pass built AND
+this pass's claim-gated observable-execution ordering, at zero additional architectural cost
+— the same `WaitResumeDeps.executor` wiring, reused unchanged, not reinvented per transition.
 
 **Why this outranks generalising to a second system.** Client Onboarding's `BLOCKED` state,
 Dormant Pipeline Recovery's cadence-retry loop, and Receivables' promise-elapsed check all

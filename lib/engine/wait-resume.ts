@@ -3,6 +3,7 @@ import type { SystemDefinition } from '@/lib/model/system';
 import type { CanonicalEvent, SideEffect, TimelineEntry } from '@/lib/model/runtime';
 import type { WaitIncidentRecord, WaitIncidentStore } from '@/lib/persistence/wait-incident-store';
 import type { ClaimAttempt, OperationClaimRecord, OperationClaimStore } from '@/lib/persistence/operation-claim-store';
+import { resolveSend, type SideEffectExecutor } from '@/lib/ports/side-effect-executor';
 import { applyEvent } from './reducer';
 import { EventLedger, ExecutionLedger, SideEffectLedger } from './ledger';
 import type { EngineInternals, EngineState, SystemHandlers } from './types';
@@ -23,18 +24,60 @@ import type { EngineInternals, EngineState, SystemHandlers } from './types';
  * as an ordinary parameter, exactly like every other event's `occurredAt` — see
  * `lib/model/runtime.ts`'s own note on why that determinism guarantee matters.
  *
+ * **What `applyEvent`'s `EXECUTED` actually means — traced, not assumed.** `resolveEffect`
+ * (`lib/engine/reducer.ts`) has two paths for a proposed side effect that clears the
+ * authority/policy gate: an execution-TRACKED path (`proposed.execution.kind === 'SEND'`)
+ * that reads an already-resolved `SendOutcome` a pre-pass fetched from a real
+ * `SideEffectExecutor`, and the plain path Lead Rescue's wait-elapsed notification actually
+ * takes (`proposed.execution === undefined`) — `internals.effects.claim()` against a
+ * PER-CALL, in-memory `SideEffectLedger`, then unconditionally `{status: 'EXECUTED'}`. That
+ * second path performs no I/O, calls no executor, and has no effect observable outside the
+ * returned data structure — confirmed by direct instrumentation, not inference, in
+ * `tests/lead-rescue-wait-resume-execution-boundary.test.ts`. `applyEvent` is exactly what
+ * its own docstring says: pure and synchronous. `EXECUTED` from that call is therefore a
+ * PLAN — "the deterministic core has authorized this action" — never itself the action.
+ *
+ * **The actual observable execution boundary, if one exists, is HERE, not in `applyEvent`.**
+ * `WaitResumeDeps.executor`, added this pass, is an OPTIONAL `SideEffectExecutor`
+ * (`lib/ports/side-effect-executor.ts` — the same port every other live-send path in this
+ * codebase already uses). When absent (every caller before this pass, and any caller that
+ * doesn't need this), the plan IS the whole story: `EXECUTED` means "authorized, nothing
+ * further attempted," and `executionMode: 'SIMULATED'` on the resulting `SideEffect` already
+ * says so honestly, the same as everywhere else in this portfolio. When present, the claim
+ * loop below invokes it exactly once per EXECUTED effect, and ONLY after that effect has
+ * already won a durable, exclusive `OperationClaimStore` claim — never before. This ordering
+ * (authorize → claim → invoke → confirm → resolve) is what makes "at most one observable
+ * invocation across independent runtimes" a provable property rather than a hopeful one; see
+ * `tests/lead-rescue-wait-resume-execution-boundary.test.ts`'s recording executor, which
+ * asserts a durable claim already existed at the moment of every invocation it observed.
+ *
+ * **Why this lives here and not in `applyStep`.** `applyEvent`/`resolveEffect` are pure and
+ * synchronous by design (`lib/engine/reducer.ts`'s own docstring: "no clock, no randomness,
+ * ever"). An `OperationClaimStore.claim()` call and a `SideEffectExecutor.attemptSend()` call
+ * are both async I/O — they cannot live inside the reducer without breaking that guarantee.
+ * They also cannot run in the SAME kind of pre-pass `lib/engine/run.ts` uses for ordinary
+ * SEND-tracked effects (`resolveExecutionAttempts`, always BEFORE `applyEvent`), because that
+ * pre-pass needs to know in advance which effects a handler will propose — true for an
+ * authored scenario's whole event list, false here: whether `handleWaitReevaluation` proposes
+ * a notification at all depends on a runtime comparison (`occurredAt` vs `waitStartedAt`)
+ * this function cannot and must not re-derive (see `checkWaitIncident`'s own docstring).
+ * So the order here is necessarily POST-`applyEvent`: plan first (pure), then claim, invoke,
+ * and confirm the plan's proposed effects (impure, orchestration-only) — the "genuine resume
+ * boundary" this file's own name describes.
+ *
  * **Effect-execution safety across independent runtimes.** `applyEvent` is called here with
  * a brand-new `SideEffectLedger`/`ExecutionLedger` PER CALL (`EngineInternals` below) — that
  * ledger has zero memory of any other `checkWaitIncident` call, so it cannot by itself stop
- * two overlapping calls from both computing `EXECUTED` for the same notification. The
- * `OperationClaimStore` gate below is what actually prevents that: after `applyEvent`
- * computes its candidate result, every side effect it marked `EXECUTED` must win a durable,
- * exclusive claim on its own `idempotencyKey` before this function trusts that status enough
- * to return it — and before the incident record is resolved. A caller that loses the claim
- * (or finds it claimed-but-unconfirmed, the crash-window case) never sees a second genuine
- * `EXECUTED`; see `lib/persistence/operation-claim-store.ts` for why, and
- * `tests/lead-rescue-wait-resume-concurrency.test.ts` for the falsifying tests that drove
- * this design.
+ * two overlapping calls from both computing `EXECUTED` for the same notification PLAN. The
+ * `OperationClaimStore` gate below is what actually prevents that plan from being acted on
+ * twice: every side effect `applyEvent` marked `EXECUTED` must win a durable, exclusive claim
+ * on its own operation identity before this function trusts that status enough to invoke an
+ * executor, return it, or resolve the incident record. A caller that loses the claim (or
+ * finds it claimed-but-unconfirmed, the crash window) never invokes the executor and never
+ * reports a second genuine `EXECUTED`; see `lib/persistence/operation-claim-store.ts` for
+ * why, and `tests/lead-rescue-wait-resume-concurrency.test.ts` /
+ * `tests/lead-rescue-wait-resume-execution-boundary.test.ts` for the falsifying tests that
+ * drove and then verified this design.
  */
 
 export interface WaitResumeDeps {
@@ -47,6 +90,16 @@ export interface WaitResumeDeps {
    * "compare occurredAt against a fact recording when the wait began" shape.
    */
   readonly reevaluationEventType: string;
+  /**
+   * Optional. When absent (every caller before this pass), a claim-winning EXECUTED effect
+   * is confirmed immediately — the plan IS the whole story, honestly labelled `SIMULATED`.
+   * When present, the claim-winning caller invokes `executor.attemptSend()` — genuinely
+   * awaited, genuinely able to fail or return an uncertain outcome — AFTER winning the claim
+   * and BEFORE confirming it. See the module docstring for why this cannot live inside
+   * `applyEvent`, and `lead-rescue-wait-runtime.ts` for the SIMULATED (not live) instance
+   * this portfolio's own demo wires in.
+   */
+  readonly executor?: SideEffectExecutor;
 }
 
 export interface ParkWaitingIncidentInput {
@@ -217,7 +270,46 @@ export async function checkWaitIncident(
     const attempt: ClaimAttempt = await claimStore.claim(operationId, runtimeId, nowIso);
 
     if (attempt.decision === 'CLAIMED') {
-      await claimStore.confirm(operationId, nowIso);
+      if (deps.executor === undefined) {
+        // No executor configured: the plan is the whole story. Confirm immediately — this
+        // is the exact prior behavior, unchanged for every caller that doesn't opt in.
+        await claimStore.confirm(operationId, nowIso);
+        continue;
+      }
+
+      // The one and only place this whole module invokes something observable — and it can
+      // only be reached after the claim above already succeeded durably and exclusively.
+      const resolved = await resolveSend(deps.executor, {
+        attemptId: operationId,
+        idempotencyKey: effect.idempotencyKey,
+        provider: deps.executor.id,
+        description: effect.description,
+      });
+
+      if (resolved.status === 'OK' && resolved.result.kind === 'SUCCEEDED') {
+        await claimStore.confirm(operationId, nowIso);
+        continue;
+      }
+
+      // Anything else — FAILED_BEFORE_EFFECT, RATE_LIMITED, OUTCOME_UNKNOWN, a contract
+      // violation, or an executor that threw — leaves the claim CLAIMED-but-unconfirmed and
+      // this call reports UNCERTAIN below. Deliberately conservative rather than fast-pathing
+      // a "definitely safe to retry" case: this build has no independent way to verify a
+      // clean failure report actually reflects reality, and collapsing that distinction
+      // would be exactly the "second unprotected notification" the task this pass implements
+      // forbids. A future pass with a genuine verification channel (an independent
+      // `attemptVerify`, a provider receipt) is where that nuance belongs.
+      const detail =
+        resolved.status === 'OK'
+          ? `attemptSend on "${deps.executor.id}" returned ${resolved.result.kind}: ${'reason' in resolved.result ? resolved.result.reason : 'no further detail'}.`
+          : `attemptSend on "${deps.executor.id}" could not be resolved (${resolved.status}): ${resolved.reason}.`;
+      entries = downgradeEffect(
+        entries,
+        effect.idempotencyKey,
+        'OUTCOME_UNKNOWN',
+        `Idempotency key "${effect.idempotencyKey}" was durably claimed by this runtime but the observable executor did not confirm success. ${detail} Refusing to retry automatically.`,
+      );
+      blocking = await claimStore.load(operationId);
       continue;
     }
 
