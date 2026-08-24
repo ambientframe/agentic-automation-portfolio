@@ -1,18 +1,30 @@
 # Status
 
-**As of 2026-08-24 · Lead Rescue's waiting incidents now wake themselves: a real n8n Schedule
-Trigger, on its own timer, calls the existing full-sweep endpoint with no human or script
-involved, and — live-verified against a local Docker n8n instance across an actual container
-restart — correctly resolves exactly the incidents whose window has genuinely elapsed while
-leaving everything else untouched. `checkAllWaitingIncidents` existed since the attention-timeout
-pass but had never once been invoked by anything but a person clicking a button; this closes that
-gap using the identical claim-store guarantee proven for cross-runtime and crash safety, adding
-zero new engine code. n8n now owns both ends of orchestration this portfolio has built —
-triggering-in (new-lead ingress) and waking-up (the wait sweep) — while every decision stays
-inside the engine. Maturity does not change: nothing external-to-the-portfolio was contacted —
-see "Lead Rescue scheduled n8n sweep," below, for the exact boundary. This pass also repairs a
-stale canon claim found during a state-reconciliation pass earlier the same day: see "Known
-fidelity gaps," item 16.**
+**As of 2026-08-24 · Lead Rescue escalation notifications now name a real configured role
+instead of the "Named owner" simulation placeholder.** `resolveEscalationOwner`
+(`lib/model/profile.ts`) deterministically resolves, from `profile.roles`'
+`authorityCeiling` data alone, which configured role a notification should reach — closest-fit
+by required authority, alphabetical-by-id tie-break, `UNRESOLVED` (never a fabricated name)
+when nothing qualifies. Applied at all six Lead Rescue call sites that used to hard-code the
+placeholder, including a genuine two-tier distinction the profile's own data already supports:
+the routine "case ready" and "window elapsed" notifications resolve to `Client Partner`
+(the tied-but-broken authority-3 pair), while the two attention-timeout rules' own declared
+"next owner in the authority chain" language now genuinely resolves one tier higher, to
+`Managing Principal (founder)` — the only role at authority 4. See "Lead Rescue escalation
+owner resolution," below. Maturity does not change.
+
+**As of 2026-08-24 (prior pass, same day) · Lead Rescue's waiting incidents now wake themselves:
+a real n8n Schedule Trigger, on its own timer, calls the existing full-sweep endpoint with no
+human or script involved, and — live-verified against a local Docker n8n instance across an
+actual container restart — correctly resolves exactly the incidents whose window has genuinely
+elapsed while leaving everything else untouched. `checkAllWaitingIncidents` existed since the
+attention-timeout pass but had never once been invoked by anything but a person clicking a
+button; this closes that gap using the identical claim-store guarantee proven for cross-runtime
+and crash safety, adding zero new engine code. n8n now owns both ends of orchestration this
+portfolio has built — triggering-in (new-lead ingress) and waking-up (the wait sweep) — while
+every decision stays inside the engine. See "Lead Rescue scheduled n8n sweep," below. This pass
+also repaired a stale canon claim found during a state-reconciliation pass earlier the same day:
+see "Known fidelity gaps," item 16.**
 
 ## Portfolio maturity
 
@@ -1574,27 +1586,116 @@ corrected — canon truth repair only, no behavior change). `docs/FAILURE_MODE_R
 any other application code — this pass is entirely a new orchestration trigger and a canon
 correction on top of machinery that already did the right thing.
 
+## Lead Rescue escalation owner resolution — this pass
+
+**The gap named at the end of the prior pass.** Every Lead Rescue notification that reaches a
+human — six call sites across `lib/engine/handlers/lead-rescue.ts` — addressed
+`target: 'Named owner'`, a simulation placeholder, even though `data/profiles/kestrel/profile.ts`
+already declares a real `roles` array with a genuine `authorityCeiling` per role. The prior
+pass's own "Known fidelity gaps" item 14 named this precisely and deliberately left it open.
+
+**What the profile actually models, checked before designing anything.** `RoleSchema`
+(`lib/model/profile.ts`) has no person-name field — a business profile in this portfolio models
+CONFIGURED ROLES (`'Client Partner'`, `'Managing Principal (founder)'`), not named individuals.
+Inventing a person's name to satisfy "identify the actual configured person" would have been
+worse than the placeholder it replaced — a fabricated identity dressed as real personnel data.
+The truthful resolution is therefore a role name: the most specific real identifier this data
+model has. `awaitingHuman` (`EngineState`) was checked and ruled out as an "owner" field — every
+existing use across this codebase writes it as a human-readable REASON string ("Low-confidence
+classification," "Restricted contact..."), never an assignee; no "current owner" tracking exists
+anywhere to walk a chain from. The two-tier design below is derived entirely from
+`authorityCeiling` values already on the profile, not from any invented hierarchy.
+
+**The policy.** `resolveEscalationOwner(profile, requiredAuthority)` (`lib/model/profile.ts`):
+among every role whose `authorityCeiling` is at least `requiredAuthority`, pick the one with the
+SMALLEST such ceiling (closest fit — no more escalation than actually required); break ties
+between equal-ceiling roles alphabetically by `id`, an explicit rule, never the profile's own
+declared array order, which carries no canonical meaning (checked directly: reversing
+`profile.roles` and re-resolving returns the identical role). No qualifying role returns
+`UNRESOLVED` with a distinct, honest fallback string
+(`UNRESOLVED_ESCALATION_OWNER = 'Unresolved — no configured role meets the required authority
+level'`) — never a fabricated name, never silently promoted to the closest-but-insufficient
+role. Pure, synchronous, and vertical-agnostic — placed alongside `numberParam`/`findParameter`
+in the profile-utility layer, not inside the Lead Rescue handler, since `profile.roles` is a
+core profile-model concept another system could reuse later, though nothing else was touched
+this pass.
+
+**The two genuine tiers, both grounded in real profile data, not invented.** The Kestrel profile
+happens to have two roles tied at `authorityCeiling: 3` (`client-partner`, `head-of-delivery`)
+and exactly one at `4` (`founder`) — a real, checked precondition, not assumed. Every "first-line"
+notification (the two `BOOKING_READY`-entry routings, the `lr-t14`/`lr-t22` wait-elapsed
+escalations) calls the resolver at `STANDARD_ESCALATION_AUTHORITY` (3), resolving to `Client
+Partner` — the alphabetically-first of the tie, and, independently, the role whose own declared
+`responsibilities` text ("Owns named accounts through qualification, scoping, and proposal") is
+exactly the right fit for a newly-qualified enquiry. The two attention-timeout rules — the ONLY
+two call sites whose own decision/description text already says "the next owner in the authority
+chain" — call the resolver at `NEXT_OWNER_ESCALATION_AUTHORITY` (4), one level above the standard
+tier, resolving to `Managing Principal (founder)`: a genuinely different, higher-tier owner,
+matching the canon language exactly rather than reusing the same placeholder pattern reworded.
+
+**Falsifying tests, written before implementation.** `tests/profile.test.ts` (+5) proves the
+resolver in isolation: a configured qualifying role resolves correctly and is always a real
+profile role name, never fabricated; the tie-break is genuinely order-independent (reversing
+`profile.roles` changes nothing); the strictly-higher tier resolves to a different role than the
+tied tier below it; no qualifying role fails safe to `UNRESOLVED_ESCALATION_OWNER`, never a real
+or plausible-looking name; the function is pure (identical input, identical output).
+`tests/lead-rescue-escalation-owner.test.ts` (new, 7 tests) proves the resolver is genuinely
+applied through the real handler paths, not merely available: `handleEnquiry`'s routing
+notification and `handleReply`'s reply-completes-fields notification — two materially different
+code paths — both resolve to the identical standard-tier owner; `lr-t14`'s wait-elapsed
+notification resolves it through the `checkWaitIncident` orchestration boundary;
+`handleReviewAttentionTimeout` and `handleDispatchAttentionTimeout` both resolve the genuinely
+higher "next owner" tier; every scenario this portfolio declares is swept and asserted to never
+emit `'Named owner'` again; and a repeated check of the same overdue incident resolves to the
+identical owner both times while the pre-existing `ATTENTION_OVERDUE` idempotency semantics
+(never resolved, never a second lifecycle transition) remain completely undisturbed — proving
+owner resolution, added at the very boundary the claim store already guards, does not touch
+that guarantee. Two pre-existing tests in `tests/lead-rescue-offer-wait.test.ts` asserted the
+literal old placeholder string as a stand-in for an unrelated property (effect kind/recipient,
+not ownership) and were deliberately updated to assert the resolved value instead, without
+weakening what they originally proved.
+
+**Authority boundaries, unchanged.** Resolving WHO a permitted notification names is a lookup
+against already-loaded profile data — it never decides WHETHER the notification is permitted.
+The engine core's own authority gate, `NOTIFICATION` effect authority levels, and every
+human-review lifecycle state are byte-for-byte unchanged; `resolveEscalationOwner` has no access
+to `EngineState`, cannot affect a transition, and is called strictly after an effect has already
+cleared the authority gate.
+
+**Files changed.** `lib/model/profile.ts` (`resolveEscalationOwner`, `UNRESOLVED_ESCALATION_OWNER`
+— new, additive). `lib/engine/handlers/lead-rescue.ts` (`escalationOwnerTarget` helper; all six
+`target: 'Named owner'` sites and one step summary now call it). `tests/profile.test.ts` (+5).
+`tests/lead-rescue-escalation-owner.test.ts` (new, 7 tests). `tests/lead-rescue-offer-wait.test.ts`
+(2 pre-existing assertions updated to the resolved value). Zero changes to `data/systems/lead-rescue.ts`,
+`data/profiles/kestrel/profile.ts`, the reducer, the authority gate, `WaitIncidentStore`,
+`OperationClaimStore`, or any route. `npm run docs` produced no diff — no canon or profile data
+changed.
+
 ## Verification
 
 ```
-npm run verify     # typecheck + lint + 481 tests
+npm run verify     # typecheck + lint + 493 tests
 npm run build      # 29 pages prerender; 5 dynamic (ƒ) API routes; the engine executes at build/request time
 npm run docs       # regenerate canon from the model — no diff this pass
 ```
 
-All passing as of this pass. `tests/lead-rescue-wait-sweep.test.ts` (4 tests) is new — see "Lead
-Rescue scheduled n8n sweep," above, for what each proves. Every pre-existing test file is
-unchanged and still passes unmodified — this pass added a new orchestration trigger, a new
-sweep-level test file, and a one-field canon correction, and touched no application code any
-existing test depended on. `npm run build` still reports 5 dynamic (`ƒ`) routes and 29
-prerendered pages, unchanged — this pass added no new route. `npm run docs` was re-run twice:
-once immediately after the canon correction (confirming exactly the one expected propagated
-change to `docs/FAILURE_MODE_REGISTER.md`, nothing else), and once again at the end of the pass
-(confirming zero further diff). Local n8n execution independently verified live (see "Lead
-Rescue scheduled n8n sweep," above) — an autonomous, un-manually-triggered first tick correctly
-resolving an eligible incident while leaving a not-yet-due one untouched, and a post-container-
-restart tick correctly discovering and resolving a newly-eligible incident, each confirmed by
-reading the durable store directly.
+All passing as of this pass. `tests/profile.test.ts` (+5) and `tests/lead-rescue-escalation-owner.test.ts`
+(new, 7 tests) prove `resolveEscalationOwner` and its application at every Lead Rescue call
+site — see "Lead Rescue escalation owner resolution," above, for what each proves. Two
+pre-existing assertions in `tests/lead-rescue-offer-wait.test.ts` were deliberately updated
+(the literal old placeholder string to the resolved value); every other pre-existing test file
+is unchanged and still passes unmodified. `npm run build` still reports 5 dynamic (`ƒ`) routes
+and 29 prerendered pages, unchanged — this pass added no new route, and no `data/`/profile
+change, confirmed by `npm run docs` producing zero diff.
+
+Prior pass, same day: `tests/lead-rescue-wait-sweep.test.ts` (4 tests) is new — see "Lead Rescue
+scheduled n8n sweep," above, for what each proves. `npm run docs` was re-run twice that pass:
+once immediately after its own canon correction (confirming exactly the one expected propagated
+change to `docs/FAILURE_MODE_REGISTER.md`, nothing else), and once again at the end (confirming
+zero further diff). Local n8n execution independently verified live — an autonomous,
+un-manually-triggered first tick correctly resolving an eligible incident while leaving a
+not-yet-due one untouched, and a post-container-restart tick correctly discovering and
+resolving a newly-eligible incident, each confirmed by reading the durable store directly.
 
 Visual inspection performed on the portfolio index, the Owner Revenue Intelligence dossier,
 and both new scenario pages — the run-summary panel's existing generic counters render
@@ -1698,22 +1799,14 @@ effects, matching the "ordinary variation is left alone" claim exactly.
     (`handleReviewAttentionTimeout`/`handleDispatchAttentionTimeout`) durably escalate the
     operational fact that a human has not acted, while `NEEDS_HUMAN`, `ESCALATED`,
     `SUPPRESSION_REVIEW`, and `BOOKING_READY` never move on the strength of a timeout alone.
-14. **The escalation target is a generic `'Named owner'` string, never a resolved "next
-    owner in the authority chain."** `lr-fm-approval-timeout`'s own declared `recovery` names
-    escalating "to the next owner in the authority chain" — language this pass's own
-    `handleReviewAttentionTimeout`/`handleDispatchAttentionTimeout` decisions quote directly
-    in their `applicablePolicy`/`summary` text, but the NOTIFICATION effect each proposes
-    still addresses `target: 'Named owner'`, the exact same undifferentiated string every
-    other notification in this handler file already uses (the `BOOKING_READY`-entry
-    notifications, the `lr-t14`/`lr-t22` wait-elapsed notifications). `data/profiles/kestrel/profile.ts`
-    already declares an ordered `roles` array with a real `authorityCeiling` per role (founder
-    4, head-of-delivery 3, client-partner 3, analyst 1) that could plausibly resolve "the next
-    owner above whoever currently holds this case" — nothing in this pass reads it for that
-    purpose. Not a regression this pass introduced (every escalation notification in this
-    file has always targeted the same generic string); a pre-existing narrowing this pass's
-    own new escalation text makes newly visible, the same way the prior pass's live surface
-    made `lr-fm-approval-timeout` itself visible. **Known refinement, not resolved this
-    pass** — recorded here for continuity; not automatically the next pick (see below).
+14. **CLOSED this pass.** The escalation target used to be a generic `'Named owner'` string,
+    never a resolved "next owner in the authority chain" — despite `lr-fm-approval-timeout`'s
+    own declared `recovery` naming exactly that, and `handleReviewAttentionTimeout`/
+    `handleDispatchAttentionTimeout`'s decision text already quoting it verbatim. See "Lead
+    Rescue escalation owner resolution," above: `resolveEscalationOwner` now reads
+    `profile.roles`' real `authorityCeiling` data and resolves a genuine, deterministic owner
+    at all six call sites — including the two-tier distinction this item's own text first
+    named as merely plausible.
 15. **n8n covers exactly one ingress surface — new-lead intake — and nothing else.** A reply
     from a prospect, a human decision, or an offer despatch still only reach the engine through
     the direct application UI/API, never through an orchestration path. This is the honest
@@ -1728,40 +1821,46 @@ effects, matching the "ordinary variation is left alone" claim exactly.
 
 ## Single recommended next fidelity gap
 
-**The authority-chain "next owner" resolution named as item 14, above.** With the scheduled
-sweep closed this pass, the two candidates the prior pass explicitly left open were the
-authority-chain gap (item 14) and a second n8n ingress surface for prospect replies (item 15).
-The authority-chain gap now outranks the second ingress surface, for reasons specific to what
-just closed rather than a restatement of the prior pass's own ranking: `data/profiles/kestrel/profile.ts`
-already declares an ordered `roles` array with a real `authorityCeiling` per role (founder 4,
-head-of-delivery 3, client-partner 3, analyst 1), but every escalation notification this
-portfolio has ever written — the `BOOKING_READY`-entry notifications, `lr-t14`/`lr-t22`'s own
-wait-elapsed notifications, and both new attention-timeout rules — addresses the same generic
-`target: 'Named owner'` string, never resolving who that actually is. `lr-fm-approval-timeout`'s
-own declared `recovery` names escalating "to the next owner in the authority chain" — language
-the attention-timeout pass's own decision text already quotes verbatim without the code behind
-it doing what the text claims. This is a real, self-flagged mismatch between what the system
-SAYS it does on escalation and what it actually does, sitting entirely inside the engine: no
-orchestration runtime, no new persistence, no new port.
+**Bounded real AI classification — replace `FixtureDecisionProvider` with a genuine bounded
+model call for Lead Rescue's intake and reply-interpretation judgments, behind the exact
+`DecisionProvider` contract already built and tested.** With the scheduler (prior pass) and the
+authority-chain gap (this pass) both closed, the two candidates the portfolio's own prior
+assessment named for after the scheduler are the live ones remaining: bounded real AI
+classification, and real outbound provider execution (a live messaging send). A third —
+extending n8n ingress to `prospect.replied` — remains open (item 15) but is explicitly the same
+proven pattern applied a third time, not new evidence of capability.
 
-**Why this outranks a second n8n ingress surface right now.** A second ingress surface for
-`prospect.replied` would be the SAME pattern this portfolio has now proven twice — once for
-new-lead intake, once (this pass) for a scheduled trigger — applied to a third event type.
-Valuable as evidence of generalisation, but no longer evidence of a NEW capability; the
-authority-chain gap is a genuinely different question, with its own falsifiable target
-(`resolveEscalationTarget()`-shaped logic reading `profile.roles` against the case's current
-`awaitingHuman`/owner and returning the correctly-ranked next name, not a placeholder) and a
-commercial payoff a demo viewer can feel directly: "escalates to Named owner" reads as a
-placeholder the moment a sharp buyer notices it; "escalates to Dana Whitfield, Head of Delivery"
-does not.
+**Why AI classification outranks the live send right now.** Both cross this portfolio's one
+remaining hard boundary — nothing has ever left the process — but they cross it in materially
+different ways. A live outbound send necessarily risks contacting a real human (even a test
+address) the moment it is wired for real, and this codebase's own scope discipline
+(`CLAUDE.md`: "no live integrations, credentials, outbound communication... until a real
+limitation... creates the need") treats that as the highest-stakes external boundary in the
+whole portfolio. A bounded AI classification call risks nothing external-to-the-portfolio at
+all — it is a private API call to a model provider, never a message a prospect receives — and it
+deepens the ONE stage this portfolio's own fidelity assessment has called out repeatedly as
+"simulated, with real policy around it": the confidence-floor comparison, contract validation,
+and forbidden-action enforcement already run for real on every call; only the judgment itself is
+still replayed from an authored fixture.
 
-**Scope, named in advance.** Read the escalating case's own current owner/authority level from
-`awaitingHuman` or the applicable decision record; look up the next-higher `authorityCeiling`
-role in `profile.roles`; substitute that role's name into the notification `target` in place of
-`'Named owner'`, everywhere the four escalation call sites in `lib/engine/handlers/lead-rescue.ts`
-currently hardcode it. No new lifecycle state, transition, event type, or port — purely
-correcting what an existing, already-authorized NOTIFICATION effect addresses.
+**What already exists and needs no change.** `lib/ports/decision-provider.ts`'s `DecisionProvider`
+port, the confidence-floor comparison, the missing-field intersection, and the
+declined-inference-never-leaks guarantee (`tests/lead-rescue.test.ts`) are all already real and
+independently tested — a live provider is a second IMPLEMENTATION of an interface this codebase
+already exercises in both directions, not a new contract.
+
+**What this would require, named honestly in advance.** A real model-provider credential (a new
+kind of secret this portfolio has never held); a decision about whether that credential lives in
+environment configuration or a lighter mechanism appropriate to a prototype's scale; explicit
+handling for a genuinely non-deterministic response (the reducer's own "no clock, no randomness"
+guarantee already isolates this correctly, but a live call's LATENCY and FAILURE MODES are new);
+and — the one decision this document does not make in advance — whether exercising it changes
+Lead Rescue's maturity label at all, given `PARTIALLY_LIVE`'s own bar is a real-world,
+outside-the-portfolio consequence, and a private model API call arguably still does not clear it
+(no prospect, provider-of-record, or credential-bearing customer system is contacted). That
+argument needs to be made and verified when the pass happens, not assumed here.
 
 **Do not begin closing this gap from this document.** Recorded here as the evidence-based next
 candidate, the same discipline every prior pass's "next fidelity gap" section applied — not as
-a plan to execute without its own re-verification.
+a plan to execute without its own re-verification, and not a decision to add a live credential
+without the user's own explicit go-ahead.

@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { AuthorityLevelSchema } from './system';
+import { AuthorityLevelSchema, type AuthorityLevel } from './system';
 import { OperatingStandardSchema } from './provenance';
 
 /**
@@ -349,4 +349,66 @@ export function numberParam(profile: BusinessProfile, key: string): number {
     throw new Error(`Operating parameter "${key}" is not numeric (got ${typeof parameter.value}).`);
   }
   return parameter.value;
+}
+
+// ---------------------------------------------------------------------------
+// Escalation owner resolution
+// ---------------------------------------------------------------------------
+
+/**
+ * The literal string a runtime notification target reads when NO configured role meets the
+ * required authority — never a fabricated name, never silently promoted to whichever role
+ * happens to exist. Distinct from the "Named owner" simulation placeholder it replaces: this
+ * string states plainly that resolution failed, so the gap stays visible rather than being
+ * quietly papered over.
+ */
+export const UNRESOLVED_ESCALATION_OWNER = 'Unresolved — no configured role meets the required authority level';
+
+export interface EscalationOwnerResolution {
+  readonly status: 'RESOLVED' | 'UNRESOLVED';
+  /** Present iff RESOLVED — the actual configured role this escalation should reach. */
+  readonly role?: Role;
+  /**
+   * Always present. `role.name` when RESOLVED (a profile carries roles, not named
+   * individuals — this IS the most specific truthful identifier the data model has);
+   * `UNRESOLVED_ESCALATION_OWNER` when not. Kept as a plain string, the exact type
+   * `SideEffect.target` already declares, so callers need no shape change.
+   */
+  readonly target: string;
+}
+
+/**
+ * Answers, deterministically: given a business profile and a required authority level, which
+ * configured role should an escalation notification reach?
+ *
+ * Policy — closest fit, alphabetical tie-break: among every role whose `authorityCeiling` is
+ * at least `requiredAuthority`, pick the one with the SMALLEST such ceiling (the least amount
+ * of unnecessary escalation past what's actually required). Two or more roles at that same
+ * ceiling break the tie by `id`, alphabetically — an explicit, stable rule, never the profile's
+ * own declared array order, which carries no canonical meaning here (`profile.roles` is
+ * authored in an arbitrary narrative order, not sorted by authority).
+ *
+ * No role meeting `requiredAuthority` returns UNRESOLVED rather than inventing a person or
+ * silently returning the closest-but-insufficient role — the same "fail loud, not plausible"
+ * discipline `MalformedWaitRecordError`/`MalformedOperationClaimError` already apply elsewhere
+ * in this codebase to a different kind of missing data.
+ *
+ * Pure and synchronous, like every other profile utility in this file — no I/O, no clock, no
+ * randomness. Resolving an owner is a lookup against already-loaded profile data, not a new
+ * kind of judgment or a new execution authority: it decides WHO a permitted notification names,
+ * never WHETHER the notification is permitted at all (that remains the engine core's own
+ * authority gate, unchanged).
+ */
+export function resolveEscalationOwner(profile: BusinessProfile, requiredAuthority: AuthorityLevel): EscalationOwnerResolution {
+  const qualifying = profile.roles.filter((role) => role.authorityCeiling >= requiredAuthority);
+  if (qualifying.length === 0) {
+    return { status: 'UNRESOLVED', target: UNRESOLVED_ESCALATION_OWNER };
+  }
+  const closestCeiling = Math.min(...qualifying.map((role) => role.authorityCeiling));
+  const closestFit = qualifying.filter((role) => role.authorityCeiling === closestCeiling);
+  const [chosen] = [...closestFit].sort((a, b) => a.id.localeCompare(b.id));
+  if (chosen === undefined) {
+    return { status: 'UNRESOLVED', target: UNRESOLVED_ESCALATION_OWNER };
+  }
+  return { status: 'RESOLVED', role: chosen, target: chosen.name };
 }

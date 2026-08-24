@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { LEAD_RESCUE } from '@/data/systems';
 import { KESTREL } from '@/data/profiles/kestrel/profile';
+import { resolveEscalationOwner } from '@/lib/model/profile';
 import { LEAD_RESCUE_HANDLERS } from '@/lib/engine/handlers/lead-rescue';
 import { leadRescueScenarioBySlug } from '@/data/profiles/kestrel/scenarios/lead-rescue';
 import { runScenario } from '@/lib/engine/run';
@@ -177,7 +178,9 @@ describe('Lead Rescue lr-t22 — offer-unanswered deterministic rule', () => {
     const notify = run.sideEffects.find((e) => e.idempotencyKey.startsWith('notify:'));
     expect(notify?.status).toBe('EXECUTED');
     expect(notify?.kind).toBe('NOTIFICATION');
-    expect(notify?.target).toBe('Named owner');
+    // Resolved from the profile's own configured roles, not the retired "Named owner"
+    // simulation placeholder — see lib/model/profile.ts's resolveEscalationOwner.
+    expect(notify?.target).toBe(resolveEscalationOwner(KESTREL, 3).target);
     // The enquiry's own acknowledgement IS a MESSAGE_SEND to the prospect — but it explicitly
     // makes no commitment (see its own decision record). It is not, and must never be read
     // as, the offer itself: no `offer:`-prefixed effect exists from lr-t10 alone.
@@ -545,11 +548,11 @@ describe('Lead Rescue lr-t22 — offer-unanswered deterministic rule', () => {
     });
 
     const ownerNotification = run.sideEffects.find((e) => e.kind === 'NOTIFICATION');
-    expect(ownerNotification?.target).toBe('Named owner');
+    expect(ownerNotification?.target).toBe(resolveEscalationOwner(KESTREL, 3).target);
 
     const offerSend = run.sideEffects.find((e) => e.kind === 'MESSAGE_SEND' && e.idempotencyKey.startsWith('offer:'));
     expect(offerSend?.status).toBe('EXECUTED');
-    expect(offerSend?.target).not.toBe('Named owner');
+    expect(offerSend?.target).not.toBe(resolveEscalationOwner(KESTREL, 3).target);
 
     expect(run.finalState.facts.offerSentAt).toBeDefined();
     expect(Date.parse(run.finalState.facts.offerSentAt ?? '')).toBeGreaterThanOrEqual(

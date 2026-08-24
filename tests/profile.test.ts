@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { KESTREL } from '@/data/profiles/kestrel/profile';
-import { validateProfileConsistency } from '@/lib/model/profile';
+import { resolveEscalationOwner, validateProfileConsistency } from '@/lib/model/profile';
 
 describe('Kestrel business profile', () => {
   it('parses against the profile schema', () => {
@@ -47,5 +47,55 @@ describe('Kestrel business profile', () => {
     );
     expect(financeOwners).toHaveLength(1);
     expect(financeOwners[0]?.id).toBe('accounting');
+  });
+});
+
+describe('resolveEscalationOwner — deterministic authority resolution', () => {
+  it('resolves a configured qualifying role by closest-fit authority ceiling, never a fabricated person', () => {
+    // Precondition, checked directly rather than assumed: two roles genuinely tie at
+    // ceiling 3 in the real profile (head-of-delivery, client-partner), so this exercises
+    // the tie-break, not merely "the only candidate."
+    const tiedAtThree = KESTREL.roles.filter((r) => r.authorityCeiling === 3);
+    expect(tiedAtThree.map((r) => r.id).sort()).toEqual(['client-partner', 'head-of-delivery']);
+
+    const resolution = resolveEscalationOwner(KESTREL, 3);
+    expect(resolution.status).toBe('RESOLVED');
+    expect(resolution.role?.id).toBe('client-partner');
+    expect(resolution.target).toBe('Client Partner');
+    // The resolved name must be a real role name from the profile, never invented.
+    expect(KESTREL.roles.map((r) => r.name)).toContain(resolution.target);
+  });
+
+  it('breaks ties between equal-ceiling roles deterministically, independent of declared array order', () => {
+    const reordered = { ...KESTREL, roles: [...KESTREL.roles].reverse() };
+    const forward = resolveEscalationOwner(KESTREL, 3);
+    const reversed = resolveEscalationOwner(reordered, 3);
+    expect(reversed.role?.id).toBe(forward.role?.id);
+  });
+
+  it('resolves the single role at a strictly higher required authority, distinct from the tied tier below it', () => {
+    // authorityCeiling 4 is uniquely held by founder — proves a genuinely higher tier
+    // resolves to a genuinely different owner than the tier-3 tie above.
+    const resolution = resolveEscalationOwner(KESTREL, 4);
+    expect(resolution.status).toBe('RESOLVED');
+    expect(resolution.role?.id).toBe('founder');
+    expect(resolution.target).not.toBe(resolveEscalationOwner(KESTREL, 3).target);
+  });
+
+  it('fails safe, without fabricating a person, when no configured role meets the required authority', () => {
+    const restricted = { ...KESTREL, roles: [{ id: 'junior', name: 'Junior Analyst', responsibilities: 'Triage only.', authorityCeiling: 1 as const }] };
+    const resolution = resolveEscalationOwner(restricted, 3);
+    expect(resolution.status).toBe('UNRESOLVED');
+    expect(resolution.role).toBeUndefined();
+    // Never a real-looking name, and never the literal simulation placeholder it replaces.
+    expect(restricted.roles.map((r) => r.name)).not.toContain(resolution.target);
+    expect(resolution.target).not.toBe('Named owner');
+    expect(resolution.target.length).toBeGreaterThan(0);
+  });
+
+  it('is a pure, deterministic function: identical input always produces identical output', () => {
+    const a = resolveEscalationOwner(KESTREL, 2);
+    const b = resolveEscalationOwner(KESTREL, 2);
+    expect(a).toEqual(b);
   });
 });

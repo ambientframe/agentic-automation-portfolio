@@ -1,5 +1,6 @@
 import { z } from 'zod';
-import { numberParam } from '@/lib/model/profile';
+import { numberParam, resolveEscalationOwner, type BusinessProfile } from '@/lib/model/profile';
+import type { AuthorityLevel } from '@/lib/model/system';
 import type { DecisionRecord } from '@/lib/model/runtime';
 import type { HandlerContext, HandlerOutcome, HandlerStep, ProposedEffect, SystemHandlers } from '../types';
 
@@ -102,6 +103,24 @@ export const REPLY_CLASSES = [
 
 function decision(partial: Omit<DecisionRecord, 'eventId'> & { eventId: string }): DecisionRecord {
   return partial;
+}
+
+/**
+ * The role a notification's `target` should read, resolved deterministically from
+ * `profile.roles` rather than the "Named owner" simulation placeholder every one of this
+ * file's NOTIFICATION effects used to hard-code. `requiredAuthority` always mirrors the
+ * adjacent effect's own `authority` field.
+ *
+ * The two "next owner in the authority chain" rules (`handleReviewAttentionTimeout`,
+ * `handleDispatchAttentionTimeout`) pass `NEXT_OWNER_ESCALATION_AUTHORITY` — one level above
+ * every standard notification's own required authority, matching that exact canon language
+ * without inventing a chain-walk this profile's data does not support beyond one step.
+ */
+const STANDARD_ESCALATION_AUTHORITY: AuthorityLevel = 3;
+const NEXT_OWNER_ESCALATION_AUTHORITY: AuthorityLevel = 4;
+
+function escalationOwnerTarget(profile: BusinessProfile, requiredAuthority: AuthorityLevel): string {
+  return resolveEscalationOwner(profile, requiredAuthority).target;
 }
 
 function recordWrite(
@@ -805,11 +824,12 @@ function handleEnquiry(ctx: HandlerContext): HandlerOutcome {
     return { steps };
   }
 
+  const routingOwner = escalationOwnerTarget(profile, STANDARD_ESCALATION_AUTHORITY);
   steps.push({
     id: id('route'),
     label: 'Owner routing',
     atOffsetSeconds: 11,
-    summary: 'Named owner notified. This is the meaningful response, distinct from the acknowledgement.',
+    summary: `${routingOwner} notified. This is the meaningful response, distinct from the acknowledgement.`,
     decisions: [
       decision({
         id: id('d-route'),
@@ -835,7 +855,7 @@ function handleEnquiry(ctx: HandlerContext): HandlerOutcome {
         id: id('effect:notify'),
         kind: 'NOTIFICATION',
         description: 'Notify the named owner that a qualified enquiry is ready for a next step.',
-        target: 'Named owner',
+        target: routingOwner,
         idempotencyKey: `notify:${entityId}`,
         authority: 3,
         policyPermits: true,
@@ -1088,7 +1108,7 @@ function handleReply(ctx: HandlerContext): HandlerOutcome {
               id: id('effect:notify-owner'),
               kind: 'NOTIFICATION',
               description: 'Notify the named owner that the enquiry is complete and ready for a next step.',
-              target: 'Named owner',
+              target: escalationOwnerTarget(profile, STANDARD_ESCALATION_AUTHORITY),
               idempotencyKey: `notify:${event.entityId}`,
               authority: 3,
               policyPermits: true,
@@ -1333,7 +1353,7 @@ function handleReplyWaitReevaluation(ctx: HandlerContext): HandlerOutcome {
             id: id('effect:notify-wait-elapsed'),
             kind: 'NOTIFICATION',
             description: 'Notify the named owner that the reply window elapsed without a response.',
-            target: 'Named owner',
+            target: escalationOwnerTarget(profile, STANDARD_ESCALATION_AUTHORITY),
             idempotencyKey: `notify:${event.entityId}:wait-elapsed`,
             authority: 3,
             policyPermits: true,
@@ -1470,7 +1490,7 @@ function handleOfferWaitReevaluation(ctx: HandlerContext): HandlerOutcome {
             id: id('effect:notify-offer-unanswered'),
             kind: 'NOTIFICATION',
             description: 'Notify the named owner that the offered next step went unanswered.',
-            target: 'Named owner',
+            target: escalationOwnerTarget(profile, STANDARD_ESCALATION_AUTHORITY),
             idempotencyKey: `notify:${event.entityId}:offer-unanswered`,
             authority: 3,
             policyPermits: true,
@@ -1637,7 +1657,7 @@ function handleReviewAttentionTimeout(ctx: HandlerContext): HandlerOutcome {
             id: id('effect:notify-review-overdue'),
             kind: 'NOTIFICATION',
             description: 'Notify the next owner in the authority chain that a case under human review has exceeded the configured review window.',
-            target: 'Named owner',
+            target: escalationOwnerTarget(profile, NEXT_OWNER_ESCALATION_AUTHORITY),
             idempotencyKey: `notify:${event.entityId}:review-overdue`,
             authority: 3,
             policyPermits: true,
@@ -1782,7 +1802,7 @@ function handleDispatchAttentionTimeout(ctx: HandlerContext): HandlerOutcome {
             id: id('effect:notify-dispatch-overdue'),
             kind: 'NOTIFICATION',
             description: 'Notify the next owner in the authority chain that a ready case has not had its offer despatched within the configured window.',
-            target: 'Named owner',
+            target: escalationOwnerTarget(profile, NEXT_OWNER_ESCALATION_AUTHORITY),
             idempotencyKey: `notify:${event.entityId}:dispatch-overdue`,
             authority: 3,
             policyPermits: true,
