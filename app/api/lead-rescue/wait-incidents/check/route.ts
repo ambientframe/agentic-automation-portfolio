@@ -66,18 +66,16 @@ export async function POST(request: Request): Promise<NextResponse> {
 }
 
 /**
- * Which waiting category a persisted record belongs to is read off whichever start-of-wait
- * fact is actually present — the same authoritative discriminant
- * `handleWaitReevaluation` itself dispatches on, never a separately tracked label this route
- * could drift out of sync with. Two categories today (lr-t14's `waitStartedAt`, lr-t22's
- * `offerSentAt` — NOT `bookingReadyAt`, which records readiness only, never that a prospect
- * received anything); adding a third here would mean adding one more entry, not restructuring
- * this function.
+ * Which of the (now four) waiting/attention categories a persisted record belongs to is read
+ * off `lifecycleState` FIRST, never off "whichever fact happens to be present" — a record can
+ * legitimately carry more than one start-of-wait fact at once (e.g. a case that lr-t14-elapsed
+ * into NEEDS_HUMAN still carries its now-stale `waitStartedAt` alongside a fresh
+ * `reviewStartedAt`), so checking facts in isolation would risk reading the wrong one. This is
+ * the SAME authoritative discriminant `handleWaitReevaluation`
+ * (`lib/engine/handlers/lead-rescue.ts`) itself dispatches on — never a separately tracked
+ * label this route could drift out of sync with.
  */
-const WAIT_START_FACTS = [
-  { fact: 'waitStartedAt', windowParam: 'replyWaitWindowHours' },
-  { fact: 'offerSentAt', windowParam: 'bookingOfferWindowHours' },
-] as const;
+const REVIEW_STATES = ['NEEDS_HUMAN', 'ESCALATED', 'SUPPRESSION_REVIEW'];
 
 async function resolveNow(incidentId: string, advancePastDeadline: boolean): Promise<string> {
   if (!advancePastDeadline) return new Date().toISOString();
@@ -85,12 +83,21 @@ async function resolveNow(incidentId: string, advancePastDeadline: boolean): Pro
   const record = await leadRescueWaitStore.load(incidentId);
   if (record === undefined) return new Date().toISOString();
 
-  for (const { fact, windowParam } of WAIT_START_FACTS) {
-    const waitStartedAt = record.engineState.facts[fact];
-    if (waitStartedAt === undefined) continue;
+  const { lifecycleState, facts } = record.engineState;
+  const pastDeadline = (anchorAt: string | undefined, windowParam: string): string | undefined => {
+    if (anchorAt === undefined) return undefined;
     const windowHours = numberParam(KESTREL, windowParam);
-    return new Date(Date.parse(waitStartedAt) + (windowHours + 1) * 3_600_000).toISOString();
-  }
+    return new Date(Date.parse(anchorAt) + (windowHours + 1) * 3_600_000).toISOString();
+  };
 
-  return new Date().toISOString();
+  if (REVIEW_STATES.includes(lifecycleState)) {
+    return pastDeadline(facts['reviewStartedAt'], 'humanReviewTimeoutHours') ?? new Date().toISOString();
+  }
+  if (lifecycleState === 'BOOKING_READY' && facts['offerSentAt'] === undefined) {
+    return pastDeadline(facts['bookingReadyAt'], 'dispatchTimeoutHours') ?? new Date().toISOString();
+  }
+  if (lifecycleState === 'BOOKING_READY') {
+    return pastDeadline(facts['offerSentAt'], 'bookingOfferWindowHours') ?? new Date().toISOString();
+  }
+  return pastDeadline(facts['waitStartedAt'], 'replyWaitWindowHours') ?? new Date().toISOString();
 }

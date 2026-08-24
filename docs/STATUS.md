@@ -1,11 +1,11 @@
 # Status
 
-**As of 2026-08-23 · the reviewed-offer lifecycle is now a live, interactive operator
-journey — NEEDS_HUMAN → human decision → BOOKING_READY → claim-gated simulated offer
-despatch → durable wait → lr-t22 escalation — click-through in the browser, not only
-readable in a fixture-authored scenario, with the same false-positive risk this portfolio
-already closed for scenario replay (an uncertain despatch durably recording `offerSentAt`)
-now also closed for the live path**
+**As of 2026-08-23 · `lr-fm-approval-timeout` is closed: a case parked under human review, or
+cleared but never despatched, is no longer able to sit forever unnoticed. Two new, deliberately
+non-transitioning attention timeouts — reused from the exact same wait/resume/claim machinery
+lr-t14/lr-t22 already proved — durably escalate the OPERATIONAL fact that nobody has acted,
+while the lead's BUSINESS lifecycle state (`NEEDS_HUMAN`, `BOOKING_READY`) never moves and no
+decision or despatch is ever synthesized on a person's behalf**
 
 ## Portfolio maturity
 
@@ -18,7 +18,7 @@ a third declared transition pair in Call-to-Proposal.
 
 | # | System | Maturity | Runs? |
 | --- | --- | --- | --- |
-| 1 | Lead Rescue | `INTERACTIVE_PROTOTYPE` | Yes — 7 scenarios execute end to end, plus a live wait/resume demo covering both waiting categories |
+| 1 | Lead Rescue | `INTERACTIVE_PROTOTYPE` | Yes — 7 scenarios execute end to end, plus a live wait/resume demo covering both prospect-response waiting categories and both operator-attention timeout categories |
 | 2 | Dormant Pipeline Recovery | `SIMULATED` | Yes — 2 scenarios execute end to end |
 | 3 | Call-to-Proposal Revenue Agent | `SIMULATED` | Yes — 2 scenarios execute end to end |
 | 4 | Client Onboarding Operator | `SIMULATED` | Yes — 2 scenarios execute end to end |
@@ -1110,34 +1110,204 @@ Everything else stayed exactly as domain-specific as the first three systems' ow
   scenario. The same honestly-scoped kind of gap Dormant Pipeline Recovery's cadence-retry
   loop and Call-to-Proposal's revision cycle left behind; see "Known fidelity gaps."
 
+## Lead Rescue attention timeout (lr-fm-approval-timeout) — this pass
+
+**The declared, `Pending` failure mode the prior pass's own live surface made concrete.**
+`data/systems/lead-rescue.ts` names `lr-fm-approval-timeout` ("HUMAN_APPROVAL_TIMEOUT")
+precisely: "A case held for human approval is never actioned... the lead decays silently
+while the system reports it as correctly parked," recovery "Escalate to the next owner in
+the authority chain," `verificationTest: 'Pending — approval timeout scenario not yet
+authored'`. The prior pass's own "Cases under human review" and "Ready — no offer sent yet"
+panels made this genuinely reachable for the first time: a real operator can park a real case
+there and simply never act on it, and until this pass nothing in the codebase noticed.
+
+**The policy question this pass answered, not assumed.** `docs/STATUS.md`'s own prior "single
+recommended next fidelity gap" flagged three open questions rather than resolving them: what
+review window is appropriate, which lifecycle state an unattended review or un-despatched
+offer escalates TO, and whether the two conditions warrant the same window or two different
+ones. Tracing the actual canon text answered the second question directly: `lr-fm-approval-
+timeout`'s own `terminalState` ("ESCALATED") is the failure-mode CLASS's typical eventual
+recovery path, described in the abstract — it is not a declared transition, no scenario or
+parameter for it was ever authored, and this document's own prior text explicitly named
+"which lifecycle state to escalate TO" as unresolved. Treating it as settled would have meant
+inventing canon drift this repository's own rules forbid. Instead: **business state and
+operational-attention state are kept as two genuinely separate concerns.** A case that times
+out for lack of human attention stays exactly where it was — `NEEDS_HUMAN`, `ESCALATED`,
+`SUPPRESSION_REVIEW`, or `BOOKING_READY` — and only a durably-recorded, claim-gated
+NOTIFICATION marks the attention condition. Timeout never approves, rejects, closes, or
+despatches on a person's behalf; it only makes the silence itself visible and once-only. The
+window question was answered the same way `kestrel-reply-wait-window` and `kestrel-booking-
+offer-window` themselves were: two new client policies,
+`kestrel-review-timeout-window` (24h — the same urgency tier already established for a
+question waiting on a reply) and `kestrel-dispatch-timeout-window` (8h — deliberately shorter,
+since by this point a person has already decided to proceed and only the mechanical act of
+despatch remains outstanding), each linked to a new `humanReviewTimeoutHours` /
+`dispatchTimeoutHours` operating parameter. The two conditions did warrant different windows,
+resolving the third open question directly from that same reasoning.
+
+**Architecture: the SAME generic machinery, asked one new question.** `checkWaitIncident`
+(`lib/engine/wait-resume.ts`) previously used "did the lifecycle state move?" as its sole
+signal for "did anything happen." That signal is correct for lr-t14/lr-t22 (each proposes a
+side effect only when it also transitions) but wrong in general — a lifecycle move whose only
+proposed effect is `BLOCKED_BY_POLICY` still legitimately resolves the incident with zero
+executed effects, and the new attention rules propose a genuinely `EXECUTED` effect while
+NEVER transitioning. The gate is now `!lifecycleMoved && candidateEffects.length === 0`
+(both conditions, not either alone — proven necessary by a genuine regression this pass caught
+against its own change: `tests/lead-rescue-wait-resume-execution-boundary.test.ts`'s
+authority-blocked-effect case failed with a lifecycleState-only-replaced gate, confirming
+neither signal in isolation is sufficient, before the combined condition was written). Past
+the claim loop, the SAME question — did the lifecycle move? — decides whether to call
+`store.resolve()` (lr-t14/lr-t22's `ELAPSED`: the incident is genuinely done, remove it) or
+leave the record parked and return a new outcome, `ATTENTION_OVERDUE` (the case is still
+exactly what it was, still needing a real decision or despatch). No new persistence primitive,
+no second claim store, no scheduler: `WaitIncidentStore` and `OperationClaimStore` are
+completely unmodified, and the exact `${idempotencyKey}@rev${revision}` claim identity
+lr-t14/lr-t22 already established governs the two new notification kinds
+(`notify:{id}:review-overdue`, `notify:{id}:dispatch-overdue`) unchanged.
+
+**The one new fact this pass required, and why it is authoritative.** The dispatch-timeout
+anchor needed no new fact at all — `bookingReadyAt`, already written at every `BOOKING_READY`
+entry point since the semantic-integrity-correction pass, is exactly the "stable readiness
+fact" the brief for this pass named as the default anchor, and nothing about its prior meaning
+changed. The review-timeout anchor genuinely had no existing fact to reuse: no NEEDS_HUMAN or
+SUPPRESSION_REVIEW entry point recorded WHEN a case arrived there. `reviewStartedAt`, written
+at all seven genuine entry points (three in `handleEnquiry`, two in `handleReply`, and the
+`lr-t14`/`lr-t22` elapsed-escalation branches) and deliberately left untouched by
+`handleHumanDecision`'s review-to-review moves (`lr-t23` `NEEDS_HUMAN -> ESCALATED`, `lr-t37`
+`SUPPRESSION_REVIEW -> ESCALATED`) closes that gap — escalating a case to a second opinion is
+still the SAME unresolved review, not a new one, and must never buy a fresh window. Proven
+directly (`tests/lead-rescue-attention-timeout.test.ts`, case 13): a review already 26 hours
+old at the moment it is escalated via `lr-t23` reports `ATTENTION_OVERDUE` on the very next
+check, not a freshly-reset 24-hour grace period.
+
+**Resolution is derived, never a second mutable flag.** Completing a human decision (moving
+the case out of `NEEDS_HUMAN`/`ESCALATED`/`SUPPRESSION_REVIEW`) or a confirmed dispatch
+(writing `offerSentAt`) resolves the corresponding attention condition automatically: the next
+check simply finds the case no longer matches the rule's own guard and is a safe no-op — no
+"resolved" field was added anywhere, following this repository's own stated preference for
+derived status over duplicate mutable truth. A stale check against the ORIGINAL deadline after
+resolution cannot resurrect the escalation, proven directly rather than assumed
+(`tests/lead-rescue-attention-timeout.test.ts`, cases "15+16" and "an overdue dispatch is
+still dispatchable...").
+
+**Falsifying tests, written before implementation and confirmed failing for the right reason
+first.** `tests/lead-rescue-attention-timeout.test.ts` (17 tests) and
+`tests/lead-rescue-attention-timeout-resume.test.ts` (3 tests) were written and run against
+the pre-existing code first: 10 of the 17 failed immediately — either a `RangeError` from a
+genuinely absent `reviewStartedAt`/missing operating parameter, or `STILL_WAITING` where
+`ATTENTION_OVERDUE` was required — never a typo or a setup bug. Implementation then made all
+20 pass. Coverage includes: both anchors and both windows computed correctly; pre-deadline
+checks are genuine no-ops; crossing each deadline records the overdue condition exactly once
+with zero lifecycle transitions and zero synthesized decisions; `ESCALATED` and
+`SUPPRESSION_REVIEW` are equally governed by the review rule, not only `NEEDS_HUMAN`; terminal
+and unrelated states (`BOOKED`, `DO_NOT_CONTACT`, `WAITING_FOR_REPLY`) are safe no-ops for
+both new rules; two adversarial cross-leak cases (a record carrying BOTH a fresh correct
+anchor and stale ancient ones for every OTHER category) prove each rule reads only its own
+fact; re-parking via `lr-t23` does not restart the review timer; resolution via a genuine
+human decision or confirmed dispatch is a durable no-op afterward; `lr-t22` continues to
+govern exclusively once `offerSentAt` is present, never the dispatch-timeout rule alongside
+it; and, in the resume file, two independently constructed `FileWaitIncidentStore`/
+`FileOperationClaimStore` pairs genuinely racing (`Promise.all`, never sequential calls) on
+the identical durable snapshot produce at most one `EXECUTED` notification each, verified
+through a third, freshly constructed claim-store instance — the same convention
+`tests/lead-rescue-wait-resume-concurrency.test.ts` already established for `lr-t14` — plus a
+wholly independent runtime, reconstructed after the parking process is discarded, resuming
+correctly and remaining idempotent on a second check. Three pre-existing tests
+(`tests/lead-rescue-offer-wait.test.ts` cases 2 and 17,
+`tests/lead-rescue-review-dispatch.test.ts` cases 5 and 8a — four assertions across three
+tests) asserted the OLD, now-intentionally-superseded behavior ("no escalation, no matter how
+long it sits") and were deliberately rewritten to assert the NEW correct behavior (readiness
+alone still never fabricates `offerSentAt` or fires `lr-t22`, but the SEPARATE
+ready-but-undespatched attention condition now correctly fires) — not weakened, and every
+property those tests originally proved about `lr-t22`'s own semantic integrity still holds.
+
+**Operator surface.** `/lead-rescue/wait`'s review and ready panels each gained an
+`AttentionTimeoutPanel`: what the system is waiting for, the authoritative anchor timestamp,
+the computed deadline, a live "within policy"/"OVERDUE" badge (compared against the real
+clock on every page load — never a cached or check-triggered flag), the permitted next action,
+and an explicit statement of what the timeout does NOT do. "Check attention timeout" and
+"Simulate past deadline & check" reuse the existing `/check` route unchanged — `checkWaitIncident`
+already generalizes to all four categories, so no new route was needed; only `resolveNow`'s
+own "simulate past deadline" helper was rewritten to dispatch by `lifecycleState` first rather
+than by "whichever start-of-wait fact happens to be present," closing a genuine ambiguity a
+record can carry more than one of (e.g. a case that `lr-t14`-elapsed into `NEEDS_HUMAN` still
+carries its now-stale `waitStartedAt` alongside a fresh `reviewStartedAt`). Live-verified in
+the browser end to end, both paths: **Path 1** — parked a genuine `NEEDS_HUMAN` case (`lr-t11`,
+zero autonomous action), confirmed the review badge read "WITHIN POLICY" with the correct
+24h-out deadline, confirmed a real pre-deadline check left it untouched, simulated crossing
+the deadline and confirmed the result JSON showed `ATTENTION_OVERDUE` with zero transitions,
+`forbiddenActions` explicitly including `synthesize_decision`/`transition_lifecycle_state`,
+and a `notify:...:review-overdue` effect `EXECUTED` — then submitted an authorized decision
+(`CLEARED_TO_PROCEED`) and confirmed the case moved to `BOOKING_READY` and vanished from the
+review panel. **Path 2**, continuing the same case: confirmed the dispatch badge and its
+independent 8h deadline (`bookingReadyAt`-anchored), simulated crossing it and confirmed
+`ATTENTION_OVERDUE` with `BOOKING_READY` unchanged and `offerSentAt` still absent, then
+despatched the offer and confirmed `CONFIRMED` with a genuine `offerSentAt` written and the
+case correctly reappearing in "Waiting for a response" governed by `lr-t22`'s own 48-hour
+window from that despatch time. Also smoke-tested the independent `lr-t14` path (parked a
+`reply` incident) alongside the `lr-t22` incident from Path 2 — both waiting categories
+coexisted correctly in the table with independent deadlines. Demo runtime data (`.data/`)
+cleaned after verification.
+
+**What remains honestly simulated, and what this pass does not claim.** No scheduler exists
+anywhere in this build — an overdue condition is detected only when a check genuinely runs (a
+button click here, or a script hitting `/check`), exactly the same honesty already established
+for `lr-t14`/`lr-t22`'s own timers; this pass adds two more conditions a real interval-driven
+sweep would need to cover, not a sweep itself. Both new escalation notifications are simulated
+sends through the SAME `AlwaysSucceedsSimulatedExecutor` every other effect in this demo
+already uses — no new provider, credential, or outbound channel. The escalation is always
+addressed to the same generic `'Named owner'` target every notification in this handler file
+already uses, never a resolved, ordered "next owner in the authority chain" — see "Single
+recommended next fidelity gap," below, for why this is now the sharpest remaining gap rather
+than a new one this pass introduced. `maturity` does not change this pass: still
+`INTERACTIVE_PROTOTYPE`, still `NOT_LIVE`.
+
+**Files changed.** `data/profiles/kestrel/profile.ts` (two new client policies,
+`kestrel-review-timeout-window`/`kestrel-dispatch-timeout-window`, and two new operating
+parameters, `humanReviewTimeoutHours`/`dispatchTimeoutHours`). `lib/engine/handlers/lead-rescue.ts`
+(`reviewStartedAt` written at seven entry points; a new `REVIEW_STATES` dispatch branch in
+`handleWaitReevaluation`; two new pure rule functions, `handleReviewAttentionTimeout` and
+`handleDispatchAttentionTimeout`, the latter replacing `handleOfferWaitReevaluation`'s prior
+unconditional no-op for an un-despatched case). `lib/engine/wait-resume.ts` (`checkWaitIncident`'s
+gate and final branch generalized; a new `ATTENTION_OVERDUE` outcome — zero changes to
+`applyHumanDecision`, `dispatchAuthorizedOffer`, or either's exported shape).
+`app/api/lead-rescue/wait-incidents/route.ts` (GET response gains `reviewStartedAt`,
+`attentionWindowHours`, `attentionDeadlineAt`, `attentionOverdue` per incident, and
+`windows.review`/`windows.dispatch`) and its `check` sibling (`resolveNow` generalized).
+`app/lead-rescue/wait/page.tsx` (a new `AttentionTimeoutPanel` component, wired into both the
+review and ready forms; updated "what is real" copy). `tests/lead-rescue-attention-timeout.test.ts`
+and `tests/lead-rescue-attention-timeout-resume.test.ts` (new, 20 tests); three pre-existing
+tests updated in `tests/lead-rescue-offer-wait.test.ts` and
+`tests/lead-rescue-review-dispatch.test.ts`. Zero changes to `data/systems/lead-rescue.ts`
+(canon — no new lifecycle state or transition, per this pass's own policy finding above),
+`lib/engine/reducer.ts`, `lib/engine/run.ts`, `lib/persistence/wait-incident-store.ts`,
+`lib/persistence/operation-claim-store.ts`, `app/api/lead-rescue/wait-incidents/decide/route.ts`,
+or `app/api/lead-rescue/wait-incidents/dispatch/route.ts`.
+
 ## Verification
 
 ```
-npm run verify     # typecheck + lint + 447 tests
+npm run verify     # typecheck + lint + 467 tests
 npm run build      # 29 pages prerender; 4 dynamic (ƒ) API routes; the engine executes at build/request time
 npm run docs       # regenerate canon from the model
 ```
 
-All passing as of this pass. `tests/lead-rescue-review-dispatch.test.ts` (19 tests, new)
-proves the live operator journey end to end — human decision, offer despatch, and the
-guards around both — through `applyHumanDecision`/`dispatchAuthorizedOffer` directly, the
-same "test the orchestration layer, not the route handler" discipline
-`tests/lead-rescue-offer-wait-resume.test.ts` already established for `checkWaitIncident`
-(this repository has no precedent, and this pass added none, for unit-testing a Next.js
-route handler directly — routes stay thin and are verified live in the browser instead).
-Every pre-existing lr-t14/lr-t22 test file (`tests/wait-incident-store.test.ts`,
-`tests/operation-claim-store.test.ts`, `tests/lead-rescue-wait-resume.test.ts`,
-`tests/lead-rescue-wait-resume-concurrency.test.ts`,
-`tests/lead-rescue-wait-resume-execution-boundary.test.ts`,
-`tests/lead-rescue-offer-wait.test.ts`, `tests/lead-rescue-offer-wait-resume.test.ts`,
-`tests/lead-rescue.test.ts`) is unchanged and still passes — confirming the
-`bookingReadyAt`-keyed identity fix in `handleOfferDespatched` did not alter any previously
-asserted behavior. `npm run build` still reports 29 prerendered pages (no new scenario this
-pass) but now 4 dynamic (`ƒ`) routes, not 2: the existing `/api/lead-rescue/wait-incidents`
-and `/check`, plus the two new `/decide` and `/dispatch`. `npm run docs` was re-run and
-produced NO diff: no new lifecycle state, transition, side-effect kind, operating parameter,
-or client policy was needed — this pass is entirely an orchestration and UI layer on top of
-canon and profile data that were already complete.
+All passing as of this pass. `tests/lead-rescue-attention-timeout.test.ts` (17 tests) and
+`tests/lead-rescue-attention-timeout-resume.test.ts` (3 tests) are new this pass — see above
+for what each proves. Every pre-existing lr-t14/lr-t22/reviewed-offer test file
+(`tests/wait-incident-store.test.ts`, `tests/operation-claim-store.test.ts`,
+`tests/lead-rescue-wait-resume.test.ts`, `tests/lead-rescue-wait-resume-concurrency.test.ts`,
+`tests/lead-rescue-wait-resume-execution-boundary.test.ts`, `tests/lead-rescue.test.ts`,
+`tests/lead-rescue-offer-wait-resume.test.ts`) is unchanged and still passes unmodified;
+`tests/lead-rescue-offer-wait.test.ts` and `tests/lead-rescue-review-dispatch.test.ts` each
+had exactly the assertions this pass's own behavior change required rewritten, nothing else.
+`npm run build` still reports 29 prerendered pages and 4 dynamic (`ƒ`) routes — no new page or
+route, only response-shape and rule additions inside routes that already existed. `npm run
+docs` was re-run and produced a diff in `docs/RESEARCH_LEDGER.md` ONLY (the two new operating
+parameter rows) — `docs/NORTH_STAR_CANON.md` and `docs/FAILURE_MODE_REGISTER.md` are
+unchanged, confirming no lifecycle state, transition, or failure-mode declaration was added or
+altered; the failure mode this pass closes was already fully declared in canon before this
+pass touched anything.
 
 Visual inspection performed on the portfolio index, the Owner Revenue Intelligence dossier,
 and both new scenario pages — the run-summary panel's existing generic counters render
@@ -1234,62 +1404,67 @@ effects, matching the "ordinary variation is left alone" claim exactly.
     operator-submitted `human.decision.recorded` and `lead.offer.despatched` event, through
     `applyHumanDecision`/`dispatchAuthorizedOffer`, each step's own outcome and decision
     record rendered as it happens.
-13. **A case parked under review, or ready but never despatched, has no timeout at all,
-    surfaced by this pass's own new live surface.** Canon already declares this failure mode
-    by name — `lr-fm-approval-timeout`, "HUMAN_APPROVAL_TIMEOUT": "A case held for human
-    approval is never actioned... the lead decays silently while the system reports it as
-    correctly parked," with `verificationTest: 'Pending — approval timeout scenario not yet
-    authored.'` This pass's own new "Cases under human review" and "Ready — no offer sent
-    yet" panels make the gap concrete and visible for the first time: a case parked there via
-    `store.park()` sits with no expiry, no reminder, and no escalation path if nobody ever
-    submits a decision or a despatch — genuinely different from `WAITING_FOR_REPLY` and a
-    despatched `BOOKING_READY`, both of which already have `lr-t14`/`lr-t22` governing them.
+13. **CLOSED this pass.** A case parked under review, or ready but never despatched, is no
+    longer able to sit forever with no reminder and no escalation — see "Lead Rescue
+    attention timeout (lr-fm-approval-timeout) — this pass," above, for the full mechanism:
+    two new, deliberately non-transitioning attention rules
+    (`handleReviewAttentionTimeout`/`handleDispatchAttentionTimeout`) durably escalate the
+    operational fact that a human has not acted, while `NEEDS_HUMAN`, `ESCALATED`,
+    `SUPPRESSION_REVIEW`, and `BOOKING_READY` never move on the strength of a timeout alone.
+14. **The escalation target is a generic `'Named owner'` string, never a resolved "next
+    owner in the authority chain."** `lr-fm-approval-timeout`'s own declared `recovery` names
+    escalating "to the next owner in the authority chain" — language this pass's own
+    `handleReviewAttentionTimeout`/`handleDispatchAttentionTimeout` decisions quote directly
+    in their `applicablePolicy`/`summary` text, but the NOTIFICATION effect each proposes
+    still addresses `target: 'Named owner'`, the exact same undifferentiated string every
+    other notification in this handler file already uses (the `BOOKING_READY`-entry
+    notifications, the `lr-t14`/`lr-t22` wait-elapsed notifications). `data/profiles/kestrel/profile.ts`
+    already declares an ordered `roles` array with a real `authorityCeiling` per role (founder
+    4, head-of-delivery 3, client-partner 3, analyst 1) that could plausibly resolve "the next
+    owner above whoever currently holds this case" — nothing in this pass reads it for that
+    purpose. Not a regression this pass introduced (every escalation notification in this
+    file has always targeted the same generic string); a pre-existing narrowing this pass's
+    own new escalation text makes newly visible, the same way the prior pass's live surface
+    made `lr-fm-approval-timeout` itself visible.
 
 ## Single recommended next fidelity gap
 
-**A case parked under human review, or cleared but never despatched, can sit forever with no
-reminder and no escalation.** `lr-fm-approval-timeout` is not a hypothetical: it is a
-declared failure mode in `data/systems/lead-rescue.ts`, named "HUMAN_APPROVAL_TIMEOUT," with
-its own `recovery` ("Escalate to the next owner in the authority chain") and its own
-`escalationCondition` ("Review window elapsed without acceptance") — and its
-`verificationTest` has read `'Pending — approval timeout scenario not yet authored'` since
-before this pass touched anything. This pass's own new live surface is what makes the gap
-concrete rather than abstract: a real operator can now park a real case into "Cases under
-human review" or "Ready — no offer sent yet" and then simply never act on it, and nothing in
-this codebase notices. `WAITING_FOR_REPLY` and a despatched `BOOKING_READY` both already have
-a genuine timer (`lr-t14`, `lr-t22`); the review and ready stages this pass just built do not.
+**The attention-timeout escalation names "the next owner in the authority chain" in its own
+decision text but never resolves who that actually is.** `lr-fm-approval-timeout`'s declared
+`recovery` is specific: escalate to the NEXT owner, implying an ordered chain distinct from
+whoever currently owns the case. This pass's own `handleReviewAttentionTimeout`/
+`handleDispatchAttentionTimeout` quote that policy directly and then propose a NOTIFICATION
+addressed to the same generic `'Named owner'` target every other notification in this handler
+already uses — a narrowing this pass inherited rather than introduced, but one its own new,
+more specific policy text now makes honestly visible as a gap rather than a coincidence.
+`data/profiles/kestrel/profile.ts`'s `roles` array already carries a real, ordered
+`authorityCeiling` per role (founder 4, head-of-delivery 3, client-partner 3, analyst 1) —
+genuine data this system has never read to answer "who is above the person who let this case
+go overdue."
 
-**Why this outranks another narrowly technical edge case.** Every remaining technical gap
-this pass's own work could point to instead — `lr-t21` reached without an `offerSentAt` on
-file, a live UI affordance for every one of `HumanDecisionPayloadSchema`'s five decision
-kinds rather than the three currently offered, optimistic-concurrency protection on the
-decision step to match the dispatch step's own claim-gated exclusivity — is a correctness
-polish on a path that already behaves safely today (each of those either cannot happen given
-existing guards, or fails safely if it does). The approval-timeout gap is different in kind:
-it is a DECLARED canon failure mode with a `Pending` verification test, now demonstrable for
-the first time because this pass built the review/ready surface that makes it real rather
-than theoretical — the same reasoning `docs/STATUS.md` has applied every time a fidelity gap
-was promoted to "next" because a prior pass's own work turned it from abstract into concrete.
+**Why this outranks another narrowly technical edge case.** Every remaining technical gap this
+pass's own work could point to instead — a live UI affordance for every one of
+`HumanDecisionPayloadSchema`'s five decision kinds rather than the three currently offered,
+optimistic-concurrency protection on the decision step to match the dispatch step's own
+claim-gated exclusivity, a scheduled sweep rather than an on-demand check — is either a
+correctness polish on a path that already behaves safely today, or (the scheduler) a piece of
+new infrastructure this portfolio's own scope discipline explicitly defers until a running
+system creates the need. The authority-chain gap is different in kind: it is the literal text
+of a declared canon `recovery` action, now directly quoted in this system's own decision
+records, resolving to a generic placeholder every time — the same "narrated, not computed"
+failure shape this portfolio's own `docs/CANON_DIVERGENCES.md` and `Nothing simulated may
+read as live` rule exist to catch, made concrete now because this pass's own escalation text
+is the first place in this codebase to actually invoke the phrase "next owner in the authority
+chain" as part of a real decision record rather than only as a description of intent.
 
-**Why this is not a repeat of `lr-t14`/`lr-t22`, and why it fits this architecture without a
-redesign.** A third genuinely different waiting condition — "reviewed but not yet decided,"
-and "cleared but not yet despatched" — would be the first real signal, per this codebase's
-own repeatedly-stated discipline, that generalising the wait/resume pattern into something
-more reusable is warranted rather than speculative. Today, two is not yet three: this would
-be the SAME `WaitIncidentStore`/`OperationClaimStore`/`checkWaitIncident`-shaped machinery
-applied a third time, most likely via one or two more canon transitions (an escalation path
-out of unattended review, matching `lr-fm-approval-timeout`'s own declared recovery) and a
-third small `handle*WaitReevaluation`-shaped rule — not a new persistence layer, not a new
-claim primitive, not a new UI framework.
+**Why this is not a repeat of this pass's own work, and likely fits without a redesign.**
+Resolving "the next owner" from `profile.roles` is a deterministic lookup (an ordering over
+`authorityCeiling`, or an explicit chain field added to each role), not a new mechanism —
+`ProposedEffect.target` already accepts any string; the gap is that nothing computes one from
+the profile today. Whether this needs a new profile field (an explicit `escalatesTo` per role)
+or can be derived purely from the existing `authorityCeiling` ordering is the one genuine
+design question, and belongs to whoever picks this gap up next rather than being decided here.
 
-**Do not begin closing this gap from this document.** Recorded here as the evidence-based
-next candidate, the same discipline every prior pass's "next fidelity gap" section applied —
-not as a plan to execute without its own re-verification, and not without first deciding
-genuine policy questions this document does not resolve: what review window is appropriate
-(a new client policy, the same shape `kestrel-reply-wait-window` and
-`kestrel-booking-offer-window` already established), which lifecycle state an unattended
-review or un-despatched-offer escalates TO (canon may need a new transition, or an existing
-one — e.g. `lr-t23`/`ESCALATED` — may already be the right target), and whether "ready but
-undespatched" and "under review" warrant the same window or two different ones. These are
-business-policy decisions, not implementation details, and belong to whoever picks this gap
-up next.
+**Do not begin closing this gap from this document.** Recorded here as the evidence-based next
+candidate, the same discipline every prior pass's "next fidelity gap" section applied — not as
+a plan to execute without its own re-verification.

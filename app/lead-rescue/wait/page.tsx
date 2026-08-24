@@ -20,6 +20,11 @@ interface IncidentSummary {
   readonly bookingReadyAt: string | null;
   readonly contactName: string | null;
   readonly company: string | null;
+  /** The operational-attention timeout (lr-fm-approval-timeout) — review/ready stages only. */
+  readonly reviewStartedAt: string | null;
+  readonly attentionWindowHours: number | null;
+  readonly attentionDeadlineAt: string | null;
+  readonly attentionOverdue: boolean;
 }
 
 const KIND_LABEL: Record<'reply' | 'offer', string> = {
@@ -39,15 +44,90 @@ const DECISION_OPTIONS = [
   { value: 'ESCALATE', label: 'Escalate for a second opinion' },
 ];
 
+/**
+ * The operational-attention timeout, shown wherever a case can sit unattended
+ * (lr-fm-approval-timeout): what the system is waiting for, its authoritative anchor and
+ * deadline, whether it is still within policy or overdue, what action is permitted next, and —
+ * explicitly — what the timeout does NOT do. Crossing the deadline never moves the case out of
+ * this section; it only raises a durably-recorded attention condition, checkable the same way
+ * as the prospect-response waits below.
+ */
+function AttentionTimeoutPanel({
+  label,
+  waitingFor,
+  anchorLabel,
+  anchorAt,
+  deadlineAt,
+  windowHours,
+  overdue,
+  permitted,
+  notDone,
+  busy,
+  onCheck,
+  onSimulate,
+}: {
+  readonly label: string;
+  readonly waitingFor: string;
+  readonly anchorLabel: string;
+  readonly anchorAt: string | null;
+  readonly deadlineAt: string | null;
+  readonly windowHours: number | null;
+  readonly overdue: boolean;
+  readonly permitted: string;
+  readonly notDone: string;
+  readonly busy: boolean;
+  readonly onCheck: () => void;
+  readonly onSimulate: () => void;
+}) {
+  return (
+    <div className="border rule rounded-sm p-2 space-y-1" style={{ background: 'var(--paper)' }}>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <span className="instrument text-sm" style={{ color: 'var(--ink-muted)' }}>
+          {label} — waiting on: {waitingFor}
+        </span>
+        <span
+          className="badge text-xs"
+          style={overdue ? { color: 'var(--warn)', borderColor: 'var(--warn)' } : { borderColor: 'var(--rule-strong)' }}
+        >
+          {overdue ? 'OVERDUE — not yet escalated by a check' : 'within policy'}
+        </span>
+      </div>
+      <p className="instrument text-xs" style={{ color: 'var(--ink-faint)' }}>
+        Anchor ({anchorLabel}): {anchorAt ?? '—'} · window: {windowHours ?? '…'}h · deadline: {deadlineAt ?? '—'}
+      </p>
+      <p className="instrument text-xs" style={{ color: 'var(--ink-faint)' }}>
+        If overdue: permitted next action is &ldquo;{permitted}&rdquo;. {notDone}
+      </p>
+      <div className="flex flex-wrap items-center gap-2">
+        <button type="button" onClick={onCheck} disabled={busy} className="badge text-xs">
+          Check attention timeout
+        </button>
+        <button
+          type="button"
+          onClick={onSimulate}
+          disabled={busy}
+          className="badge text-xs"
+          style={{ color: 'var(--warn)', borderColor: 'var(--warn)' }}
+        >
+          Simulate past deadline &amp; check
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export default function LeadRescueWaitPage() {
   const [incidents, setIncidents] = useState<readonly IncidentSummary[]>([]);
-  const [windows, setWindows] = useState<{ reply: number; offer: number } | null>(null);
+  const [windows, setWindows] = useState<{ reply: number; offer: number; review: number; dispatch: number } | null>(null);
   const [lastResult, setLastResult] = useState<unknown>(null);
   const [busy, setBusy] = useState(false);
 
   const refresh = useCallback(async () => {
     const res = await fetch('/api/lead-rescue/wait-incidents');
-    const data: { incidents: readonly IncidentSummary[]; windows: { reply: number; offer: number } } = await res.json();
+    const data: {
+      incidents: readonly IncidentSummary[];
+      windows: { reply: number; offer: number; review: number; dispatch: number };
+    } = await res.json();
     setIncidents(data.incidents);
     setWindows(data.windows);
   }, []);
@@ -205,8 +285,11 @@ export default function LeadRescueWaitPage() {
           </button>
         </div>
         <p className="instrument" style={{ color: 'var(--ink-faint)' }}>
-          Configured windows: reply {windows?.reply ?? '…'}h (kestrel-reply-wait-window) · offer{' '}
+          Prospect-response windows: reply {windows?.reply ?? '…'}h (kestrel-reply-wait-window) · offer{' '}
           {windows?.offer ?? '…'}h (kestrel-booking-offer-window)
+          <br />
+          Operator-attention windows: review {windows?.review ?? '…'}h (kestrel-review-timeout-window) ·
+          dispatch {windows?.dispatch ?? '…'}h (kestrel-dispatch-timeout-window)
         </p>
       </section>
 
@@ -252,6 +335,20 @@ export default function LeadRescueWaitPage() {
                   Still unresolved: {incident.missingInformation.join(', ')}
                 </p>
               )}
+              <AttentionTimeoutPanel
+                label="Review attention"
+                waitingFor="a named person to record a decision"
+                anchorLabel="entered human review"
+                anchorAt={incident.reviewStartedAt}
+                deadlineAt={incident.attentionDeadlineAt}
+                windowHours={incident.attentionWindowHours}
+                overdue={incident.attentionOverdue}
+                permitted="Escalate the attention condition to the next owner in the authority chain."
+                notDone="Never decides the case, closes it, or clears it to BOOKING_READY on its own."
+                busy={busy}
+                onCheck={() => checkNow(incident.incidentId, false)}
+                onSimulate={() => checkNow(incident.incidentId, true)}
+              />
               <div className="flex flex-wrap items-center gap-2">
                 <label className="instrument" style={{ color: 'var(--ink-muted)' }}>
                   Decide as
@@ -318,6 +415,20 @@ export default function LeadRescueWaitPage() {
                 <span className="instrument font-medium">{incident.incidentId}</span>
                 <span className="badge" style={{ borderColor: 'var(--rule-strong)' }}>BOOKING_READY · ready since {incident.bookingReadyAt}</span>
               </div>
+              <AttentionTimeoutPanel
+                label="Dispatch attention"
+                waitingFor="a named person to despatch the offer"
+                anchorLabel="became ready"
+                anchorAt={incident.bookingReadyAt}
+                deadlineAt={incident.attentionDeadlineAt}
+                windowHours={incident.attentionWindowHours}
+                overdue={incident.attentionOverdue}
+                permitted="Escalate the attention condition to the next owner in the authority chain."
+                notDone="Never despatches the offer itself, and never writes offerSentAt."
+                busy={busy}
+                onCheck={() => checkNow(incident.incidentId, false)}
+                onSimulate={() => checkNow(incident.incidentId, true)}
+              />
               <label className="instrument block" style={{ color: 'var(--ink-muted)' }}>
                 Sending to (the prospect, never the owner)
                 <input
@@ -437,11 +548,13 @@ export default function LeadRescueWaitPage() {
             <ul className="instrument space-y-1" style={{ color: 'var(--ink-muted)' }}>
               <li>· &ldquo;Start a case needing human review&rdquo; runs the real engine to a genuine NEEDS_HUMAN (lr-t11), then writes it to a real file. Nothing autonomous has happened to this case.</li>
               <li>· &ldquo;Submit decision&rdquo; applies a real human.decision.recorded event through the actual canonical handler (handleHumanDecision) and the engine&apos;s own transition-legality gate. An insufficiently authorized or stale/out-of-order decision is refused and the record is left untouched — try the &ldquo;Analyst&rdquo; option to see it happen.</li>
-              <li>· A cleared case reaching BOOKING_READY writes only readiness evidence. No offer-wait clock starts, and re-checking it — even far in the future — is a genuine no-op.</li>
+              <li>· A cleared case reaching BOOKING_READY writes only readiness evidence (bookingReadyAt) — never offer-sent evidence. lr-t22 never fires without a genuinely despatched offer, no matter how long the case sits.</li>
               <li>· &ldquo;Despatch offer&rdquo; applies a real lead.offer.despatched event through a durable claim, then a genuinely awaited (simulated) send — the SAME claim-then-invoke ordering already proven for the wait-elapsed notification. Only a CONFIRMED result durably records the offer-sent timestamp and starts the 48-hour window; a rejected or uncertain attempt changes nothing.</li>
-              <li>· &ldquo;Check&rdquo; reads the real server clock once and applies exactly one lead.wait.reevaluated event against the record loaded back off disk. A check before the deadline is a genuine no-op; a check after it fires lr-t14 or lr-t22 through the ordinary authority and idempotency gates.</li>
+              <li>· &ldquo;Check&rdquo; and &ldquo;Check attention timeout&rdquo; both read the real server clock once and apply exactly one lead.wait.reevaluated event against the record loaded back off disk. A check before the deadline is a genuine no-op; a check after it fires the applicable rule through the ordinary authority and idempotency gates.</li>
+              <li>· A case parked under review, or ready but undespatched, that sits unattended past its configured window is genuinely flagged overdue by a real check — lr-fm-approval-timeout, closed this pass. The check never approves, rejects, despatches, or otherwise decides the case on a person&apos;s behalf: it only durably records that a human has not acted, addressed to the next owner in the authority chain. The lifecycle state never moves — the badge above each form updates from &ldquo;within policy&rdquo; to &ldquo;OVERDUE&rdquo; but the case stays exactly where it was, waiting for the actual decision or despatch.</li>
+              <li>· The review-attention clock (reviewStartedAt) is written once, at genuine entry into human review, and survives escalating within review (lr-t23/lr-t37) unchanged — raising a case to a second opinion is not a new review and does not buy a fresh window. Completing the human decision, or confirming the dispatch, resolves the corresponding attention condition — a stale re-check afterward is a genuine no-op.</li>
               <li>· Restarting the dev server loses nothing at any stage — review, ready, or waiting — the file on disk is the only place this state lives.</li>
-              <li>· Every despatch and every escalation is durably claimed before it is trusted: two overlapping attempts on the same case can never both report success. A claim recorded but never confirmed surfaces as <code>UNCERTAIN</code> rather than being silently retried.</li>
+              <li>· Every despatch and every escalation (prospect-response or attention) is durably claimed before it is trusted: two overlapping attempts on the same case can never both report success. A claim recorded but never confirmed surfaces as <code>UNCERTAIN</code> rather than being silently retried.</li>
             </ul>
           </div>
           <div className="space-y-2">
@@ -449,8 +562,9 @@ export default function LeadRescueWaitPage() {
               Simulated / demo-only
             </p>
             <ul className="instrument space-y-1" style={{ color: 'var(--ink-muted)' }}>
-              <li>· &ldquo;Simulate past deadline &amp; check&rdquo; is the one control that does not use the real clock — it supplies a timestamp just past the deadline instead, through the identical check path a genuine hours-later check would take.</li>
-              <li>· The offer despatch and the escalation notification are both simulated sends — a deterministic, always-succeeds stand-in. Nothing leaves this process, and no real prospect or provider is involved.</li>
+              <li>· &ldquo;Simulate past deadline &amp; check&rdquo; is the one control that does not use the real clock — it supplies a timestamp just past the deadline instead, through the identical check path a genuine hours-later check would take. The &ldquo;OVERDUE&rdquo; badge itself IS the real clock, compared against the real deadline, on every page load.</li>
+              <li>· The offer despatch and every escalation notification (prospect-response or attention) are simulated sends — a deterministic, always-succeeds stand-in. Nothing leaves this process, and no real prospect, owner, or provider is involved.</li>
+              <li>· No scheduler exists anywhere in this build — an overdue condition is only ever detected when a check is explicitly run (a button click here, or a script hitting the same route). A production deployment would run the identical check on a real interval; this demo does not simulate that interval, only the check itself.</li>
               <li>· This demo store is a single JSON file, adequate for a prototype; a production deployment on an ephemeral filesystem would need a persistent volume behind the same `WaitIncidentStore` interface, unchanged.</li>
             </ul>
           </div>

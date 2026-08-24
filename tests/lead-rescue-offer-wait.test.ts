@@ -144,7 +144,7 @@ describe('Lead Rescue lr-t22 — offer-unanswered deterministic rule', () => {
     expect(parked.engineState.missingInformation).toEqual([]);
   });
 
-  it('2. human clearance without a despatched offer (lr-t10 alone) never starts the offer-wait clock, no matter how long it sits', async () => {
+  it('2. human clearance without a despatched offer (lr-t10 alone) never starts the offer-wait clock, no matter how long it sits — lr-t22 never fires without offerSentAt', async () => {
     const run = await readyWithNoOfferDespatched();
     expect(run.finalState.lifecycleState).toBe('BOOKING_READY');
     expect(run.finalState.facts.bookingReadyAt).toBeDefined();
@@ -158,13 +158,18 @@ describe('Lead Rescue lr-t22 — offer-unanswered deterministic rule', () => {
       engineState: run.finalState,
     });
 
-    // Ten thousand hours — far past any configured window. Still no escalation, because
-    // nothing here is evidence a prospect ever received anything.
+    // Ten thousand hours — far past any configured window. lr-t22 (which requires offerSentAt)
+    // never fires and the lifecycle never moves, because nothing here is evidence a prospect
+    // ever received anything. The ready-but-undespatched attention condition DOES fire — that
+    // is the separate, correctly-scoped operational-attention gap this pass closes.
     const farInTheFuture = hoursAfter(run.finalState.facts.bookingReadyAt ?? '', 10_000);
     const result = await checkWaitIncident(store, claimStore, 'lead-no-despatch', farInTheFuture, DEPS, 'runtime-a');
 
-    expect(result.outcome).toBe('STILL_WAITING');
-    expect(result.entries?.flatMap((e) => e.sideEffects)).toEqual([]);
+    expect(result.outcome).toBe('ATTENTION_OVERDUE');
+    expect(result.state?.lifecycleState).toBe('BOOKING_READY');
+    expect(result.state?.facts.offerSentAt).toBeUndefined();
+    expect(result.entries?.flatMap((e) => e.transitions)).toEqual([]);
+    expect(result.entries?.flatMap((e) => e.sideEffects).some((s) => s.idempotencyKey.endsWith(':offer-unanswered'))).toBe(false);
   });
 
   it('3. an owner-only NOTIFICATION at BOOKING_READY entry is not offer evidence — a genuinely different effect kind and recipient from a despatched offer', async () => {
@@ -347,12 +352,13 @@ describe('Lead Rescue lr-t22 — offer-unanswered deterministic rule', () => {
     expect(result.state?.lifecycleState).toBe('WAITING_FOR_REPLY');
   });
 
-  it('17. a BOOKING_READY incident with readiness but no despatched offer fails safe: no action, not a guess', async () => {
+  it('17. a BOOKING_READY incident with readiness but no despatched offer never misreads bookingReadyAt as offer evidence — lr-t22 fails safe, only the dispatch-timeout attention rule may fire', async () => {
     const store = new InMemoryWaitIncidentStore();
     const claimStore = new InMemoryOperationClaimStore();
     // The exact shape the prior implementation got wrong: bookingReadyAt IS present (the
     // case is genuinely ready), but offerSentAt is absent because no one has despatched an
-    // offer yet. This must never be read as "offer unanswered."
+    // offer yet. This must never be read as "offer unanswered" (lr-t22) — it is governed
+    // exclusively by the separate ready-but-undespatched attention rule.
     await store.park({
       incidentId: 'lead-no-fact',
       systemId: LEAD_RESCUE.id,
@@ -364,10 +370,12 @@ describe('Lead Rescue lr-t22 — offer-unanswered deterministic rule', () => {
     });
 
     const result = await checkWaitIncident(store, claimStore, 'lead-no-fact', '2026-08-20T00:00:00-04:00', DEPS, 'runtime-a');
-    expect(result.outcome).toBe('STILL_WAITING');
-    expect(result.entries?.flatMap((e) => e.sideEffects)).toEqual([]);
-    const decision = result.entries?.flatMap((e) => e.decisions)[0];
-    expect(decision?.selectedAction).toBe('record_unresolvable_check');
+    expect(result.outcome).toBe('ATTENTION_OVERDUE');
+    expect(result.state?.lifecycleState).toBe('BOOKING_READY');
+    expect(result.entries?.flatMap((e) => e.transitions)).toEqual([]);
+    expect(result.entries?.flatMap((e) => e.sideEffects).some((s) => s.idempotencyKey.endsWith(':offer-unanswered'))).toBe(false);
+    const decision = result.entries?.flatMap((e) => e.decisions).find((d) => d.id.includes('dispatch-overdue'));
+    expect(decision?.selectedAction).toBe('escalate_attention_to_next_owner');
   });
 
   // -------------------------------------------------------------------------

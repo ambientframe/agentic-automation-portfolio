@@ -498,6 +498,26 @@ const RAW = {
         'Lead Rescue wait/resume: the window BOOKING_READY is held open before lr-t22 (offer unanswered) becomes eligible. Canon (data/systems/lead-rescue.ts) declares lr-t22\'s guard as "beyond the configured window" without a number — the same open shape kestrel-reply-wait-window originally filled for lr-t14 — so this is a newly introduced client-policy value, not one derived from any prior source. Two business days, longer than the one-day reply-wait window: confirming a proposed next step plausibly requires checking a calendar, which a simple missing-information answer does not.',
     },
     {
+      id: 'kestrel-review-timeout-window',
+      statement:
+        'A case held for human review that receives no decision within 24 hours is flagged as an overdue operational attention condition, escalated to the next owner in the authority chain. The case itself is never auto-decided.',
+      provenance: 'CLIENT_POLICY',
+      verification: 'NOT_APPLICABLE',
+      sourceIds: [],
+      appliesTo:
+        'Lead Rescue human-review attention timeout (canon failure mode lr-fm-approval-timeout, "HUMAN_APPROVAL_TIMEOUT"). Applies to NEEDS_HUMAN, ESCALATED, and SUPPRESSION_REVIEW alike — the review clock starts once, at genuine entry into human review (the reviewStartedAt fact), and is never restarted by re-reading, reconstructing, or escalating within review (lr-t23, lr-t37). This is an OPERATIONAL ATTENTION signal, not a business-lifecycle transition: the case remains in its reviewed state, and timeout never synthesizes a decision. One business day, the same urgency tier the reply-wait window already established for "something is waiting and decays if ignored."',
+    },
+    {
+      id: 'kestrel-dispatch-timeout-window',
+      statement:
+        'A case cleared to BOOKING_READY whose offer has not been despatched within 8 hours is flagged as an overdue operational attention condition. The offer is never auto-sent.',
+      provenance: 'CLIENT_POLICY',
+      verification: 'NOT_APPLICABLE',
+      sourceIds: [],
+      appliesTo:
+        'Lead Rescue ready-but-undespatched attention timeout (the second half of lr-fm-approval-timeout\'s gap: a case can sit approved/ready as easily as it can sit unreviewed). The clock starts from bookingReadyAt — the existing readiness fact, never offerSentAt, which does not exist yet for an un-despatched case. Deliberately shorter than kestrel-booking-offer-window (48h): the decision to proceed has already been made by this point, and only the mechanical act of despatch remains outstanding, which should not wait a full business day.',
+    },
+    {
       id: 'kestrel-collection-cadence',
       statement:
         'Payment reminders issue 3 days before due date and again on days 1, 8, 15 and 30 past due, with escalation to the founder at day 45.',
@@ -582,6 +602,8 @@ const RAW = {
     { key: 'maxInformationQuestions', label: 'Maximum clarifying questions before human review', value: 2, unit: 'questions', policyId: 'kestrel-routing-window' },
     { key: 'replyWaitWindowHours', label: 'Reply wait window before escalation', value: 24, unit: 'hours', policyId: 'kestrel-reply-wait-window' },
     { key: 'bookingOfferWindowHours', label: 'Booking offer wait window before escalation', value: 48, unit: 'hours', policyId: 'kestrel-booking-offer-window' },
+    { key: 'humanReviewTimeoutHours', label: 'Human review attention timeout', value: 24, unit: 'hours', policyId: 'kestrel-review-timeout-window' },
+    { key: 'dispatchTimeoutHours', label: 'Ready-but-undespatched attention timeout', value: 8, unit: 'hours', policyId: 'kestrel-dispatch-timeout-window' },
     { key: 'dormantMaxAttempts', label: 'Maximum reactivation attempts', value: 3, unit: 'attempts', policyId: 'kestrel-outreach-cadence' },
     { key: 'dormantWindowDays', label: 'Reactivation sequence window', value: 21, unit: 'days', policyId: 'kestrel-outreach-cadence' },
     { key: 'dormantCoolingOffDays', label: 'Cooling-off before re-entry', value: 90, unit: 'days', policyId: 'kestrel-outreach-cadence' },

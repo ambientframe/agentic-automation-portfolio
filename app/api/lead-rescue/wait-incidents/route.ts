@@ -82,9 +82,27 @@ type WaitKind = keyof typeof WAIT_KINDS;
 
 const REPLY_WINDOW_HOURS = numberParam(KESTREL, 'replyWaitWindowHours');
 const OFFER_WINDOW_HOURS = numberParam(KESTREL, 'bookingOfferWindowHours');
+const REVIEW_WINDOW_HOURS = numberParam(KESTREL, 'humanReviewTimeoutHours');
+const DISPATCH_WINDOW_HOURS = numberParam(KESTREL, 'dispatchTimeoutHours');
+
+/**
+ * Deadline + overdue for the two ATTENTION-timeout stages (`review`, `ready`) — informational
+ * only, computed against the real clock at request time, exactly like `deadlineAt` already is
+ * for the `waiting` stage below. This never performs a check, claims nothing, and fires no
+ * notification: it answers "is this visibly overdue right now" for display, the same way a
+ * person glancing at a wall clock does not thereby escalate anything themselves. The
+ * AUTHORITATIVE, durably-recorded escalation only ever happens through `checkWaitIncident`
+ * (`POST .../check`), never here.
+ */
+function attentionTimeout(anchorAt: string | null, windowHours: number, nowMs: number): { deadlineAt: string | null; overdue: boolean } {
+  if (anchorAt === null) return { deadlineAt: null, overdue: false };
+  const deadlineMs = Date.parse(anchorAt) + windowHours * 3_600_000;
+  return { deadlineAt: new Date(deadlineMs).toISOString(), overdue: nowMs >= deadlineMs };
+}
 
 export async function GET(): Promise<NextResponse> {
   const all = await leadRescueWaitStore.listWaiting();
+  const nowMs = Date.now();
 
   const incidents = all
     .map((record) => {
@@ -100,6 +118,16 @@ export async function GET(): Promise<NextResponse> {
         waitStartedAt === null || windowHours === null
           ? null
           : new Date(Date.parse(waitStartedAt) + windowHours * 3_600_000).toISOString();
+
+      const reviewStartedAt = stage === 'review' ? (record.engineState.facts['reviewStartedAt'] ?? null) : null;
+      const bookingReadyAt = record.engineState.facts['bookingReadyAt'] ?? null;
+      const attention =
+        stage === 'review'
+          ? attentionTimeout(reviewStartedAt, REVIEW_WINDOW_HOURS, nowMs)
+          : stage === 'ready'
+            ? attentionTimeout(bookingReadyAt, DISPATCH_WINDOW_HOURS, nowMs)
+            : { deadlineAt: null, overdue: false };
+
       return {
         incidentId: record.incidentId,
         correlationId: record.correlationId,
@@ -114,16 +142,24 @@ export async function GET(): Promise<NextResponse> {
         // itself: why automation stopped, what remains unresolved, and readiness evidence.
         awaitingHuman: record.engineState.awaitingHuman,
         missingInformation: record.engineState.missingInformation,
-        bookingReadyAt: record.engineState.facts['bookingReadyAt'] ?? null,
+        bookingReadyAt,
         contactName: record.engineState.facts['contactName'] ?? null,
         company: record.engineState.facts['company'] ?? null,
+        // The operational-attention timeout (lr-fm-approval-timeout) — a genuinely separate
+        // concern from business `deadlineAt` above: this never moves lifecycleState, and
+        // `attentionOverdue` is display-only, re-derived from the real clock on every request,
+        // never a durable field the timeout write anywhere.
+        reviewStartedAt,
+        attentionWindowHours: stage === 'review' ? REVIEW_WINDOW_HOURS : stage === 'ready' ? DISPATCH_WINDOW_HOURS : null,
+        attentionDeadlineAt: attention.deadlineAt,
+        attentionOverdue: attention.overdue,
       };
     })
     .sort((a, b) => a.incidentId.localeCompare(b.incidentId));
 
   return NextResponse.json({
     incidents,
-    windows: { reply: REPLY_WINDOW_HOURS, offer: OFFER_WINDOW_HOURS },
+    windows: { reply: REPLY_WINDOW_HOURS, offer: OFFER_WINDOW_HOURS, review: REVIEW_WINDOW_HOURS, dispatch: DISPATCH_WINDOW_HOURS },
   });
 }
 

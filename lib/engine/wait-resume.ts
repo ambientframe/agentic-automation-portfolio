@@ -134,7 +134,22 @@ export async function parkWaitingIncident(
   });
 }
 
-export type WaitCheckOutcome = 'NOT_FOUND' | 'STILL_WAITING' | 'ELAPSED' | 'STALE_REVISION' | 'UNCERTAIN';
+export type WaitCheckOutcome =
+  | 'NOT_FOUND'
+  | 'STILL_WAITING'
+  | 'ELAPSED'
+  /**
+   * A configured window elapsed and a durable, exclusive claim confirmed an attention-only
+   * NOTIFICATION — but, unlike ELAPSED, the lifecycle state did NOT move (see
+   * `lib/engine/handlers/lead-rescue.ts`'s "ATTENTION TIMEOUT" section: the human-review and
+   * ready-but-undespatched checks never set `transitionTo`). The incident stays parked,
+   * unresolved — the underlying condition (nobody has acted) is still true, and the SAME
+   * check remains eligible to run again, idempotently, until a genuine human decision or
+   * dispatch resolves it.
+   */
+  | 'ATTENTION_OVERDUE'
+  | 'STALE_REVISION'
+  | 'UNCERTAIN';
 
 export interface WaitCheckResult {
   readonly incidentId: string;
@@ -272,13 +287,22 @@ export async function checkWaitIncident(
     internals,
   });
 
-  if (result.state.lifecycleState === record.engineState.lifecycleState) {
+  // Nothing to do: the lifecycle did not move AND nothing was proposed that needs a durable
+  // claim. Neither condition alone is sufficient — a lifecycle move whose only proposed effect
+  // is BLOCKED_BY_POLICY (never EXECUTED) still legitimately resolves the incident (see
+  // `tests/lead-rescue-wait-resume-execution-boundary.test.ts`'s "authority-blocked effects"
+  // case), and the new attention-timeout rules below propose an EXECUTED effect on elapse
+  // while NEVER moving the lifecycle at all — a lifecycleState-only gate would have missed
+  // that case entirely, and an effects-only gate would have missed the blocked-effect case.
+  const lifecycleMoved = result.state.lifecycleState !== record.engineState.lifecycleState;
+  const candidateEffects = executedSideEffects(result.entries);
+  if (!lifecycleMoved && candidateEffects.length === 0) {
     return { incidentId, outcome: 'STILL_WAITING', state: result.state, entries: result.entries };
   }
 
-  // The lifecycle moved and may have proposed side effects the reducer's own (fresh,
-  // per-call) ledger marked EXECUTED. Before any of that is trusted, each one must win a
-  // durable, exclusive claim on its own idempotencyKey — see the module docstring.
+  // A candidate side effect was proposed and may have proposed side effects the reducer's own
+  // (fresh, per-call) ledger marked EXECUTED. Before any of that is trusted, each one must win
+  // a durable, exclusive claim on its own idempotencyKey — see the module docstring.
   let entries = result.entries;
   let blocking: OperationClaimRecord | undefined;
 
@@ -356,11 +380,21 @@ export async function checkWaitIncident(
     return { incidentId, outcome: 'UNCERTAIN', state: result.state, entries, uncertainOperations: [blocking] };
   }
 
-  const resolution = await store.resolve(incidentId, record.revision);
-  if (resolution === 'STALE_REVISION') return { incidentId, outcome: 'STALE_REVISION', state: result.state, entries };
-  if (resolution === 'NOT_FOUND') return { incidentId, outcome: 'NOT_FOUND' };
+  // Every proposed effect is now durably confirmed (or a duplicate of an already-confirmed
+  // one). Whether that means the wait genuinely ELAPSED (lr-t14/lr-t22 — resolve the incident,
+  // the lifecycle moved and there is nothing left to wait for) or an attention condition is
+  // merely ATTENTION_OVERDUE (the new review/dispatch timeouts — the incident stays parked,
+  // still under review or still ready-but-undespatched, exactly as it was) is decided by
+  // asking the ONE question this module always asks rather than re-deriving: did the handler's
+  // own rule move the lifecycle state? Never guessed from the check's own outcome kind.
+  if (lifecycleMoved) {
+    const resolution = await store.resolve(incidentId, record.revision);
+    if (resolution === 'STALE_REVISION') return { incidentId, outcome: 'STALE_REVISION', state: result.state, entries };
+    if (resolution === 'NOT_FOUND') return { incidentId, outcome: 'NOT_FOUND' };
+    return { incidentId, outcome: 'ELAPSED', state: result.state, entries };
+  }
 
-  return { incidentId, outcome: 'ELAPSED', state: result.state, entries };
+  return { incidentId, outcome: 'ATTENTION_OVERDUE', state: result.state, entries };
 }
 
 /** Convenience over `checkWaitIncident` for a full sweep. Sequential, not parallel — a file-backed store has no concurrent-write story, and a demo/prototype scheduler has no need of one. */

@@ -289,7 +289,7 @@ describe('Reviewed-offer operator journey — offer dispatch', () => {
     return decided.record;
   }
 
-  it('5. BOOKING_READY (cleared, not yet dispatched) creates no offerSentAt and starts no timer — even far in the future', async () => {
+  it('5. BOOKING_READY (cleared, not yet dispatched) creates no offerSentAt and never fires lr-t22, even far in the future — only the ready-but-undespatched attention condition applies', async () => {
     const store = new InMemoryWaitIncidentStore();
     const claimStore = new InMemoryOperationClaimStore();
     const ready = await clearedToBookingReady(store, 'lead-dispatch-5');
@@ -297,8 +297,16 @@ describe('Reviewed-offer operator journey — offer dispatch', () => {
 
     const farFuture = hoursAfter(ready.engineState.facts.bookingReadyAt ?? '', 10_000);
     const check = await checkWaitIncident(store, claimStore, 'lead-dispatch-5', farFuture, DEPS, 'runtime-a');
-    expect(check.outcome).toBe('STILL_WAITING');
-    expect(check.entries?.flatMap((e) => e.sideEffects)).toEqual([]);
+    // The ready-but-undespatched attention condition correctly fires (lr-fm-approval-timeout,
+    // closed this pass) — but the lifecycle never moves and no offer-sent evidence is ever
+    // fabricated. This is the operational-attention signal, never lr-t22 itself.
+    expect(check.outcome).toBe('ATTENTION_OVERDUE');
+    expect(check.state?.lifecycleState).toBe('BOOKING_READY');
+    expect(check.state?.facts.offerSentAt).toBeUndefined();
+    expect(check.entries?.flatMap((e) => e.transitions)).toEqual([]);
+    const overdueNotify = check.entries?.flatMap((e) => e.sideEffects).find((s) => s.idempotencyKey.endsWith(':dispatch-overdue'));
+    expect(overdueNotify?.status).toBe('EXECUTED');
+    expect(check.entries?.flatMap((e) => e.sideEffects).some((s) => s.idempotencyKey.endsWith(':offer-unanswered'))).toBe(false);
   });
 
   it('6. explicit dispatch produces a prospect-facing MESSAGE_SEND, never a NOTIFICATION to the owner', async () => {
@@ -380,9 +388,13 @@ describe('Reviewed-offer operator journey — offer dispatch', () => {
     expect(stillParked).toEqual(ready);
     expect(stillParked?.engineState.facts.offerSentAt).toBeUndefined();
 
-    // Never falsely elapses: no offer was ever confirmed sent.
+    // Never falsely reaches lr-t22 (which requires offerSentAt) — but the ready-but-undespatched
+    // attention condition correctly fires past its own window, since no offer was ever
+    // confirmed sent (the earlier claimed-but-unconfirmed attempt above does not count).
     const check = await checkWaitIncident(store, claimStore, 'lead-dispatch-8a', hoursAfter('2026-08-06T10:00:00-04:00', 1000), DEPS, 'runtime-a');
-    expect(check.outcome).toBe('STILL_WAITING');
+    expect(check.outcome).toBe('ATTENTION_OVERDUE');
+    expect(check.state?.lifecycleState).toBe('BOOKING_READY');
+    expect(check.state?.facts.offerSentAt).toBeUndefined();
   });
 
   it('8b. dispatch attempted outside BOOKING_READY (still under review) is rejected as NOT_READY, no offerSentAt', async () => {

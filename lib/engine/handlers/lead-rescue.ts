@@ -403,7 +403,9 @@ function handleEnquiry(ctx: HandlerContext): HandlerOutcome {
       atOffsetSeconds: 5,
       transitionTo: 'NEEDS_HUMAN',
       summary: 'The bounded judgment was unavailable or violated its output contract. Routed to a person.',
-      statePatch: { awaitingHuman: 'Interpretation unavailable' },
+      // reviewStartedAt is the event's own occurredAt, never a clock read — the anchor a
+      // later attention-timeout check compares itself against. See handleReviewAttentionTimeout.
+      statePatch: { awaitingHuman: 'Interpretation unavailable', facts: { reviewStartedAt: event.occurredAt } },
       decisions: [
         decision({
           id: id('d-classify'),
@@ -486,6 +488,7 @@ function handleEnquiry(ctx: HandlerContext): HandlerOutcome {
       statePatch: {
         awaitingHuman: 'Low-confidence classification',
         missingInformation: judgment.missingInformation,
+        facts: { reviewStartedAt: event.occurredAt },
       },
       decisions: [
         decision({
@@ -576,6 +579,7 @@ function handleEnquiry(ctx: HandlerContext): HandlerOutcome {
       summary: `Candidate action (${candidateAction}) blocked pending human determination of whether this contact may be answered.`,
       statePatch: {
         awaitingHuman: 'Restricted contact — human determination required before any outbound contact',
+        facts: { reviewStartedAt: event.occurredAt },
       },
       decisions: [
         decision({
@@ -637,7 +641,11 @@ function handleEnquiry(ctx: HandlerContext): HandlerOutcome {
     transitionTo: target.state,
     summary: target.summary,
     ...(target.state === 'NEEDS_HUMAN'
-      ? { statePatch: { awaitingHuman: target.summary } }
+      ? {
+          // reviewStartedAt: same anchor discipline as every other NEEDS_HUMAN entry point
+          // in this file — see handleReviewAttentionTimeout.
+          statePatch: { awaitingHuman: target.summary, facts: { reviewStartedAt: event.occurredAt } },
+        }
       : target.state === 'BOOKING_READY'
         // bookingReadyAt is the event's own occurredAt, never a clock read. It records only
         // that the case became ready for a next commercial step — NOT that an offer reached
@@ -965,7 +973,7 @@ function handleReply(ctx: HandlerContext): HandlerOutcome {
       atOffsetSeconds: 2,
       transitionTo: 'NEEDS_HUMAN',
       summary: `Reply could not be safely interpreted. ${detail}. Routed to a person.`,
-      statePatch: { awaitingHuman: 'Reply interpretation below confidence floor' },
+      statePatch: { awaitingHuman: 'Reply interpretation below confidence floor', facts: { reviewStartedAt: event.occurredAt } },
       decisions: [
         decision({
           id: id('d-reply-interpret'),
@@ -1048,6 +1056,8 @@ function handleReply(ctx: HandlerContext): HandlerOutcome {
       // still only readiness evidence, not offer-sent evidence — see the comment on the
       // classification-time disposition step above.
       ...(outcome.state === 'BOOKING_READY' ? { facts: { bookingReadyAt: event.occurredAt } } : {}),
+      // Same reviewStartedAt discipline as every other NEEDS_HUMAN entry point in this file.
+      ...(outcome.state === 'NEEDS_HUMAN' ? { facts: { reviewStartedAt: event.occurredAt } } : {}),
     },
     decisions: [
       decision({
@@ -1148,9 +1158,20 @@ function replyDisposition(
  * never a guess: nothing here re-derives whether SOME OTHER wait might apply, and nothing
  * escalates without an evidenced, matching lifecycle state.
  */
+/**
+ * The three lifecycle states a case sits in while genuinely under human review — shared with
+ * `UNDER_REVIEW_STATES` in `lib/engine/wait-resume.ts` and `app/api/lead-rescue/wait-incidents/route.ts`.
+ * Kept as an independent local copy in each file rather than a shared export, matching this
+ * codebase's own established convention for this exact set (the other two files already keep
+ * their own copies, for the same reason: each file's own narrow concern, no cross-layer
+ * coupling between the pure handler layer and the orchestration/UI layers that read it).
+ */
+const REVIEW_STATES = ['NEEDS_HUMAN', 'ESCALATED', 'SUPPRESSION_REVIEW'];
+
 function handleWaitReevaluation(ctx: HandlerContext): HandlerOutcome {
   if (ctx.state.lifecycleState === 'WAITING_FOR_REPLY') return handleReplyWaitReevaluation(ctx);
   if (ctx.state.lifecycleState === 'BOOKING_READY') return handleOfferWaitReevaluation(ctx);
+  if (REVIEW_STATES.includes(ctx.state.lifecycleState)) return handleReviewAttentionTimeout(ctx);
 
   const { event, state } = ctx;
   const id = (suffix: string) => `${event.eventId}:${suffix}`;
@@ -1281,7 +1302,7 @@ function handleReplyWaitReevaluation(ctx: HandlerContext): HandlerOutcome {
         atOffsetSeconds: 0,
         transitionTo: 'NEEDS_HUMAN',
         summary: `No reply within the configured ${windowHours}-hour window (checked at ${elapsedHours}h). Escalated to a person.`,
-        statePatch: { awaitingHuman: 'Reply window elapsed without a response' },
+        statePatch: { awaitingHuman: 'Reply window elapsed without a response', facts: { reviewStartedAt: event.occurredAt } },
         decisions: [
           decision({
             id: id('d-wait-elapsed'),
@@ -1355,42 +1376,15 @@ function handleOfferWaitReevaluation(ctx: HandlerContext): HandlerOutcome {
   const windowHours = numberParam(profile, 'bookingOfferWindowHours');
   const offerSentAt = state.facts['offerSentAt'];
 
+  // No offer has ever been despatched for this cycle. This is NOT "no recognised waiting
+  // condition" — it is the second half of lr-fm-approval-timeout's gap: a case can sit
+  // approved/ready exactly as easily as it can sit unreviewed. `handleDispatchAttentionTimeout`
+  // below governs this case on its OWN anchor (bookingReadyAt — readiness evidence, already
+  // established) and its OWN window (dispatchTimeoutHours) — deliberately never offerSentAt,
+  // which does not exist yet, and never lr-t22's rule or policy, which requires offerSentAt
+  // by construction and is the ENTIRELY SEPARATE branch below this one.
   if (offerSentAt === undefined) {
-    return {
-      steps: [
-        {
-          id: id('offer-check-invalid'),
-          label: 'Offer re-evaluation',
-          atOffsetSeconds: 0,
-          summary:
-            'No recorded offer-despatch timestamp on this entity. The case may be ready (bookingReadyAt), but readiness is not proof an offer was sent — no action taken.',
-          decisions: [
-            decision({
-              id: id('d-offer-check-invalid'),
-              eventId: event.eventId,
-              mechanism: 'DETERMINISTIC_RULE',
-              objective: 'Determine whether the configured booking-offer wait window has elapsed.',
-              relevantState: state.lifecycleState,
-              evidenceRefs: ['state.facts.offerSentAt'],
-              deterministicFacts: [
-                { label: 'Offer sent at', value: 'not recorded' },
-                { label: 'Booking ready at (readiness only, not offer evidence)', value: state.facts['bookingReadyAt'] ?? 'not recorded' },
-              ],
-              missingInformation: [],
-              permittedActions: ['record_unresolvable_check'],
-              forbiddenActions: ['guess_offer_sent', 'infer_offer_from_readiness', 'escalate_without_evidence'],
-              selectedAction: 'record_unresolvable_check',
-              applicablePolicy: [
-                'An offer re-evaluation with no recorded offer-despatch timestamp cannot conclude anything and takes no action. Readiness (bookingReadyAt) is never treated as proof an offer was despatched.',
-              ],
-              authority: 0,
-            }),
-          ],
-          effects: [],
-          verifications: [],
-        },
-      ],
-    };
+    return handleDispatchAttentionTimeout(ctx);
   }
 
   const elapsedMs = Date.parse(event.occurredAt) - Date.parse(offerSentAt);
@@ -1445,7 +1439,7 @@ function handleOfferWaitReevaluation(ctx: HandlerContext): HandlerOutcome {
         atOffsetSeconds: 0,
         transitionTo: 'NEEDS_HUMAN',
         summary: `No response to the offered next step within the configured ${windowHours}-hour window (checked at ${elapsedHours}h). Escalated to a person.`,
-        statePatch: { awaitingHuman: 'Booking-offer window elapsed without a response' },
+        statePatch: { awaitingHuman: 'Booking-offer window elapsed without a response', facts: { reviewStartedAt: event.occurredAt } },
         decisions: [
           decision({
             id: id('d-offer-elapsed'),
@@ -1478,6 +1472,318 @@ function handleOfferWaitReevaluation(ctx: HandlerContext): HandlerOutcome {
             description: 'Notify the named owner that the offered next step went unanswered.',
             target: 'Named owner',
             idempotencyKey: `notify:${event.entityId}:offer-unanswered`,
+            authority: 3,
+            policyPermits: true,
+            verification: {
+              check: 'Confirm the notification reached a named owner rather than a shared queue.',
+              expect: 'Notification addressed to a named owner.',
+            },
+          },
+        ],
+        verifications: [],
+      },
+    ],
+  };
+}
+
+// ---------------------------------------------------------------------------
+// ATTENTION TIMEOUT — lr-fm-approval-timeout ("HUMAN_APPROVAL_TIMEOUT")
+// ---------------------------------------------------------------------------
+//
+// Two genuinely different waiting conditions, both driven by the SAME `lead.wait.reevaluated`
+// event that already carries lr-t14/lr-t22 — no new event type, same reasoning documented
+// above `handleWaitReevaluation` for why two is not yet the signal that would justify one.
+// Both share ONE deliberate property that makes them different in kind from lr-t14/lr-t22,
+// not merely in degree: NEITHER handler below ever sets `transitionTo`. This is not an
+// oversight — it is the entire point. A case parked under review, or ready but undespatched,
+// decaying unattended is an OPERATIONAL ATTENTION failure ("a human has not acted"), never a
+// business decision this system is authorized to make on a person's behalf. Timeout here
+// means "escalate the fact that nobody has acted" — never "approve", "reject", or "despatch"
+// on their behalf. Because `transitionTo` is never set, the engine's own transition-legality
+// gate (`lib/engine/reducer.ts`) is never even invoked for these steps: there is structurally
+// no lifecycle move for it to authorise or refuse, not merely a promise that one won't happen.
+// The NOTIFICATION effect each proposes still runs through the ordinary policy/authority/
+// idempotency gates every other effect in this file does — an attention escalation is a real,
+// once-only action, just never a lifecycle one.
+
+/**
+ * The deterministic rule behind the human-review half of lr-fm-approval-timeout. Anchored on
+ * `reviewStartedAt`, a fact written once at every GENUINE entry into human review (every
+ * NEEDS_HUMAN/SUPPRESSION_REVIEW entry point in `handleEnquiry`/`handleReply`, plus the two
+ * elapsed-wait escalations above) and deliberately left untouched by `handleHumanDecision`'s
+ * own review-to-review moves (lr-t23 NEEDS_HUMAN -> ESCALATED, lr-t37 SUPPRESSION_REVIEW ->
+ * ESCALATED) — raising a case further up the authority chain is still the SAME unresolved
+ * review, not a new one, so escalating it must never grant a fresh window.
+ */
+function handleReviewAttentionTimeout(ctx: HandlerContext): HandlerOutcome {
+  const { event, state, profile } = ctx;
+  const id = (suffix: string) => `${event.eventId}:${suffix}`;
+  const windowHours = numberParam(profile, 'humanReviewTimeoutHours');
+  const reviewStartedAt = state.facts['reviewStartedAt'];
+
+  if (reviewStartedAt === undefined) {
+    return {
+      steps: [
+        {
+          id: id('review-check-invalid'),
+          label: 'Review attention check',
+          atOffsetSeconds: 0,
+          summary: 'No recorded review-start timestamp on this entity. No action taken.',
+          decisions: [
+            decision({
+              id: id('d-review-check-invalid'),
+              eventId: event.eventId,
+              mechanism: 'DETERMINISTIC_RULE',
+              objective: 'Determine whether the configured human-review attention window has elapsed.',
+              relevantState: state.lifecycleState,
+              evidenceRefs: ['state.facts.reviewStartedAt'],
+              deterministicFacts: [{ label: 'Review started', value: 'not recorded' }],
+              missingInformation: [],
+              permittedActions: ['record_unresolvable_check'],
+              forbiddenActions: ['guess_review_start', 'escalate_without_evidence'],
+              selectedAction: 'record_unresolvable_check',
+              applicablePolicy: ['A review attention check with no recorded review start cannot conclude anything and takes no action.'],
+              authority: 0,
+            }),
+          ],
+          effects: [],
+          verifications: [],
+        },
+      ],
+    };
+  }
+
+  const elapsedMs = Date.parse(event.occurredAt) - Date.parse(reviewStartedAt);
+  const windowMs = windowHours * 60 * 60 * 1000;
+  const elapsed = elapsedMs >= windowMs;
+  const elapsedHours = Math.round((elapsedMs / (60 * 60 * 1000)) * 10) / 10;
+
+  if (!elapsed) {
+    return {
+      steps: [
+        {
+          id: id('review-check'),
+          label: 'Review attention check',
+          atOffsetSeconds: 0,
+          summary: `Checked ${elapsedHours}h into a ${windowHours}h review window. Still within policy — no action taken.`,
+          decisions: [
+            decision({
+              id: id('d-review-check'),
+              eventId: event.eventId,
+              mechanism: 'DETERMINISTIC_RULE',
+              objective: 'Determine whether the configured human-review attention window has elapsed.',
+              relevantState: state.lifecycleState,
+              evidenceRefs: ['state.facts.reviewStartedAt', 'event.occurredAt'],
+              deterministicFacts: [
+                { label: 'Review started', value: reviewStartedAt },
+                { label: 'Checked at', value: event.occurredAt },
+                { label: 'Elapsed', value: `${elapsedHours} hours` },
+                { label: 'Configured window', value: `${windowHours} hours` },
+              ],
+              missingInformation: [...state.missingInformation],
+              permittedActions: ['remain_under_review'],
+              forbiddenActions: ['escalate_before_window_elapses', 'synthesize_decision'],
+              selectedAction: 'remain_under_review',
+              applicablePolicy: [
+                'CLIENT_POLICY kestrel-review-timeout-window: attention escalation is eligible only once the configured review window has genuinely elapsed.',
+              ],
+              authority: 3,
+            }),
+          ],
+          effects: [],
+          verifications: [],
+        },
+      ],
+    };
+  }
+
+  return {
+    steps: [
+      {
+        id: id('review-overdue'),
+        label: 'Review attention overdue',
+        atOffsetSeconds: 0,
+        // Deliberately NO transitionTo — see the section note above. The case remains exactly
+        // where it was (NEEDS_HUMAN / ESCALATED / SUPPRESSION_REVIEW); only an operational
+        // attention condition is recorded.
+        summary: `No human decision within the configured ${windowHours}-hour review window (checked at ${elapsedHours}h). Escalated as an overdue attention condition to the next owner in the authority chain — the case remains ${state.lifecycleState}, pending an actual human decision.`,
+        decisions: [
+          decision({
+            id: id('d-review-overdue'),
+            eventId: event.eventId,
+            mechanism: 'DETERMINISTIC_RULE',
+            objective: 'Determine whether the configured human-review attention window has elapsed.',
+            relevantState: state.lifecycleState,
+            evidenceRefs: ['state.facts.reviewStartedAt', 'event.occurredAt'],
+            deterministicFacts: [
+              { label: 'Review started', value: reviewStartedAt },
+              { label: 'Checked at', value: event.occurredAt },
+              { label: 'Elapsed', value: `${elapsedHours} hours` },
+              { label: 'Configured window', value: `${windowHours} hours` },
+            ],
+            missingInformation: [...state.missingInformation],
+            permittedActions: ['escalate_attention_to_next_owner'],
+            forbiddenActions: ['synthesize_decision', 'apply_default_disposition', 'transition_lifecycle_state'],
+            selectedAction: 'escalate_attention_to_next_owner',
+            applicablePolicy: [
+              'CLIENT_POLICY kestrel-review-timeout-window: a case held for human review past the configured window is escalated to the next owner in the authority chain as an attention condition. The case itself is never auto-decided.',
+            ],
+            escalationReason: `No human decision recorded within ${windowHours} hours of entering human review.`,
+            authority: 2,
+          }),
+        ],
+        effects: [
+          {
+            id: id('effect:notify-review-overdue'),
+            kind: 'NOTIFICATION',
+            description: 'Notify the next owner in the authority chain that a case under human review has exceeded the configured review window.',
+            target: 'Named owner',
+            idempotencyKey: `notify:${event.entityId}:review-overdue`,
+            authority: 3,
+            policyPermits: true,
+            verification: {
+              check: 'Confirm the notification reached a named owner rather than a shared queue.',
+              expect: 'Notification addressed to a named owner.',
+            },
+          },
+        ],
+        verifications: [],
+      },
+    ],
+  };
+}
+
+/**
+ * The deterministic rule behind the ready-but-undespatched half of lr-fm-approval-timeout.
+ * Anchored on `bookingReadyAt` — the existing readiness fact, already written by every
+ * BOOKING_READY entry point — deliberately never `offerSentAt`, which by construction does
+ * not exist for a case this function is ever called for (see `handleOfferWaitReevaluation`'s
+ * dispatch above this function).
+ */
+function handleDispatchAttentionTimeout(ctx: HandlerContext): HandlerOutcome {
+  const { event, state, profile } = ctx;
+  const id = (suffix: string) => `${event.eventId}:${suffix}`;
+  const windowHours = numberParam(profile, 'dispatchTimeoutHours');
+  const bookingReadyAt = state.facts['bookingReadyAt'];
+
+  if (bookingReadyAt === undefined) {
+    return {
+      steps: [
+        {
+          id: id('dispatch-check-invalid'),
+          label: 'Dispatch attention check',
+          atOffsetSeconds: 0,
+          summary: 'No recorded readiness timestamp on this entity. No action taken.',
+          decisions: [
+            decision({
+              id: id('d-dispatch-check-invalid'),
+              eventId: event.eventId,
+              mechanism: 'DETERMINISTIC_RULE',
+              objective: 'Determine whether the configured dispatch attention window has elapsed.',
+              relevantState: state.lifecycleState,
+              evidenceRefs: ['state.facts.bookingReadyAt'],
+              deterministicFacts: [{ label: 'Booking ready at', value: 'not recorded' }],
+              missingInformation: [],
+              permittedActions: ['record_unresolvable_check'],
+              forbiddenActions: ['guess_readiness_start', 'escalate_without_evidence'],
+              selectedAction: 'record_unresolvable_check',
+              applicablePolicy: ['A dispatch attention check with no recorded readiness timestamp cannot conclude anything and takes no action.'],
+              authority: 0,
+            }),
+          ],
+          effects: [],
+          verifications: [],
+        },
+      ],
+    };
+  }
+
+  const elapsedMs = Date.parse(event.occurredAt) - Date.parse(bookingReadyAt);
+  const windowMs = windowHours * 60 * 60 * 1000;
+  const elapsed = elapsedMs >= windowMs;
+  const elapsedHours = Math.round((elapsedMs / (60 * 60 * 1000)) * 10) / 10;
+
+  if (!elapsed) {
+    return {
+      steps: [
+        {
+          id: id('dispatch-check'),
+          label: 'Dispatch attention check',
+          atOffsetSeconds: 0,
+          summary: `Checked ${elapsedHours}h into a ${windowHours}h dispatch window since the case became ready. Still within policy — no action taken.`,
+          decisions: [
+            decision({
+              id: id('d-dispatch-check'),
+              eventId: event.eventId,
+              mechanism: 'DETERMINISTIC_RULE',
+              objective: 'Determine whether the configured dispatch attention window has elapsed.',
+              relevantState: state.lifecycleState,
+              evidenceRefs: ['state.facts.bookingReadyAt', 'event.occurredAt'],
+              deterministicFacts: [
+                { label: 'Booking ready at', value: bookingReadyAt },
+                { label: 'Checked at', value: event.occurredAt },
+                { label: 'Elapsed', value: `${elapsedHours} hours` },
+                { label: 'Configured window', value: `${windowHours} hours` },
+              ],
+              missingInformation: [...state.missingInformation],
+              permittedActions: ['remain_ready_undespatched'],
+              forbiddenActions: ['escalate_before_window_elapses', 'despatch_offer_automatically'],
+              selectedAction: 'remain_ready_undespatched',
+              applicablePolicy: [
+                'CLIENT_POLICY kestrel-dispatch-timeout-window: attention escalation is eligible only once the configured dispatch window has genuinely elapsed.',
+              ],
+              authority: 3,
+            }),
+          ],
+          effects: [],
+          verifications: [],
+        },
+      ],
+    };
+  }
+
+  return {
+    steps: [
+      {
+        id: id('dispatch-overdue'),
+        label: 'Dispatch attention overdue',
+        atOffsetSeconds: 0,
+        // Deliberately NO transitionTo, and no offerSentAt write — see the section note above
+        // handleReviewAttentionTimeout. The case remains BOOKING_READY, genuinely undespatched;
+        // only an operational attention condition is recorded.
+        summary: `Ready for a next commercial step but not despatched within the configured ${windowHours}-hour window (checked at ${elapsedHours}h). Escalated as an overdue attention condition — the case remains BOOKING_READY, and no offer was sent.`,
+        decisions: [
+          decision({
+            id: id('d-dispatch-overdue'),
+            eventId: event.eventId,
+            mechanism: 'DETERMINISTIC_RULE',
+            objective: 'Determine whether the configured dispatch attention window has elapsed.',
+            relevantState: state.lifecycleState,
+            evidenceRefs: ['state.facts.bookingReadyAt', 'event.occurredAt'],
+            deterministicFacts: [
+              { label: 'Booking ready at', value: bookingReadyAt },
+              { label: 'Checked at', value: event.occurredAt },
+              { label: 'Elapsed', value: `${elapsedHours} hours` },
+              { label: 'Configured window', value: `${windowHours} hours` },
+            ],
+            missingInformation: [...state.missingInformation],
+            permittedActions: ['escalate_attention_to_next_owner'],
+            forbiddenActions: ['despatch_offer_automatically', 'fabricate_offer_sent_evidence', 'transition_lifecycle_state'],
+            selectedAction: 'escalate_attention_to_next_owner',
+            applicablePolicy: [
+              'CLIENT_POLICY kestrel-dispatch-timeout-window: a case ready for a next commercial step but not despatched past the configured window is escalated as an attention condition. The offer is never auto-sent.',
+            ],
+            escalationReason: `No offer despatched within ${windowHours} hours of the case becoming ready.`,
+            authority: 2,
+          }),
+        ],
+        effects: [
+          {
+            id: id('effect:notify-dispatch-overdue'),
+            kind: 'NOTIFICATION',
+            description: 'Notify the next owner in the authority chain that a ready case has not had its offer despatched within the configured window.',
+            target: 'Named owner',
+            idempotencyKey: `notify:${event.entityId}:dispatch-overdue`,
             authority: 3,
             policyPermits: true,
             verification: {
