@@ -186,7 +186,7 @@ Coverage: 23 distinct failure classes across 43 entries.
 | **Escalates when** | Review window elapsed without acceptance. |
 | **Authority required** | 2 · PREPARE / HUMAN APPROVES |
 | **Resolves into** | ESCALATED. |
-| **Verification** | Pending — approval timeout scenario not yet authored. |
+| **Verification** | tests/lead-rescue-attention-timeout.test.ts, tests/lead-rescue-attention-timeout-resume.test.ts — review and dispatch attention timeouts durably escalate without transitioning lifecycle state |
 
 ### UNEXPECTED HUMAN REPLY — A reply does not answer the question asked and instead raises a commitment, complaint, or unrelated request.
 

@@ -1,0 +1,54 @@
+{
+  "name": "Lead Rescue — Wait Sweep",
+  "nodes": [
+    {
+      "id": "a3d9f1e2-6b4c-4a8e-9c1d-2f5e7a8b9c0d",
+      "name": "Wait Sweep Schedule",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.4,
+      "position": [240, 300],
+      "parameters": {
+        "rule": {
+          "interval": [{ "field": "minutes", "minutesInterval": 1 }]
+        }
+      }
+    },
+    {
+      "id": "b7e2c4a1-9d3f-4e6b-8a2c-1d4e6f8a9b0c",
+      "name": "Sweep Waiting Incidents",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [540, 300],
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:3000/api/lead-rescue/wait-incidents/check",
+        "authentication": "none",
+        "sendBody": false,
+        "options": {
+          "response": { "response": { "neverError": false, "fullResponse": true, "responseFormat": "json" } }
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "c1f4d8b6-2a7e-4c9d-b3f1-5e8a0c2d4f6b",
+      "name": "Wait Sweep Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [100, 480],
+      "parameters": {
+        "content": "## Lead Rescue wait sweep\nn8n owns scheduling only: fire on an interval and call the application's existing full-sweep endpoint (no `incidentId` in the body). Every eligibility, idempotency, claim, and escalation decision happens inside `checkAllWaitingIncidents`/`checkWaitIncident` — unmodified by this workflow. No IF/Switch node exists here because this graph never asks a business question; it only asks the clock.\n\nWorst-case sweep execution time is expected to stay far under the 1-minute interval (a handful of file reads/writes per waiting incident), so overlapping executions are possible in principle but never unsafe: `OperationClaimStore`'s cross-process-exclusive claim already makes two overlapping sweeps (or a genuinely concurrent one from a second n8n instance) resolve any given incident's effect at most once. No scheduler-level mutex or lock was added — that guarantee already existed and is proven directly by `tests/lead-rescue-wait-sweep.test.ts`.\n\nSet 'Sweep Waiting Incidents' -> URL to wherever the Lead Rescue app is actually reachable (e.g. http://host.docker.internal:<port>/api/lead-rescue/wait-incidents/check for a local Docker n8n instance talking to a local Next.js dev server). The 1-minute interval is a demo-appropriate cadence, not a production SLA decision — see docs/STATUS.md.",
+        "color": 4
+      }
+    }
+  ],
+  "connections": {
+    "Wait Sweep Schedule": {
+      "main": [[{ "node": "Sweep Waiting Incidents", "type": "main", "index": 0 }]]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

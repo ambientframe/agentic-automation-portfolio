@@ -1,14 +1,18 @@
 # Status
 
-**As of 2026-08-24 · Lead Rescue's first real n8n integration seam is live: a genuinely
-external-shaped lead event, delivered through an actually-executing n8n workflow (verified both
-on the connected n8n.cloud account and, for full localhost reachability, a local Docker n8n
-instance), invokes the canonical application ingress and lands in the exact same durable engine,
-store, and claim primitives every direct path already used. n8n owns transport only — trigger,
-field-mapping, and error routing; every classification, routing, and idempotency decision still
-happens inside the engine. Maturity does not change: nothing external-to-the-portfolio (a real
-prospect, a real CRM, a real message provider) was contacted — see "Lead Rescue n8n ingress
-seam," below, for the exact boundary.**
+**As of 2026-08-24 · Lead Rescue's waiting incidents now wake themselves: a real n8n Schedule
+Trigger, on its own timer, calls the existing full-sweep endpoint with no human or script
+involved, and — live-verified against a local Docker n8n instance across an actual container
+restart — correctly resolves exactly the incidents whose window has genuinely elapsed while
+leaving everything else untouched. `checkAllWaitingIncidents` existed since the attention-timeout
+pass but had never once been invoked by anything but a person clicking a button; this closes that
+gap using the identical claim-store guarantee proven for cross-runtime and crash safety, adding
+zero new engine code. n8n now owns both ends of orchestration this portfolio has built —
+triggering-in (new-lead ingress) and waking-up (the wait sweep) — while every decision stays
+inside the engine. Maturity does not change: nothing external-to-the-portfolio was contacted —
+see "Lead Rescue scheduled n8n sweep," below, for the exact boundary. This pass also repairs a
+stale canon claim found during a state-reconciliation pass earlier the same day: see "Known
+fidelity gaps," item 16.**
 
 ## Portfolio maturity
 
@@ -21,7 +25,7 @@ a third declared transition pair in Call-to-Proposal.
 
 | # | System | Maturity | Runs? |
 | --- | --- | --- | --- |
-| 1 | Lead Rescue | `INTERACTIVE_PROTOTYPE` | Yes — 7 scenarios execute end to end, a live wait/resume demo covering both prospect-response waiting categories and both operator-attention timeout categories, plus a real n8n-driven ingress path for new leads |
+| 1 | Lead Rescue | `INTERACTIVE_PROTOTYPE` | Yes — 7 scenarios execute end to end, a live wait/resume demo covering both prospect-response waiting categories and both operator-attention timeout categories, a real n8n-driven ingress path for new leads, and a real n8n-driven scheduled sweep that wakes waiting incidents on its own |
 | 2 | Dormant Pipeline Recovery | `SIMULATED` | Yes — 2 scenarios execute end to end |
 | 3 | Call-to-Proposal Revenue Agent | `SIMULATED` | Yes — 2 scenarios execute end to end |
 | 4 | Client Onboarding Operator | `SIMULATED` | Yes — 2 scenarios execute end to end |
@@ -919,6 +923,17 @@ New this pass (Lead Rescue wait/resume):
   risk this pass's own earlier section closed for scenario replay (an uncertain despatch
   durably recording `offerSentAt`) is now also closed for this live path, by reusing —
   unmodified — the exact claim-then-invoke ordering `checkWaitIncident` already proved.
+- **Waiting incidents now wake themselves, this pass.** A real n8n Schedule Trigger, on its own
+  one-minute interval, calls the existing full-sweep endpoint with no person or script involved
+  — live-verified across an autonomous first tick (an eligible incident resolved, a not-yet-due
+  one left untouched) and a genuine container-restart boundary (the schedule resumed on its own
+  and correctly discovered a newly-eligible incident afterward). `checkAllWaitingIncidents` had
+  existed since the attention-timeout pass but had never been driven by anything but a person
+  clicking a button; `tests/lead-rescue-wait-sweep.test.ts` additionally proves, at the sweep
+  entry point itself rather than only at the per-incident level underneath it, that mixed
+  eligible/non-eligible sweeps, concurrent sweeps, and restart-reconstructed sweeps all still
+  hold the exact same claim-store guarantee already proven — with zero changes to
+  `checkWaitIncident`, `checkAllWaitingIncidents`, or either persistence store.
 
 New in the Owner Revenue Intelligence pass (prior), retained for continuity:
 
@@ -1472,26 +1487,114 @@ forward across re-park — additive, no behavior change for any record without o
 `lib/engine/handlers/lead-rescue.ts`, `lib/persistence/operation-claim-store.ts`, or any of the
 existing `decide`/`dispatch`/`check` routes.
 
+## Lead Rescue scheduled n8n sweep — this pass
+
+**The gap named at the end of the prior pass.** `checkAllWaitingIncidents` (`lib/engine/wait-resume.ts`)
+has existed since the attention-timeout pass and already sweeps every waiting AND
+overdue-attention incident correctly — but nothing had ever called it except a person clicking
+"Check all waiting now" in the operator UI or a hand-run API call. The prior pass's own "Single
+recommended next fidelity gap" named this precisely: n8n had proven it could safely TRIGGER the
+engine (new-lead ingress); the still-open question was whether anything could independently WAKE
+it. This pass closes that gap.
+
+**A stale canon claim, repaired first.** A same-day state-reconciliation pass (independent of
+this implementation) found `data/systems/lead-rescue.ts`'s `lr-fm-approval-timeout` failure mode
+still declared `verificationTest: 'Pending — approval timeout scenario not yet authored.'`, even
+though the attention-timeout pass had closed it with 20 tests three passes ago. Corrected to cite
+`tests/lead-rescue-attention-timeout.test.ts`/`tests/lead-rescue-attention-timeout-resume.test.ts`
+by name; `npm run docs` regenerated `docs/FAILURE_MODE_REGISTER.md` with exactly that one
+propagated change, confirmed by diff before touching anything else.
+
+**Falsifying the sweep entry point itself, not just what it wraps.** Every existing reliability
+proof — cross-runtime racing, crash-window recovery, restart durability — exercises
+`checkWaitIncident` for one named incident. `checkAllWaitingIncidents` had never been driven by
+any test before this pass: it is a thin `listWaiting()` + sequential loop over that already-proven
+function, and the task's own instruction was explicit — reuse the existing claim-store guarantee,
+do not invent scheduler-specific deduplication. `tests/lead-rescue-wait-sweep.test.ts` (4 new
+tests) asks whether that composition actually preserves the guarantee at the boundary a scheduler
+calls: a sweep containing one eligible and one not-yet-due incident resolves only the eligible one
+with zero side effects on the other; two concurrently invoked sweeps (independently constructed
+stores, sharing only the files on disk) over the same eligible incident execute its notification
+at most once, verified through a third, freshly constructed claim store; a second sweep run
+against brand-new store instances reconstructed from disk does not re-resolve what the first
+already resolved, and correctly discovers an incident that became eligible only after the first
+sweep ran; and a sweep over an empty store returns cleanly. All four passed against entirely
+unmodified production code — the architecture already proved this property at the per-incident
+level, and this pass demonstrates rather than assumes that the sweep wrapper does not undermine
+it. Zero changes to `checkWaitIncident`, `checkAllWaitingIncidents`, `OperationClaimStore`, or
+`WaitIncidentStore` were needed.
+
+**The workflow.** `n8n/workflows/lead-rescue-wait-sweep.json` has exactly two working nodes: a
+Schedule Trigger (interval mode, one-minute cadence — a demo-appropriate cadence, not a production
+SLA decision) and an HTTP Request node calling `POST /api/lead-rescue/wait-incidents/check` with
+no body (the route's own existing no-`incidentId` branch, which already reads the real server
+clock and calls `checkAllWaitingIncidents`). No `IF`/`Switch` node exists anywhere in the graph —
+the same structural discipline the ingress workflow established: this graph never asks a business
+question, only the clock. A sticky note documents the one genuine design question the task named
+in advance as a policy decision rather than an implementation detail (interval and scope), and
+records explicitly why no scheduler-level mutex was added: `OperationClaimStore`'s existing
+cross-process-exclusive claim already makes overlapping or genuinely concurrent sweeps safe,
+proven directly above, not assumed.
+
+**Live-verified against the local Docker n8n instance — the scheduler itself doing the
+triggering, not a manual call standing in for it.** Two eligible incidents and one persistently
+not-yet-due incident were seeded directly into the durable store (backdating `waitStartedAt`,
+the same mechanism a genuinely-25-hours-old case would produce, rather than waiting real hours).
+The workflow was imported and activated; a real, un-manually-triggered tick fired within the
+first minute and correctly resolved the eligible incident while leaving the not-due one
+completely untouched — confirmed by reading the persisted store directly, not by trusting the
+HTTP response of a call this pass never made. The container was then restarted — a genuine
+process-boundary crossing for the orchestration runtime itself, not a simulated one — with a
+freshly-seeded eligible incident in place; the schedule resumed on its own after the restart (no
+manual re-activation), and the next tick correctly discovered and resolved it. One early
+verification step accidentally called the endpoint manually via `wget` from inside the container
+before the schedule's own first tick — caught immediately (the test incident resolved a beat
+before intended), the incident was re-seeded, and the actual scheduled-trigger proof was
+re-run cleanly from there; recorded here rather than silently smoothed over. All test data and
+the local claim-store artifacts were removed after verification (`.data/` is gitignored,
+demo-runtime state); the container was deactivated and stopped cleanly, matching the ingress
+pass's own convention.
+
+**What remains honestly true, not overclaimed.** This pass proves ONE thing: an external
+scheduler can safely and repeatedly wake this system's own already-correct sweep logic. It does
+not add a second n8n ingress surface (replies, decisions, and dispatch still only reach the
+engine through the direct application UI/API — unchanged from the ingress pass), does not change
+what "eligible" means, does not add a queue or a second deduplication mechanism, and does not
+change maturity: nothing external-to-the-portfolio was contacted. The one-minute interval is a
+demo cadence, not a claim about a production SLA — a real deployment would choose its own
+interval, a policy decision this pass deliberately leaves open (see the workflow's own sticky
+note).
+
+**Files changed.** `data/systems/lead-rescue.ts` (`lr-fm-approval-timeout.verificationTest`
+corrected — canon truth repair only, no behavior change). `docs/FAILURE_MODE_REGISTER.md`
+(regenerated, exactly the one propagated change). `n8n/workflows/lead-rescue-wait-sweep.json`
+(new — the canonical, importable workflow artifact). `tests/lead-rescue-wait-sweep.test.ts` (new,
+4 tests). Zero changes to `lib/engine/wait-resume.ts`, `lib/persistence/operation-claim-store.ts`,
+`lib/persistence/wait-incident-store.ts`, `app/api/lead-rescue/wait-incidents/check/route.ts`, or
+any other application code — this pass is entirely a new orchestration trigger and a canon
+correction on top of machinery that already did the right thing.
+
 ## Verification
 
 ```
-npm run verify     # typecheck + lint + 477 tests
+npm run verify     # typecheck + lint + 481 tests
 npm run build      # 29 pages prerender; 5 dynamic (ƒ) API routes; the engine executes at build/request time
 npm run docs       # regenerate canon from the model — no diff this pass
 ```
 
-All passing as of this pass. `tests/lead-rescue-ingress.test.ts` (10 tests) is new — see above
-for what each proves. Every pre-existing Lead Rescue test file is unchanged and still passes
-unmodified — this pass added a new orchestration seam and a new, additive persisted field, and
-touched nothing any existing test depended on. `npm run build` now reports 5 dynamic (`ƒ`)
-routes, not 4: the four existing wait-incident routes plus the new `/api/lead-rescue/ingress`;
-29 prerendered pages, unchanged. `npm run docs` was re-run and produced NO diff — no lifecycle
-state, transition, operating parameter, or client policy was added or changed; this pass is
-entirely a new orchestration/transport layer on top of canon and profile data that needed no
-change. Local n8n execution independently verified live (see "Lead Rescue n8n ingress seam,"
-above) — first delivery, duplicate delivery, distinct delivery, concurrent delivery, transport
-failure, and a container-restart boundary, each against the real webhook, the real workflow, and
-the real application.
+All passing as of this pass. `tests/lead-rescue-wait-sweep.test.ts` (4 tests) is new — see "Lead
+Rescue scheduled n8n sweep," above, for what each proves. Every pre-existing test file is
+unchanged and still passes unmodified — this pass added a new orchestration trigger, a new
+sweep-level test file, and a one-field canon correction, and touched no application code any
+existing test depended on. `npm run build` still reports 5 dynamic (`ƒ`) routes and 29
+prerendered pages, unchanged — this pass added no new route. `npm run docs` was re-run twice:
+once immediately after the canon correction (confirming exactly the one expected propagated
+change to `docs/FAILURE_MODE_REGISTER.md`, nothing else), and once again at the end of the pass
+(confirming zero further diff). Local n8n execution independently verified live (see "Lead
+Rescue scheduled n8n sweep," above) — an autonomous, un-manually-triggered first tick correctly
+resolving an eligible incident while leaving a not-yet-due one untouched, and a post-container-
+restart tick correctly discovering and resolving a newly-eligible incident, each confirmed by
+reading the durable store directly.
 
 Visual inspection performed on the portfolio index, the Owner Revenue Intelligence dossier,
 and both new scenario pages — the run-summary panel's existing generic counters render
@@ -1617,55 +1720,47 @@ effects, matching the "ordinary variation is left alone" claim exactly.
     scope this pass declared in advance (`inbound.enquiry.received` only), not an oversight —
     but it means "n8n-centered automation" is proven for exactly one of Lead Rescue's several
     inbound event types.
-16. **No scheduler exists, in n8n or anywhere else — a gap this pass's own architecture makes
-    concretely closeable for the first time.** `checkAllWaitingIncidents`
-    (`lib/engine/wait-resume.ts`) already exists, is already exercised by
-    `POST /api/lead-rescue/wait-incidents/check` with no `incidentId`, and already sweeps every
-    waiting AND overdue-attention incident correctly — it has simply never been called except
-    by a person clicking "Check all waiting now." This pass proves the exact mechanism
-    (n8n → HTTP call → existing endpoint → structured result) a Schedule Trigger workflow would
-    need, with zero new application code.
+16. **CLOSED this pass.** `checkAllWaitingIncidents` (`lib/engine/wait-resume.ts`) already existed
+    and already swept every waiting AND overdue-attention incident correctly, but nothing had
+    ever called it except a person clicking "Check all waiting now." See "Lead Rescue scheduled
+    n8n sweep," above: a real n8n Schedule Trigger, live-verified across an autonomous first tick
+    and a container-restart boundary, now wakes it on its own, with zero new engine code.
 
 ## Single recommended next fidelity gap
 
-**A scheduled n8n sweep of the existing `/wait-incidents/check` endpoint — turning "no
-scheduler exists" from a standing caveat into a closed gap, using the exact seam this pass just
-proved rather than a new one.** Every pass back to the original wait/resume work has repeated
-the same honest caveat: no scheduler exists, an elapsed wait or an overdue attention condition
-is only ever discovered when a person clicks a button or a script hits the check route by hand.
-This pass's own n8n integration proves the missing half of that story is not "can an external
-runtime safely drive this system" — that question is now answered, live, for inbound ingress —
-but specifically "is there a recurring trigger." A Schedule Trigger node calling the SAME
-`POST /api/lead-rescue/wait-incidents/check` (no `incidentId`, the existing full-sweep path)
-on an interval would close it, requiring precisely zero new application code: `checkWaitIncident`,
-`checkAllWaitingIncidents`, and every attention-timeout rule this portfolio has already built
-already do the right thing when called; nothing has ever been driving them regularly.
+**The authority-chain "next owner" resolution named as item 14, above.** With the scheduled
+sweep closed this pass, the two candidates the prior pass explicitly left open were the
+authority-chain gap (item 14) and a second n8n ingress surface for prospect replies (item 15).
+The authority-chain gap now outranks the second ingress surface, for reasons specific to what
+just closed rather than a restatement of the prior pass's own ranking: `data/profiles/kestrel/profile.ts`
+already declares an ordered `roles` array with a real `authorityCeiling` per role (founder 4,
+head-of-delivery 3, client-partner 3, analyst 1), but every escalation notification this
+portfolio has ever written — the `BOOKING_READY`-entry notifications, `lr-t14`/`lr-t22`'s own
+wait-elapsed notifications, and both new attention-timeout rules — addresses the same generic
+`target: 'Named owner'` string, never resolving who that actually is. `lr-fm-approval-timeout`'s
+own declared `recovery` names escalating "to the next owner in the authority chain" — language
+the attention-timeout pass's own decision text already quotes verbatim without the code behind
+it doing what the text claims. This is a real, self-flagged mismatch between what the system
+SAYS it does on escalation and what it actually does, sitting entirely inside the engine: no
+orchestration runtime, no new persistence, no new port.
 
-**Why this outranks the other two candidates this pass surfaced.** The authority-chain "next
-owner" gap (item 14) is real but is a business-data refinement inside the engine — it does not
-touch n8n, does not need an orchestration runtime to resolve, and (per this pass's own explicit
-instruction not to auto-nominate it) is recorded rather than picked. A second n8n ingress
-surface for prospect replies (item 15) is a reasonable next step but would be the SAME pattern
-this pass already proved, applied to a second event type — evidence of generalisation, not of a
-new capability. A scheduled sweep is different in kind: it is the one piece of "n8n as
-orchestration runtime" this portfolio has named as missing, repeatedly, across multiple prior
-passes' own "what remains simulated" sections, and it is now reachable with the smallest
-possible increment — one more n8n node type (Schedule Trigger), zero new engine code, reusing
-an HTTP endpoint that has existed and been correct since the attention-timeout pass.
+**Why this outranks a second n8n ingress surface right now.** A second ingress surface for
+`prospect.replied` would be the SAME pattern this portfolio has now proven twice — once for
+new-lead intake, once (this pass) for a scheduled trigger — applied to a third event type.
+Valuable as evidence of generalisation, but no longer evidence of a NEW capability; the
+authority-chain gap is a genuinely different question, with its own falsifiable target
+(`resolveEscalationTarget()`-shaped logic reading `profile.roles` against the case's current
+`awaitingHuman`/owner and returning the correctly-ranked next name, not a placeholder) and a
+commercial payoff a demo viewer can feel directly: "escalates to Named owner" reads as a
+placeholder the moment a sharp buyer notices it; "escalates to Dana Whitfield, Head of Delivery"
+does not.
 
-**Why this is not a repeat of this pass's own work, and likely fits without a redesign.** The
-architectural boundary this pass established — n8n owns triggering and transport, the engine
-owns every decision — applies unchanged: a Schedule Trigger deciding WHEN to check is a
-transport concern; WHETHER anything is actually overdue remains entirely inside
-`checkWaitIncident`/`handleReviewAttentionTimeout`/`handleDispatchAttentionTimeout`, untouched.
-The one genuine design question is interval and scope (how often, and whether one workflow
-sweeping everything is preferable to one per waiting category) — a policy decision, not an
-implementation detail, left to whoever picks this up next rather than decided here.
-
-**The `'Named owner'` authority-chain gap (item 14, above) remains open and is explicitly NOT
-nominated as the next task**, per this pass's own instruction: real, but a business-logic
-refinement orthogonal to the orchestration question this pass and its recommended successor
-are both about.
+**Scope, named in advance.** Read the escalating case's own current owner/authority level from
+`awaitingHuman` or the applicable decision record; look up the next-higher `authorityCeiling`
+role in `profile.roles`; substitute that role's name into the notification `target` in place of
+`'Named owner'`, everywhere the four escalation call sites in `lib/engine/handlers/lead-rescue.ts`
+currently hardcode it. No new lifecycle state, transition, event type, or port — purely
+correcting what an existing, already-authorized NOTIFICATION effect addresses.
 
 **Do not begin closing this gap from this document.** Recorded here as the evidence-based next
 candidate, the same discipline every prior pass's "next fidelity gap" section applied — not as

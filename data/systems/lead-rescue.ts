@@ -419,7 +419,8 @@ const RAW = {
       escalationCondition: 'Review window elapsed without acceptance.',
       authorityRequired: 2,
       terminalState: 'ESCALATED.',
-      verificationTest: 'Pending — approval timeout scenario not yet authored.',
+      verificationTest:
+        'tests/lead-rescue-attention-timeout.test.ts, tests/lead-rescue-attention-timeout-resume.test.ts — review and dispatch attention timeouts durably escalate without transitioning lifecycle state',
     },
     {
       id: 'lr-fm-unexpected-reply',
