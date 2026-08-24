@@ -61,6 +61,26 @@ const HumanDecisionPayloadSchema = z.object({
   rationale: z.string().min(1),
 });
 
+/**
+ * `lead.offer.despatched` — the ONLY event that may write `offerSentAt`. Deliberately
+ * separate from `HumanDecisionPayloadSchema`/`human.decision.recorded`: a decision like
+ * CLEARED_TO_PROCEED picks a lifecycle DISPOSITION (which state the case moves to); despatching
+ * an offer does not move the case anywhere (it stays in BOOKING_READY) and instead records
+ * that a prospect-facing message was authorized and sent. Folding the two into one event/
+ * decision-kind risked exactly the conflation this whole correction exists to remove: a
+ * generic "decision" mapped through `humanTarget()` could reach BOOKING_READY from ANY
+ * originating state a declared transition permits, which is correct for clearing a case but
+ * would be wrong for "the offer was sent" — that claim is meaningless unless the case was
+ * ALREADY ready. `target` is the prospect's own contact reference, never the named owner —
+ * `handleOfferDespatched` has no other way to know who receives the offer, since contact
+ * details are not carried in `EngineState.facts`.
+ */
+const OfferDespatchPayloadSchema = z.object({
+  decidedBy: z.string().min(1),
+  target: z.string().min(1),
+  offerSummary: z.string().min(1),
+});
+
 export const ENQUIRY_CLASSES = [
   'QUALIFIED_ENQUIRY',
   'NEEDS_MORE_INFORMATION',
@@ -619,10 +639,13 @@ function handleEnquiry(ctx: HandlerContext): HandlerOutcome {
     ...(target.state === 'NEEDS_HUMAN'
       ? { statePatch: { awaitingHuman: target.summary } }
       : target.state === 'BOOKING_READY'
-        // bookingReadyAt is the event's own occurredAt, never a clock read — the lr-t22
-        // sibling of waitStartedAt above. A later, genuinely separate `lead.wait.reevaluated`
-        // event compares itself against this, never against waitStartedAt, even if a stray
-        // waitStartedAt fact happened to be present — see handleOfferWaitReevaluation below.
+        // bookingReadyAt is the event's own occurredAt, never a clock read. It records only
+        // that the case became ready for a next commercial step — NOT that an offer reached
+        // the prospect. The NOTIFICATION effect this same disposition proposes below is
+        // addressed to the named owner, never the prospect, and is not offer evidence either.
+        // lr-t22's clock is governed by a separate fact, offerSentAt, written only by
+        // handleOfferDespatched once a person explicitly despatches a real offer — see there,
+        // and see handleOfferWaitReevaluation below for why the two must never be conflated.
         ? { statePatch: { facts: { bookingReadyAt: event.occurredAt } } }
         : {}),
     decisions: [
@@ -659,7 +682,7 @@ function handleEnquiry(ctx: HandlerContext): HandlerOutcome {
   // Most enquiries take the always-succeeds path. A scenario that needs to demonstrate
   // an uncertain provider outcome declares a `sendAttempts[0]` entry, which routes this
   // effect through the execution ledger instead — see `lr-fm-downstream-api`.
-  const ackAttempt = readAckSendAttempt(event.payload);
+  const ackAttempt = readSendAttempt(event.payload);
 
   steps.push({
     id: id('acknowledge'),
@@ -1021,7 +1044,9 @@ function handleReply(ctx: HandlerContext): HandlerOutcome {
       ...(outcome.state === 'NEEDS_HUMAN' ? { awaitingHuman: outcome.summary } : {}),
       // Same bookingReadyAt fact the classification-time disposition step writes — this is
       // the OTHER legitimate path into BOOKING_READY (lr-t16, a reply that completes a
-      // previously-incomplete enquiry), and needs the identical wait-start evidence.
+      // previously-incomplete enquiry), and needs the identical readiness evidence. It is
+      // still only readiness evidence, not offer-sent evidence — see the comment on the
+      // classification-time disposition step above.
       ...(outcome.state === 'BOOKING_READY' ? { facts: { bookingReadyAt: event.occurredAt } } : {}),
     },
     decisions: [
@@ -1305,29 +1330,40 @@ function handleReplyWaitReevaluation(ctx: HandlerContext): HandlerOutcome {
 
 /**
  * The deterministic rule behind lr-t22 — the sibling of `handleReplyWaitReevaluation` on a
- * different waiting state. Same shape deliberately: given a wait start (`bookingReadyAt`,
- * never `waitStartedAt` — the two must never cross-read one another's fact) and a check
- * time, has the configured booking-offer window elapsed? Nothing here is copied from
- * `handleReplyWaitReevaluation` by reference — the duplication between the two functions IS
- * the architecture: two small, independently readable rules rather than one parameterised
- * over which fact/policy/idempotency-suffix to use, which would obscure exactly the
- * distinction (a different policy, a different fact, a different notification identity) that
- * matters here.
+ * different waiting state. Same shape deliberately: given a wait start and a check time, has
+ * the configured booking-offer window elapsed?
+ *
+ * SEMANTIC-INTEGRITY CORRECTION: the wait start this rule reads is `offerSentAt`, never
+ * `bookingReadyAt` and never `waitStartedAt`. `bookingReadyAt` (written at every BOOKING_READY
+ * entry point — lr-t10, lr-t16, and the three HUMAN_DECISION re-entries lr-t24/lr-t27/lr-t34)
+ * proves only that the case became ready for a next commercial step; it is never evidence a
+ * prospect received anything, since every one of those paths fires at most an internal
+ * NOTIFICATION to the named owner. `offerSentAt` is written in exactly one place —
+ * `handleOfferDespatched`, below — when a person explicitly despatches a real, prospect-facing
+ * offer. Reading `bookingReadyAt` here would mean escalating "the offer went unanswered" for a
+ * case where no offer was ever sent, which is exactly the false-positive this correction closes.
+ *
+ * Nothing here is copied from `handleReplyWaitReevaluation` by reference — the duplication
+ * between the two functions IS the architecture: two small, independently readable rules
+ * rather than one parameterised over which fact/policy/idempotency-suffix to use, which would
+ * obscure exactly the distinction (a different policy, a different fact, a different
+ * notification identity) that matters here.
  */
 function handleOfferWaitReevaluation(ctx: HandlerContext): HandlerOutcome {
   const { event, state, profile } = ctx;
   const id = (suffix: string) => `${event.eventId}:${suffix}`;
   const windowHours = numberParam(profile, 'bookingOfferWindowHours');
-  const bookingReadyAt = state.facts['bookingReadyAt'];
+  const offerSentAt = state.facts['offerSentAt'];
 
-  if (bookingReadyAt === undefined) {
+  if (offerSentAt === undefined) {
     return {
       steps: [
         {
           id: id('offer-check-invalid'),
           label: 'Offer re-evaluation',
           atOffsetSeconds: 0,
-          summary: 'No recorded booking-ready timestamp on this entity. No action taken.',
+          summary:
+            'No recorded offer-despatch timestamp on this entity. The case may be ready (bookingReadyAt), but readiness is not proof an offer was sent — no action taken.',
           decisions: [
             decision({
               id: id('d-offer-check-invalid'),
@@ -1335,13 +1371,18 @@ function handleOfferWaitReevaluation(ctx: HandlerContext): HandlerOutcome {
               mechanism: 'DETERMINISTIC_RULE',
               objective: 'Determine whether the configured booking-offer wait window has elapsed.',
               relevantState: state.lifecycleState,
-              evidenceRefs: ['state.facts.bookingReadyAt'],
-              deterministicFacts: [{ label: 'Booking ready at', value: 'not recorded' }],
+              evidenceRefs: ['state.facts.offerSentAt'],
+              deterministicFacts: [
+                { label: 'Offer sent at', value: 'not recorded' },
+                { label: 'Booking ready at (readiness only, not offer evidence)', value: state.facts['bookingReadyAt'] ?? 'not recorded' },
+              ],
               missingInformation: [],
               permittedActions: ['record_unresolvable_check'],
-              forbiddenActions: ['guess_offer_start', 'escalate_without_evidence'],
+              forbiddenActions: ['guess_offer_sent', 'infer_offer_from_readiness', 'escalate_without_evidence'],
               selectedAction: 'record_unresolvable_check',
-              applicablePolicy: ['An offer re-evaluation with no recorded booking-ready timestamp cannot conclude anything and takes no action.'],
+              applicablePolicy: [
+                'An offer re-evaluation with no recorded offer-despatch timestamp cannot conclude anything and takes no action. Readiness (bookingReadyAt) is never treated as proof an offer was despatched.',
+              ],
               authority: 0,
             }),
           ],
@@ -1352,7 +1393,7 @@ function handleOfferWaitReevaluation(ctx: HandlerContext): HandlerOutcome {
     };
   }
 
-  const elapsedMs = Date.parse(event.occurredAt) - Date.parse(bookingReadyAt);
+  const elapsedMs = Date.parse(event.occurredAt) - Date.parse(offerSentAt);
   const windowMs = windowHours * 60 * 60 * 1000;
   const elapsed = elapsedMs >= windowMs;
   const elapsedHours = Math.round((elapsedMs / (60 * 60 * 1000)) * 10) / 10;
@@ -1364,7 +1405,7 @@ function handleOfferWaitReevaluation(ctx: HandlerContext): HandlerOutcome {
           id: id('offer-check'),
           label: 'Offer re-evaluation',
           atOffsetSeconds: 0,
-          summary: `Checked ${elapsedHours}h into a ${windowHours}h window. Still within the configured booking-offer wait — no action taken.`,
+          summary: `Checked ${elapsedHours}h into a ${windowHours}h window since the offer was despatched. Still within the configured booking-offer wait — no action taken.`,
           decisions: [
             decision({
               id: id('d-offer-check'),
@@ -1372,9 +1413,9 @@ function handleOfferWaitReevaluation(ctx: HandlerContext): HandlerOutcome {
               mechanism: 'DETERMINISTIC_RULE',
               objective: 'Determine whether the configured booking-offer wait window has elapsed.',
               relevantState: 'BOOKING_READY',
-              evidenceRefs: ['state.facts.bookingReadyAt', 'event.occurredAt'],
+              evidenceRefs: ['state.facts.offerSentAt', 'event.occurredAt'],
               deterministicFacts: [
-                { label: 'Booking ready at', value: bookingReadyAt },
+                { label: 'Offer sent at', value: offerSentAt },
                 { label: 'Checked at', value: event.occurredAt },
                 { label: 'Elapsed', value: `${elapsedHours} hours` },
                 { label: 'Configured window', value: `${windowHours} hours` },
@@ -1412,9 +1453,9 @@ function handleOfferWaitReevaluation(ctx: HandlerContext): HandlerOutcome {
             mechanism: 'DETERMINISTIC_RULE',
             objective: 'Determine whether the configured booking-offer wait window has elapsed.',
             relevantState: 'BOOKING_READY',
-            evidenceRefs: ['state.facts.bookingReadyAt', 'event.occurredAt'],
+            evidenceRefs: ['state.facts.offerSentAt', 'event.occurredAt'],
             deterministicFacts: [
-              { label: 'Booking ready at', value: bookingReadyAt },
+              { label: 'Offer sent at', value: offerSentAt },
               { label: 'Checked at', value: event.occurredAt },
               { label: 'Elapsed', value: `${elapsedHours} hours` },
               { label: 'Configured window', value: `${windowHours} hours` },
@@ -1426,7 +1467,7 @@ function handleOfferWaitReevaluation(ctx: HandlerContext): HandlerOutcome {
             applicablePolicy: [
               'CLIENT_POLICY kestrel-booking-offer-window: an offered next step unanswered past the configured window is escalated to a named person.',
             ],
-            escalationReason: `No response to the offered next step within ${windowHours} hours of the case becoming booking-ready.`,
+            escalationReason: `No response to the offered next step within ${windowHours} hours of the offer being despatched.`,
             authority: 2,
           }),
         ],
@@ -1507,6 +1548,13 @@ function handleHumanDecision(ctx: HandlerContext): HandlerOutcome {
         statePatch: {
           awaitingHuman: null,
           ...(target === 'DO_NOT_CONTACT' ? { suppressed: true } : {}),
+          // lr-t24/lr-t27/lr-t34: a person clearing NEEDS_HUMAN/ESCALATED/SUPPRESSION_REVIEW
+          // back to BOOKING_READY is the SAME readiness evidence lr-t10/lr-t16 already write
+          // on their own direct paths — never offer-sent evidence. Clearing a case is not
+          // despatching an offer to it: lr-t22's clock does not start here. It starts only
+          // when a genuinely separate `lead.offer.despatched` event later records
+          // `offerSentAt` — see `handleOfferDespatched` below.
+          ...(target === 'BOOKING_READY' ? { facts: { bookingReadyAt: event.occurredAt } } : {}),
         },
         decisions: [
           decision({
@@ -1562,6 +1610,182 @@ function humanTarget(decisionKind: string): string {
     default:
       return 'NEEDS_HUMAN';
   }
+}
+
+// ---------------------------------------------------------------------------
+// lead.offer.despatched
+// ---------------------------------------------------------------------------
+
+/**
+ * The ONLY place `offerSentAt` is written, and the only place a MESSAGE_SEND effect is ever
+ * addressed to the prospect for a next commercial step (`possibleActions`' "Offer a next
+ * commercial step", distinct from "Notify a named owner" — canon has always named these as
+ * two different actions; this handler is what actually keeps them two different effects).
+ *
+ * Guarded to BOOKING_READY only, and a safe no-op everywhere else — the same "no recognised
+ * condition, no guess" discipline `handleWaitReevaluation` already applies for the
+ * re-evaluation event. Despatching an offer only means something once the case is genuinely
+ * ready; it cannot itself clear a case out of human review (that is lr-t24/lr-t27/lr-t34's
+ * job, via `human.decision.recorded`, above) or manufacture readiness that was never decided.
+ *
+ * `humanOnlyActions` in canon lists "Approving any message that makes or implies a
+ * commitment" — this event's `decidedBy` and the authority verification below are that
+ * approval, made explicit and checked, not assumed.
+ */
+function handleOfferDespatched(ctx: HandlerContext): HandlerOutcome {
+  const { event, state, profile } = ctx;
+  const id = (suffix: string) => `${event.eventId}:${suffix}`;
+
+  if (state.lifecycleState !== 'BOOKING_READY') {
+    return {
+      steps: [
+        {
+          id: id('offer-despatch-not-ready'),
+          label: 'Offer despatch',
+          atOffsetSeconds: 0,
+          summary: `Current lifecycle state (${state.lifecycleState}) is not BOOKING_READY. No offer despatched.`,
+          decisions: [
+            decision({
+              id: id('d-offer-despatch-not-ready'),
+              eventId: event.eventId,
+              mechanism: 'DETERMINISTIC_RULE',
+              objective: 'Confirm the case is genuinely ready for a next commercial step before despatching one.',
+              relevantState: state.lifecycleState,
+              evidenceRefs: ['state.lifecycleState'],
+              deterministicFacts: [{ label: 'Lifecycle state', value: state.lifecycleState }],
+              missingInformation: [],
+              permittedActions: ['record_unresolvable_check'],
+              forbiddenActions: ['despatch_offer_outside_booking_ready', 'manufacture_readiness'],
+              selectedAction: 'record_unresolvable_check',
+              applicablePolicy: ['An offer may be despatched only while the case is genuinely in BOOKING_READY.'],
+              authority: 0,
+            }),
+          ],
+          effects: [],
+          verifications: [],
+        },
+      ],
+    };
+  }
+
+  const parsed = OfferDespatchPayloadSchema.safeParse(event.payload);
+  if (!parsed.success) {
+    return {
+      steps: [
+        {
+          id: id('offer-despatch-invalid'),
+          label: 'Offer despatch',
+          atOffsetSeconds: 0,
+          summary: 'Offer-despatch payload failed validation. No offer sent, and no offer-sent evidence recorded.',
+          decisions: [
+            decision({
+              id: id('d-offer-despatch-invalid'),
+              eventId: event.eventId,
+              mechanism: 'DETERMINISTIC_RULE',
+              objective: 'Validate an offer-despatch record before treating it as evidence a prospect-facing offer was sent.',
+              relevantState: state.lifecycleState,
+              evidenceRefs: ['event.payload'],
+              deterministicFacts: [{ label: 'Validation errors', value: parsed.error.issues.map((i) => i.message).join('; ') }],
+              missingInformation: [],
+              permittedActions: ['reject_event'],
+              forbiddenActions: ['assume_offer_sent'],
+              selectedAction: 'reject_event',
+              applicablePolicy: ['An unvalidated despatch record is never treated as offer-sent evidence.'],
+              authority: 0,
+            }),
+          ],
+          effects: [],
+          verifications: [],
+        },
+      ],
+    };
+  }
+
+  const despatch = parsed.data;
+  const actor = profile.roles.find((r) => r.id === despatch.decidedBy);
+  const despatchAttempt = readSendAttempt(event.payload);
+
+  return {
+    steps: [
+      {
+        id: id('offer-despatch'),
+        label: 'Offer despatched',
+        atOffsetSeconds: 0,
+        summary: `${actor?.name ?? despatch.decidedBy} despatched an offer of a next commercial step to the prospect.`,
+        // The ONLY write of offerSentAt in this handler file. Unconditional on the proposed
+        // effect's own eventual status (EXECUTED vs OUTCOME_UNKNOWN): this fact records that
+        // the system authorized and attempted despatch, the same fidelity level every other
+        // outbound effect in this portfolio (the acknowledgement, the missing-info question)
+        // already commits to — the business lifecycle proceeds from what was AUTHORIZED, and
+        // the side effect's own status separately, honestly records what the attempt resolved
+        // to. See tests/lead-rescue-offer-wait.test.ts for the confirmed-vs-uncertain proof.
+        statePatch: { facts: { offerSentAt: event.occurredAt } },
+        decisions: [
+          decision({
+            id: id('d-offer-despatch'),
+            eventId: event.eventId,
+            mechanism: 'HUMAN_DECISION',
+            objective:
+              'Record the explicit despatch of a prospect-facing offer — genuinely distinct from the internal owner NOTIFICATION BOOKING_READY entry already fired.',
+            relevantState: 'BOOKING_READY',
+            evidenceRefs: ['event.payload.offerSummary', 'event.payload.decidedBy'],
+            deterministicFacts: [
+              { label: 'Despatched by', value: actor?.name ?? despatch.decidedBy },
+              { label: 'Authority ceiling of this role', value: String(actor?.authorityCeiling ?? 'unknown') },
+              { label: 'Offer summary', value: despatch.offerSummary },
+            ],
+            missingInformation: [],
+            permittedActions: ['despatch_offer'],
+            forbiddenActions: ['despatch_without_human_authorization', 'assert_delivery_confirmed_by_prospect'],
+            selectedAction: 'despatch_offer',
+            applicablePolicy: [
+              'Approving a message that offers or implies a commercial commitment is a human-only action.',
+              'A message offering a next commercial step is despatched only once a named person has authorized its specific content.',
+            ],
+            authority: 2,
+          }),
+        ],
+        effects: [
+          {
+            id: id('effect:offer'),
+            kind: 'MESSAGE_SEND',
+            description: despatch.offerSummary,
+            target: despatch.target,
+            idempotencyKey: `offer:${event.entityId}:${event.eventId}`,
+            authority: 3,
+            policyPermits: true,
+            ...(despatchAttempt === null
+              ? {
+                  verification: {
+                    check: 'Confirm the offer was addressed to the prospect, not the named owner.',
+                    expect: 'Offer addressed to the prospect contact.',
+                  },
+                }
+              : {
+                  execution: {
+                    kind: 'SEND' as const,
+                    attemptId: despatchAttempt.attemptId,
+                    provider: despatchAttempt.provider,
+                    honorsIdempotencyKey: despatchAttempt.honorsIdempotencyKey,
+                  },
+                }),
+          },
+        ],
+        verifications: [
+          {
+            id: id('v-offer-despatch'),
+            eventId: event.eventId,
+            check: 'Confirm the authorizing role holds sufficient authority to approve a commitment-adjacent message.',
+            result: (actor?.authorityCeiling ?? 0) >= 2 ? 'PASS' : 'FAIL',
+            detail:
+              (actor?.authorityCeiling ?? 0) >= 2
+                ? `${actor?.name ?? 'Role'} holds authority level ${actor?.authorityCeiling}, which permits authorizing a prospect-facing offer.`
+                : `${actor?.name ?? despatch.decidedBy} does not hold sufficient authority to authorize this despatch.`,
+          },
+        ],
+      },
+    ],
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -1758,20 +1982,22 @@ function readJudgmentId(payload: Readonly<Record<string, unknown>>): string | nu
  * `execution` field. The full entry (idempotencyKey, provider, description) is consumed
  * separately by the pre-pass in `lib/engine/run.ts` to resolve the outcome — this handler
  * never needs those, since it already knows the idempotency key and constructs the
- * description itself.
+ * description itself. Shared by the acknowledgement step above and `handleOfferDespatched`:
+ * both are ordinary customer-facing MESSAGE_SEND effects that may opt into execution-outcome
+ * tracking the same way, and neither needs anything the other doesn't.
  */
-const AckSendAttemptSchema = z.object({
+const SendAttemptSchema = z.object({
   attemptId: z.string().min(1),
   provider: z.string().min(1),
   honorsIdempotencyKey: z.boolean(),
 });
 
-function readAckSendAttempt(
+function readSendAttempt(
   payload: Readonly<Record<string, unknown>>,
 ): { attemptId: string; provider: string; honorsIdempotencyKey: boolean } | null {
   const raw = payload['sendAttempts'];
   if (!Array.isArray(raw) || raw.length === 0) return null;
-  const parsed = AckSendAttemptSchema.safeParse(raw[0]);
+  const parsed = SendAttemptSchema.safeParse(raw[0]);
   return parsed.success ? parsed.data : null;
 }
 
@@ -1784,5 +2010,6 @@ export const LEAD_RESCUE_HANDLERS: SystemHandlers = {
     'human.decision.recorded': handleHumanDecision,
     'side_effect.reconciliation.attempted': handleReconciliation,
     'lead.wait.reevaluated': handleWaitReevaluation,
+    'lead.offer.despatched': handleOfferDespatched,
   },
 };

@@ -191,7 +191,7 @@ export default function LeadRescueWaitPage() {
               Genuinely executing
             </p>
             <ul className="instrument space-y-1" style={{ color: 'var(--ink-muted)' }}>
-              <li>· Either &ldquo;Park a demo incident&rdquo; button runs the real engine — the same handler and reducer the simulator uses — to reach WAITING_FOR_REPLY or BOOKING_READY, then writes the resulting state to a real file.</li>
+              <li>· Either &ldquo;Park a demo incident&rdquo; button runs the real engine — the same handler and reducer the simulator uses — to reach WAITING_FOR_REPLY or BOOKING_READY, then writes the resulting state to a real file. For the offer kind this replays two real events, not one: the enquiry (readiness) and the fixture&apos;s own explicit offer-despatch event — reaching BOOKING_READY alone is never enough to start this clock.</li>
               <li>· &ldquo;Check&rdquo; reads the real server clock once and applies exactly one lead.wait.reevaluated event against the record loaded back off disk — the SAME event type for both kinds; which rule (lr-t14 or lr-t22) applies is read off the incident&apos;s own current lifecycle state, not a label this page supplies.</li>
               <li>· A check before the deadline is a genuine no-op: no transition, no side effect, the record untouched.</li>
               <li>· A check after the deadline fires the matching rule through the ordinary authority and idempotency gates, same as any other transition.</li>

@@ -9,7 +9,7 @@ function scenario(slug: string) {
 }
 
 describe('Lead Rescue scenarios', () => {
-  it('provides the three scenarios the brief requires, the two reliability-closure scenarios, and the two wait-elapsed scenarios', () => {
+  it('provides the three scenarios the brief requires, the two reliability-closure scenarios, the two wait-elapsed scenarios, and the reviewed-offer scenario', () => {
     expect(LEAD_RESCUE_SCENARIOS.map((s) => s.slug)).toEqual([
       'after-hours-enquiry',
       'duplicate-delivery',
@@ -18,6 +18,7 @@ describe('Lead Rescue scenarios', () => {
       'uncertain-downstream-outcome',
       'reply-window-elapses',
       'offer-window-elapses',
+      'reviewed-offer-elapses',
     ]);
   });
 
@@ -193,6 +194,16 @@ describe('Lead Rescue scenarios', () => {
       expect(humanDecision?.deterministicFacts.some((f) => f.label.includes('Authority ceiling'))).toBe(true);
       expect(run.verifications.some((v) => v.check.includes('authority') && v.result === 'PASS')).toBe(true);
     });
+
+    it('lr-t24 (human clearance back to BOOKING_READY) records readiness evidence — but not offer-sent evidence, since no offer was despatched here', async () => {
+      const run = await runLeadRescue(scenario('ambiguous-high-risk'));
+      expect(run.finalState.lifecycleState).toBe('BOOKING_READY');
+      const cleared = run.transitions.find((t) => t.ruleId === 'lr-t24');
+      expect(cleared?.accepted).toBe(true);
+      expect(cleared?.from).toBe('NEEDS_HUMAN');
+      expect(run.finalState.facts.bookingReadyAt).toBeDefined();
+      expect(run.finalState.facts.offerSentAt).toBeUndefined();
+    });
   });
 
   // -------------------------------------------------------------------------
@@ -271,6 +282,15 @@ describe('Lead Rescue scenarios', () => {
       const humanTransition = run.transitions.find((t) => t.from === 'SUPPRESSION_REVIEW');
       expect(humanTransition?.accepted).toBe(true);
       expect(humanTransition?.mechanism).toBe('HUMAN_DECISION');
+    });
+
+    it('lr-t34 (human clearance back to BOOKING_READY) records readiness evidence — but not offer-sent evidence, since no offer was despatched here', async () => {
+      const run = await runLeadRescue(scenario('restricted-contact-review'));
+      const cleared = run.transitions.find((t) => t.ruleId === 'lr-t34');
+      expect(cleared?.accepted).toBe(true);
+      expect(cleared?.from).toBe('SUPPRESSION_REVIEW');
+      expect(run.finalState.facts.bookingReadyAt).toBeDefined();
+      expect(run.finalState.facts.offerSentAt).toBeUndefined();
     });
 
     it('replay produces the identical outcome — no accidental message on a second run', async () => {

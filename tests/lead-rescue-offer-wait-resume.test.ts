@@ -47,20 +47,32 @@ const FOUND_SCENARIO = leadRescueScenarioBySlug('offer-window-elapses');
 if (FOUND_SCENARIO === undefined) throw new Error('fixture scenario "offer-window-elapses" not found');
 const FULL_SCENARIO: Scenario = FOUND_SCENARIO;
 
+/** Every event up to (not including) the first re-evaluation check — the genuine setup. */
+function setupEvents(scenario: Scenario, incidentId: string) {
+  const events: Scenario['events'][number][] = [];
+  for (const e of scenario.events) {
+    if (e.type === 'lead.wait.reevaluated') break;
+    events.push({ ...e, entityId: incidentId, eventId: `${incidentId}:evt-${String(events.length + 1).padStart(3, '0')}` });
+  }
+  if (events.length === 0) throw new Error('scenario has no setup events');
+  return events;
+}
+
+/**
+ * Runs the real enquiry (lr-t10) AND the real offer-despatch event, so the parked snapshot
+ * carries genuine offer-sent evidence (`offerSentAt`), not just readiness (`bookingReadyAt`).
+ * See `tests/lead-rescue-offer-wait.test.ts` for why the two are no longer the same fact.
+ */
 async function parkOfferIncident(store: WaitIncidentStore, incidentId = 'lead-northgate'): Promise<WaitIncidentRecord> {
-  const enquiryEvent = FULL_SCENARIO.events[0];
-  if (enquiryEvent === undefined) throw new Error('fixture scenario has no events');
-  const enquiryOnly: Scenario = {
-    ...FULL_SCENARIO,
-    events: [{ ...enquiryEvent, entityId: incidentId, eventId: `${incidentId}:evt-001` }],
-  };
-  const run = await runScenario(enquiryOnly, {
+  const scenarioWithSetup: Scenario = { ...FULL_SCENARIO, events: setupEvents(FULL_SCENARIO, incidentId) };
+  const run = await runScenario(scenarioWithSetup, {
     system: LEAD_RESCUE,
     profile: KESTREL,
     handlers: LEAD_RESCUE_HANDLERS,
-    provider: new FixtureDecisionProvider(enquiryOnly.judgments),
+    provider: new FixtureDecisionProvider(scenarioWithSetup.judgments),
   });
   expect(run.finalState.lifecycleState).toBe('BOOKING_READY');
+  expect(run.finalState.facts.offerSentAt).toBeDefined();
   return parkWaitingIncident(store, LEAD_RESCUE, {
     incidentId,
     correlationId: `inc-${incidentId}`,
@@ -110,6 +122,7 @@ describe('Lead Rescue lr-t22 — durable persistence and claim-gated execution',
     expect(parked.revision).toBe(1);
     expect(parked.engineState.lifecycleState).toBe('BOOKING_READY');
     expect(parked.engineState.facts.bookingReadyAt).toBeDefined();
+    expect(parked.engineState.facts.offerSentAt).toBeDefined();
 
     const loaded = await store.load('lead-northgate');
     expect(loaded).toEqual(parked);
@@ -123,7 +136,7 @@ describe('Lead Rescue lr-t22 — durable persistence and claim-gated execution',
       const parked = await parkOfferIncident(firstProcessStore);
 
       const secondProcessStore = new FileWaitIncidentStore(filePath);
-      const wellPastDeadline = hoursAfter(parked.engineState.facts.bookingReadyAt ?? '', 60);
+      const wellPastDeadline = hoursAfter(parked.engineState.facts.offerSentAt ?? '', 60);
       const resumed = await checkWaitIncident(
         secondProcessStore,
         new InMemoryOperationClaimStore(),
@@ -157,7 +170,7 @@ describe('Lead Rescue lr-t22 — durable persistence and claim-gated execution',
       store,
       claimStore,
       'lead-northgate',
-      hoursAfter(firstPark.engineState.facts.bookingReadyAt ?? '', 60),
+      hoursAfter(firstPark.engineState.facts.offerSentAt ?? '', 60),
       DEPS,
       'runtime-a',
     );
@@ -171,7 +184,7 @@ describe('Lead Rescue lr-t22 — durable persistence and claim-gated execution',
       store,
       claimStore,
       'lead-northgate',
-      hoursAfter(secondPark.engineState.facts.bookingReadyAt ?? '', 60),
+      hoursAfter(secondPark.engineState.facts.offerSentAt ?? '', 60),
       DEPS,
       'runtime-a',
     );
@@ -185,7 +198,7 @@ describe('Lead Rescue lr-t22 — durable persistence and claim-gated execution',
     const store = new InMemoryWaitIncidentStore();
     const claimStore = new InMemoryOperationClaimStore();
     const parked = await parkOfferIncident(store);
-    const wellPastDeadline = hoursAfter(parked.engineState.facts.bookingReadyAt ?? '', 60);
+    const wellPastDeadline = hoursAfter(parked.engineState.facts.offerSentAt ?? '', 60);
 
     const first = await checkWaitIncident(store, claimStore, 'lead-northgate', wellPastDeadline, DEPS, 'runtime-a');
     expect(first.outcome).toBe('ELAPSED');
@@ -201,7 +214,7 @@ describe('Lead Rescue lr-t22 — durable persistence and claim-gated execution',
       const incidentPath = path.join(incidentDir, 'incidents.json');
       const parkingStore = new FileWaitIncidentStore(incidentPath);
       const parked = await parkOfferIncident(parkingStore);
-      const wellPastDeadline = hoursAfter(parked.engineState.facts.bookingReadyAt ?? '', 60);
+      const wellPastDeadline = hoursAfter(parked.engineState.facts.offerSentAt ?? '', 60);
 
       const runtimeAStore = new FileWaitIncidentStore(incidentPath);
       const runtimeBStore = new FileWaitIncidentStore(incidentPath);
@@ -236,7 +249,7 @@ describe('Lead Rescue lr-t22 — durable persistence and claim-gated execution',
       const incidentPath = path.join(incidentDir, 'incidents.json');
       const parkingStore = new FileWaitIncidentStore(incidentPath);
       const parked = await parkOfferIncident(parkingStore);
-      const wellPastDeadline = hoursAfter(parked.engineState.facts.bookingReadyAt ?? '', 60);
+      const wellPastDeadline = hoursAfter(parked.engineState.facts.offerSentAt ?? '', 60);
 
       const sharedInvocations: RecordedInvocation[] = [];
       const firstStore = new FileWaitIncidentStore(incidentPath);

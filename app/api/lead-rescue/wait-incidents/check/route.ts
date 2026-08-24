@@ -70,12 +70,13 @@ export async function POST(request: Request): Promise<NextResponse> {
  * fact is actually present — the same authoritative discriminant
  * `handleWaitReevaluation` itself dispatches on, never a separately tracked label this route
  * could drift out of sync with. Two categories today (lr-t14's `waitStartedAt`, lr-t22's
- * `bookingReadyAt`); adding a third here would mean adding one more entry, not restructuring
+ * `offerSentAt` — NOT `bookingReadyAt`, which records readiness only, never that a prospect
+ * received anything); adding a third here would mean adding one more entry, not restructuring
  * this function.
  */
 const WAIT_START_FACTS = [
   { fact: 'waitStartedAt', windowParam: 'replyWaitWindowHours' },
-  { fact: 'bookingReadyAt', windowParam: 'bookingOfferWindowHours' },
+  { fact: 'offerSentAt', windowParam: 'bookingOfferWindowHours' },
 ] as const;
 
 async function resolveNow(incidentId: string, advancePastDeadline: boolean): Promise<string> {

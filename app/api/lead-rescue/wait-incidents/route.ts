@@ -37,7 +37,11 @@ const WAIT_KINDS = {
   offer: {
     scenarioSlug: 'offer-window-elapses',
     expectedState: 'BOOKING_READY',
-    waitStartedFact: 'bookingReadyAt',
+    // NOT bookingReadyAt: that fact only records readiness, never proof an offer reached
+    // the prospect. The clock starts at offerSentAt, written once the fixture's own
+    // lead.offer.despatched setup event is replayed below — see WAIT_START_FACTS in
+    // `check/route.ts` for the same discriminant used on the read side.
+    waitStartedFact: 'offerSentAt',
     windowParam: 'bookingOfferWindowHours',
   },
 } as const;
@@ -92,6 +96,14 @@ const ParkRequestSchema = z.object({
  * judgment and message content — but a freshly minted identity and the real current time as
  * its wait start. `kind` defaults to `'reply'`, preserving this route's exact prior
  * behaviour for any caller that doesn't specify one.
+ *
+ * Replays every SETUP event in the fixture — everything up to (not including) its first
+ * `lead.wait.reevaluated` check — not just the first. For `reply` that is still one event
+ * (the enquiry). For `offer` it is now two: the enquiry (readiness, bookingReadyAt) AND the
+ * fixture's own `lead.offer.despatched` event (offer-sent evidence, offerSentAt) — the actual
+ * event this park flow's wait clock is computed from. Generic on purpose: a future third
+ * waiting category needs no change here, only a longer or shorter run of setup events in its
+ * own fixture.
  */
 export async function POST(request: Request): Promise<NextResponse> {
   const rawBody: unknown = await request.json().catch(() => ({}));
@@ -106,23 +118,27 @@ export async function POST(request: Request): Promise<NextResponse> {
   if (found === undefined) {
     return NextResponse.json({ error: `fixture scenario "${scenarioSlug}" not found` }, { status: 500 });
   }
-  const enquiryEvent = found.events[0];
-  if (enquiryEvent === undefined) {
-    return NextResponse.json({ error: 'fixture scenario has no events' }, { status: 500 });
+  const setupEvents = found.events.filter((_, i) => {
+    // Every event before the first lead.wait.reevaluated check.
+    const firstCheckIndex = found.events.findIndex((e) => e.type === 'lead.wait.reevaluated');
+    return firstCheckIndex === -1 || i < firstCheckIndex;
+  });
+  if (setupEvents.length === 0) {
+    return NextResponse.json({ error: 'fixture scenario has no setup events' }, { status: 500 });
   }
 
   const nowIso = new Date().toISOString();
   const incidentId = `demo-lead-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-  const demoEvent: CanonicalEvent = {
-    ...enquiryEvent,
-    eventId: `${incidentId}:evt-001`,
+  const demoEvents: CanonicalEvent[] = setupEvents.map((e, i) => ({
+    ...e,
+    eventId: `${incidentId}:evt-${String(i + 1).padStart(3, '0')}`,
     correlationId: `inc-${incidentId}`,
     entityId: incidentId,
-    sourceEventId: `demo-${incidentId}`,
+    sourceEventId: `demo-${incidentId}-${i + 1}`,
     occurredAt: nowIso,
     receivedAt: nowIso,
-  };
-  const demoScenario: Scenario = { ...found, id: `demo-${incidentId}`, events: [demoEvent] };
+  }));
+  const demoScenario: Scenario = { ...found, id: `demo-${incidentId}`, events: demoEvents };
 
   const run = await runScenario(demoScenario, {
     system: LEAD_RESCUE,
@@ -140,7 +156,7 @@ export async function POST(request: Request): Promise<NextResponse> {
 
   const parked = await parkWaitingIncident(leadRescueWaitStore, LEAD_RESCUE, {
     incidentId,
-    correlationId: demoEvent.correlationId,
+    correlationId: `inc-${incidentId}`,
     engineState: run.finalState,
   });
 

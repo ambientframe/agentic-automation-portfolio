@@ -701,11 +701,13 @@ const OFFER_WAIT_ELAPSED = {
   systemId: 'lead-rescue',
   title: 'Booking offer elapses without a response',
   summary:
-    'A qualified enquiry arrives complete — every required field is already in the text, so the system reaches BOOKING_READY immediately and notifies the named owner that a next commercial step can be offered. A re-check twenty hours later finds the booking-offer window still open and takes no action. A second re-check, this time fifty hours after the case became booking-ready, finds the window has genuinely elapsed and escalates to a person — lr-t22, the sibling of lr-t14 on a different waiting state, driven by the same durable wait/resume mechanism rather than a second, separately invented one.',
+    'A qualified enquiry arrives complete — every required field is already in the text, so the system reaches BOOKING_READY immediately and notifies the named owner that a next commercial step can be offered. That internal notification is not itself an offer: the owner reviews the case and explicitly despatches the actual offer to the prospect shortly afterward. A re-check twenty hours after the offer went out finds the booking-offer window still open and takes no action. A second re-check, this time fifty hours after despatch, finds the window has genuinely elapsed and escalates to a person — lr-t22, the sibling of lr-t14 on a different waiting state, driven by the same durable wait/resume mechanism rather than a second, separately invented one.',
   demonstrates: [
     'BOOKING_READY is reached directly (lr-t10) when a qualified enquiry already supplies every required field — no missing-information detour',
+    'Reaching BOOKING_READY fires an internal NOTIFICATION to the named owner only — never a message to the prospect, and never by itself proof that an offer was made',
+    'The owner despatching the offer (lead.offer.despatched) is a genuinely separate, later event that writes its own fact, offerSentAt — distinct from bookingReadyAt, which only records when the case became ready',
     'A re-check before the configured booking-offer window elapses leaves BOOKING_READY untouched and proposes no side effect',
-    'A re-check after the window elapses fires lr-t22 (BOOKING_READY -> NEEDS_HUMAN) for real, computed from occurredAt against bookingReadyAt — a distinct fact from lr-t14’s waitStartedAt, so the two waiting categories cannot cross-trigger each other even though both currently escalate to the same NEEDS_HUMAN destination',
+    'A re-check after the window elapses fires lr-t22 (BOOKING_READY -> NEEDS_HUMAN) for real, computed from occurredAt against offerSentAt — never bookingReadyAt, and never waitStartedAt (lr-t14’s own fact) — so the two waiting categories cannot cross-trigger each other even though both currently escalate to the same NEEDS_HUMAN destination',
     'The elapsed check reuses the same deterministic-rule/decision-record shape as lr-t14 and every other transition in this handler, citing its own policy (kestrel-booking-offer-window) rather than reply-wait’s',
     'Escalation still reaches a named owner via the ordinary NOTIFICATION side effect, gated by the same policy, authority, and durable-claim checks as any other effect',
   ],
@@ -768,15 +770,19 @@ const OFFER_WAIT_ELAPSED = {
       eventId: 'evt-northgate-002',
       correlationId: 'inc-lr-northgate',
       entityId: 'lead-northgate',
-      type: 'lead.wait.reevaluated',
-      source: 'wait-scheduler',
-      sourceEventId: 'wait-check-2026-08-13-0900',
-      occurredAt: '2026-08-13T09:00:00-04:00',
-      receivedAt: '2026-08-13T09:00:00-04:00',
+      type: 'lead.offer.despatched',
+      source: 'operator-console',
+      sourceEventId: 'console-2026-08-12-1500',
+      occurredAt: '2026-08-12T15:00:00-04:00',
+      receivedAt: '2026-08-12T15:00:00-04:00',
       schemaVersion: SCHEMA_VERSION,
-      actor: 'SYSTEM',
+      actor: 'HUMAN',
       executionMode: 'SIMULATED',
-      payload: {},
+      payload: {
+        decidedBy: 'client-partner',
+        target: 'p.nathan@northgateanalytics.example',
+        offerSummary: 'Offered a 30-minute scoping call for Thursday 10:00 or Friday 14:00. No pricing or commitment stated.',
+      },
     },
     {
       eventId: 'evt-northgate-003',
@@ -784,9 +790,177 @@ const OFFER_WAIT_ELAPSED = {
       entityId: 'lead-northgate',
       type: 'lead.wait.reevaluated',
       source: 'wait-scheduler',
-      sourceEventId: 'wait-check-2026-08-14-1500',
-      occurredAt: '2026-08-14T15:00:00-04:00',
-      receivedAt: '2026-08-14T15:00:00-04:00',
+      sourceEventId: 'wait-check-2026-08-13-1100',
+      occurredAt: '2026-08-13T11:00:00-04:00',
+      receivedAt: '2026-08-13T11:00:00-04:00',
+      schemaVersion: SCHEMA_VERSION,
+      actor: 'SYSTEM',
+      executionMode: 'SIMULATED',
+      payload: {},
+    },
+    {
+      eventId: 'evt-northgate-004',
+      correlationId: 'inc-lr-northgate',
+      entityId: 'lead-northgate',
+      type: 'lead.wait.reevaluated',
+      source: 'wait-scheduler',
+      sourceEventId: 'wait-check-2026-08-14-1700',
+      occurredAt: '2026-08-14T17:00:00-04:00',
+      receivedAt: '2026-08-14T17:00:00-04:00',
+      schemaVersion: SCHEMA_VERSION,
+      actor: 'SYSTEM',
+      executionMode: 'SIMULATED',
+      payload: {},
+    },
+  ],
+} satisfies Parameters<typeof ScenarioSchema.parse>[0];
+
+// ===========================================================================
+// Scenario 8 — Reviewed then cleared enquiry, offer despatched, then unanswered
+// ===========================================================================
+
+/**
+ * The full reviewed-offer grammar: TRIGGER (a policy-sensitive enquiry) -> DECISION (a person
+ * clears it to proceed, lr-t24) -> ACTION (that same or another authorized person explicitly
+ * despatches the offer, lead.offer.despatched) -> GUARDRAIL (the offer-wait window, its own
+ * policy and authority checks) -> OUTCOME (unanswered past the window, lr-t22, NEEDS_HUMAN).
+ *
+ * This is the scenario `docs/STATUS.md`'s own prior-pass writeup left open: neither
+ * `ambiguous-high-risk` nor `restricted-contact-review` (both of which already exercise a
+ * HUMAN_DECISION re-entry into BOOKING_READY) carries the story any further than BOOKING_READY
+ * itself, because neither despatches an offer or ever reaches lr-t22. This one does — proving
+ * lr-t24 correctly writes readiness evidence (bookingReadyAt) and nothing else, and that the
+ * SAME lr-t22 rule and durable machinery already proven on the direct lr-t10 path also governs
+ * a case that arrived by human clearance instead.
+ */
+const REVIEWED_OFFER_ELAPSED = {
+  id: 'lr-scenario-reviewed-offer-elapsed',
+  slug: 'reviewed-offer-elapses',
+  systemId: 'lead-rescue',
+  title: "A reviewed enquiry's despatched offer goes unanswered",
+  summary:
+    'An enquiry mixes a real buying trigger with a live legal question, so it classifies as policy-sensitive and routes straight to a person without any autonomous acknowledgement or notification — lr-t11. The founder personally replies, resolves the legal question out of band, and clears the case to proceed (lr-t24). Clearing the case is not the same as making an offer: only once the founder separately despatches a concrete next-step offer to the prospect does the booking-offer window actually begin. Twenty hours later the window is still open. Fifty hours after despatch, it has genuinely elapsed, and the case escalates to a person again — lr-t22, now reached through a human-cleared case rather than a direct qualified enquiry.',
+  demonstrates: [
+    'A policy-sensitive enquiry (lr-t11) reaches NEEDS_HUMAN with zero autonomous action — no acknowledgement, no owner notification, nothing sent',
+    'lr-t24 (NEEDS_HUMAN -> BOOKING_READY) records readiness evidence (bookingReadyAt) the moment a person clears the case — and nothing else. Clearing a case is not offering it, and no MESSAGE_SEND effect exists on this transition',
+    'The offer-wait clock does not start at bookingReadyAt, at the human decision, or at the original enquiry — only once lead.offer.despatched records a person having explicitly sent a prospect-facing offer (offerSentAt)',
+    'From that point, the identical lr-t22 deterministic rule, policy (kestrel-booking-offer-window), and durable wait/resume machinery already proven on the direct lr-t10 path governs this human-cleared case too — no second implementation',
+    'A re-check before the configured window elapses leaves BOOKING_READY untouched; a re-check after it elapses escalates to NEEDS_HUMAN with the ordinary NOTIFICATION side effect',
+  ],
+  expectedFinalState: 'NEEDS_HUMAN',
+
+  judgments: {
+    'jd-fenwick-intake': {
+      judgmentId: 'jd-fenwick-intake',
+      classification: 'POLICY_SENSITIVE',
+      confidence: 0.91,
+      missingInformation: ['target_audit_window', 'headcount'],
+      evidenceRefs: [
+        '"we need SOC 2 before our Series B closes"',
+        '"we\'re currently in a dispute with a former vendor over data handling and legal wants to understand our exposure before we sign anything"',
+      ],
+      declinedToInfer: [
+        'Whether the vendor dispute is reportable or affects audit scope',
+        'Company size and target audit window, neither of which was stated',
+      ],
+      rationaleSummary:
+        'A genuine commercial trigger is mixed with an active legal dispute referenced explicitly. High confidence that this needs a person, not an autonomous response.',
+    },
+  },
+
+  events: [
+    {
+      eventId: 'evt-fenwick-001',
+      correlationId: 'inc-lr-fenwick',
+      entityId: 'lead-fenwick',
+      type: 'inbound.enquiry.received',
+      source: 'shared-inbox',
+      sourceEventId: 'inbox-2026-08-05-3301',
+      occurredAt: '2026-08-05T10:00:00-04:00',
+      receivedAt: '2026-08-05T10:00:00-04:00',
+      schemaVersion: SCHEMA_VERSION,
+      actor: 'EXTERNAL_PARTY',
+      executionMode: 'SIMULATED',
+      payload: {
+        contactName: 'Priya Deshmukh',
+        contactEmail: 'p.deshmukh@fenwickactuarial.example',
+        company: 'Fenwick Actuarial',
+        channel: 'shared-inbox',
+        consentState: 'PERMITTED',
+        requiredFields: ['framework', 'target_audit_window', 'headcount'],
+        message:
+          "We need SOC 2 before our Series B closes. Separately — we're currently in a dispute with a former vendor over data handling and legal wants to understand our exposure before we sign anything with a new provider. Can you help with the SOC 2 side?",
+        judgment: {
+          judgmentId: 'jd-fenwick-intake',
+          objective:
+            'Classify an inbound enquiry into the permitted set and report which policy-required facts the text does not establish.',
+          input:
+            "We need SOC 2 before our Series B closes. Separately — we're currently in a dispute with a former vendor over data handling and legal wants to understand our exposure before we sign anything with a new provider. Can you help with the SOC 2 side?",
+          permittedClassifications: [...ENQUIRY_CLASSES],
+          requiredFields: ['framework', 'target_audit_window', 'headcount'],
+        },
+      },
+    },
+    {
+      eventId: 'evt-fenwick-002',
+      correlationId: 'inc-lr-fenwick',
+      entityId: 'lead-fenwick',
+      type: 'human.decision.recorded',
+      source: 'operator-console',
+      sourceEventId: 'console-2026-08-05-1430',
+      occurredAt: '2026-08-05T14:30:00-04:00',
+      receivedAt: '2026-08-05T14:30:00-04:00',
+      schemaVersion: SCHEMA_VERSION,
+      actor: 'HUMAN',
+      executionMode: 'SIMULATED',
+      payload: {
+        decidedBy: 'founder',
+        decision: 'CLEARED_TO_PROCEED',
+        rationale:
+          'Replied personally: the vendor dispute is unrelated to their own compliance posture and does not change our engagement. Confirmed we can proceed on the SOC 2 side. Clearing to proceed — no offer has gone out yet; that is a separate step.',
+      },
+    },
+    {
+      eventId: 'evt-fenwick-003',
+      correlationId: 'inc-lr-fenwick',
+      entityId: 'lead-fenwick',
+      type: 'lead.offer.despatched',
+      source: 'operator-console',
+      sourceEventId: 'console-2026-08-05-1510',
+      occurredAt: '2026-08-05T15:10:00-04:00',
+      receivedAt: '2026-08-05T15:10:00-04:00',
+      schemaVersion: SCHEMA_VERSION,
+      actor: 'HUMAN',
+      executionMode: 'SIMULATED',
+      payload: {
+        decidedBy: 'founder',
+        target: 'p.deshmukh@fenwickactuarial.example',
+        offerSummary: 'Offered a 30-minute scoping call for next Wednesday 10:00 or Thursday 14:00. No pricing or commitment stated.',
+      },
+    },
+    {
+      eventId: 'evt-fenwick-004',
+      correlationId: 'inc-lr-fenwick',
+      entityId: 'lead-fenwick',
+      type: 'lead.wait.reevaluated',
+      source: 'wait-scheduler',
+      sourceEventId: 'wait-check-2026-08-06-1110',
+      occurredAt: '2026-08-06T11:10:00-04:00',
+      receivedAt: '2026-08-06T11:10:00-04:00',
+      schemaVersion: SCHEMA_VERSION,
+      actor: 'SYSTEM',
+      executionMode: 'SIMULATED',
+      payload: {},
+    },
+    {
+      eventId: 'evt-fenwick-005',
+      correlationId: 'inc-lr-fenwick',
+      entityId: 'lead-fenwick',
+      type: 'lead.wait.reevaluated',
+      source: 'wait-scheduler',
+      sourceEventId: 'wait-check-2026-08-07-1710',
+      occurredAt: '2026-08-07T17:10:00-04:00',
+      receivedAt: '2026-08-07T17:10:00-04:00',
       schemaVersion: SCHEMA_VERSION,
       actor: 'SYSTEM',
       executionMode: 'SIMULATED',
@@ -805,6 +979,7 @@ export const LEAD_RESCUE_SCENARIOS: readonly Scenario[] = [
   ScenarioSchema.parse(UNCERTAIN_OUTCOME),
   ScenarioSchema.parse(WAIT_ELAPSED),
   ScenarioSchema.parse(OFFER_WAIT_ELAPSED),
+  ScenarioSchema.parse(REVIEWED_OFFER_ELAPSED),
 ];
 
 /**
