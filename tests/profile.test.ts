@@ -51,51 +51,76 @@ describe('Kestrel business profile', () => {
 });
 
 describe('resolveEscalationOwner — deterministic authority resolution', () => {
-  it('resolves a configured qualifying role by closest-fit authority ceiling, never a fabricated person', () => {
+  it('equal-authority candidates with no semantic tie-break in canon resolve as ambiguous, never silently picked by alphabetical role id', () => {
     // Precondition, checked directly rather than assumed: two roles genuinely tie at
-    // ceiling 3 in the real profile (head-of-delivery, client-partner), so this exercises
-    // the tie-break, not merely "the only candidate."
+    // ceiling 3 in the real profile (head-of-delivery, client-partner). `authorityCeiling`
+    // is documented on RoleSchema itself as an execution CAP ("Caps what automation may do
+    // on their behalf"), never an ordering — and nothing else in this repository ranks one
+    // above the other for escalation purposes (checked directly: no role carries a rank/
+    // priority/hierarchy field, and no canon text declares an order). Silently picking the
+    // alphabetically-first role would be exactly the "incidental array order" failure this
+    // function is required not to repeat, applied to string sorting instead.
     const tiedAtThree = KESTREL.roles.filter((r) => r.authorityCeiling === 3);
     expect(tiedAtThree.map((r) => r.id).sort()).toEqual(['client-partner', 'head-of-delivery']);
 
     const resolution = resolveEscalationOwner(KESTREL, 3);
-    expect(resolution.status).toBe('RESOLVED');
-    expect(resolution.role?.id).toBe('client-partner');
-    expect(resolution.target).toBe('Client Partner');
-    // The resolved name must be a real role name from the profile, never invented.
-    expect(KESTREL.roles.map((r) => r.name)).toContain(resolution.target);
+    expect(resolution.status).toBe('UNRESOLVED_AMBIGUOUS_OWNER');
+    expect(resolution.role).toBeUndefined();
+    // The tied candidates are named for inspectability, but neither is EVER selected as
+    // "the" resolved target — that would misrepresent an unresolved choice as a decision.
+    expect(resolution.candidates?.map((r) => r.id).sort()).toEqual(['client-partner', 'head-of-delivery']);
+    expect(resolution.target).not.toBe('Client Partner');
+    expect(resolution.target).not.toBe('Head of Delivery');
   });
 
-  it('breaks ties between equal-ceiling roles deterministically, independent of declared array order', () => {
+  it('ambiguity is order-independent: reordering profile.roles cannot alter the semantic outcome', () => {
     const reordered = { ...KESTREL, roles: [...KESTREL.roles].reverse() };
     const forward = resolveEscalationOwner(KESTREL, 3);
     const reversed = resolveEscalationOwner(reordered, 3);
-    expect(reversed.role?.id).toBe(forward.role?.id);
+    expect(reversed.status).toBe(forward.status);
+    expect(reversed.candidates?.map((r) => r.id).sort()).toEqual(forward.candidates?.map((r) => r.id).sort());
+    expect(reversed.target).toBe(forward.target);
   });
 
-  it('resolves the single role at a strictly higher required authority, distinct from the tied tier below it', () => {
-    // authorityCeiling 4 is uniquely held by founder — proves a genuinely higher tier
-    // resolves to a genuinely different owner than the tier-3 tie above.
+  it('resolves normally when the qualifying role at a required authority is genuinely unique', () => {
+    // authorityCeiling 4 is uniquely held by founder — proves a genuinely unique candidate
+    // still resolves cleanly, distinct from the tier-3 tie above, and is never itself
+    // reported as ambiguous merely because a DIFFERENT tier happens to be ambiguous.
     const resolution = resolveEscalationOwner(KESTREL, 4);
     expect(resolution.status).toBe('RESOLVED');
     expect(resolution.role?.id).toBe('founder');
+    expect(resolution.target).toBe('Managing Principal (founder)');
     expect(resolution.target).not.toBe(resolveEscalationOwner(KESTREL, 3).target);
   });
 
   it('fails safe, without fabricating a person, when no configured role meets the required authority', () => {
     const restricted = { ...KESTREL, roles: [{ id: 'junior', name: 'Junior Analyst', responsibilities: 'Triage only.', authorityCeiling: 1 as const }] };
     const resolution = resolveEscalationOwner(restricted, 3);
-    expect(resolution.status).toBe('UNRESOLVED');
+    expect(resolution.status).toBe('UNRESOLVED_NO_QUALIFYING_ROLE');
     expect(resolution.role).toBeUndefined();
+    expect(resolution.candidates).toBeUndefined();
     // Never a real-looking name, and never the literal simulation placeholder it replaces.
     expect(restricted.roles.map((r) => r.name)).not.toContain(resolution.target);
     expect(resolution.target).not.toBe('Named owner');
     expect(resolution.target.length).toBeGreaterThan(0);
   });
 
+  it('the two unresolved reasons are genuinely distinguishable, not the same fallback string reused', () => {
+    const restricted = { ...KESTREL, roles: [{ id: 'junior', name: 'Junior Analyst', responsibilities: 'Triage only.', authorityCeiling: 1 as const }] };
+    const noQualifying = resolveEscalationOwner(restricted, 3);
+    const ambiguous = resolveEscalationOwner(KESTREL, 3);
+    expect(noQualifying.status).not.toBe(ambiguous.status);
+    expect(noQualifying.target).not.toBe(ambiguous.target);
+  });
+
   it('is a pure, deterministic function: identical input always produces identical output', () => {
     const a = resolveEscalationOwner(KESTREL, 2);
     const b = resolveEscalationOwner(KESTREL, 2);
     expect(a).toEqual(b);
+    // Also true of the ambiguous case specifically — ambiguity itself must be stable, not
+    // re-derived differently call to call.
+    const ambiguousA = resolveEscalationOwner(KESTREL, 3);
+    const ambiguousB = resolveEscalationOwner(KESTREL, 3);
+    expect(ambiguousA).toEqual(ambiguousB);
   });
 });

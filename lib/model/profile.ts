@@ -362,17 +362,28 @@ export function numberParam(profile: BusinessProfile, key: string): number {
  * string states plainly that resolution failed, so the gap stays visible rather than being
  * quietly papered over.
  */
-export const UNRESOLVED_ESCALATION_OWNER = 'Unresolved — no configured role meets the required authority level';
+export const UNRESOLVED_NO_QUALIFYING_ROLE_TARGET = 'Unresolved — no configured role meets the required authority level';
+
+/**
+ * Prefix for the target string when two or more roles tie at the closest qualifying
+ * authority ceiling with no canonical basis to prefer one — see `resolveEscalationOwner`'s
+ * own docstring for why this codebase does not pick one anyway. The tied candidates' names
+ * are appended so the ambiguity is genuinely inspectable, not merely labelled.
+ */
+export const UNRESOLVED_AMBIGUOUS_OWNER_PREFIX = 'Unresolved — ambiguous among equally-qualified roles: ';
 
 export interface EscalationOwnerResolution {
-  readonly status: 'RESOLVED' | 'UNRESOLVED';
+  readonly status: 'RESOLVED' | 'UNRESOLVED_NO_QUALIFYING_ROLE' | 'UNRESOLVED_AMBIGUOUS_OWNER';
   /** Present iff RESOLVED — the actual configured role this escalation should reach. */
   readonly role?: Role;
+  /** Present iff UNRESOLVED_AMBIGUOUS_OWNER — every role tied at the closest qualifying ceiling. */
+  readonly candidates?: readonly Role[];
   /**
    * Always present. `role.name` when RESOLVED (a profile carries roles, not named
    * individuals — this IS the most specific truthful identifier the data model has);
-   * `UNRESOLVED_ESCALATION_OWNER` when not. Kept as a plain string, the exact type
-   * `SideEffect.target` already declares, so callers need no shape change.
+   * `UNRESOLVED_NO_QUALIFYING_ROLE_TARGET` or an `UNRESOLVED_AMBIGUOUS_OWNER_PREFIX`-led
+   * string otherwise. Kept as a plain string, the exact type `SideEffect.target` already
+   * declares, so callers need no shape change.
    */
   readonly target: string;
 }
@@ -381,34 +392,67 @@ export interface EscalationOwnerResolution {
  * Answers, deterministically: given a business profile and a required authority level, which
  * configured role should an escalation notification reach?
  *
- * Policy — closest fit, alphabetical tie-break: among every role whose `authorityCeiling` is
- * at least `requiredAuthority`, pick the one with the SMALLEST such ceiling (the least amount
- * of unnecessary escalation past what's actually required). Two or more roles at that same
- * ceiling break the tie by `id`, alphabetically — an explicit, stable rule, never the profile's
- * own declared array order, which carries no canonical meaning here (`profile.roles` is
- * authored in an arbitrary narrative order, not sorted by authority).
+ * Policy — closest fit, HONEST ambiguity, never an invented tie-break. Among every role whose
+ * `authorityCeiling` is at least `requiredAuthority`, find the SMALLEST such ceiling (the
+ * least amount of unnecessary escalation past what's actually required). Exactly one role at
+ * that ceiling resolves normally. Two or more resolve `UNRESOLVED_AMBIGUOUS_OWNER` — this
+ * codebase does NOT break the tie, on evidence, not by default:
  *
- * No role meeting `requiredAuthority` returns UNRESOLVED rather than inventing a person or
- * silently returning the closest-but-insufficient role — the same "fail loud, not plausible"
- * discipline `MalformedWaitRecordError`/`MalformedOperationClaimError` already apply elsewhere
- * in this codebase to a different kind of missing data.
+ *   - `RoleSchema.authorityCeiling`'s own doc comment defines it as an execution CAP ("Caps
+ *     what automation may do on their behalf"), never an ordering; its only other use in this
+ *     codebase (`validateProfileConsistency`) treats it via `Math.max`, a ceiling check, never
+ *     a hierarchy walk.
+ *   - No field, comment, or documented policy anywhere in this repository ranks one
+ *     same-ceiling role above another for escalation purposes. `profile.roles`' own declared
+ *     array order carries no canonical meaning (verified directly: reversing it does not
+ *     change which roles tie).
+ *   - The one genuinely relevant precedent already in this codebase argues AGAINST inventing a
+ *     tie-break: Client Onboarding's `resolveAuthoritativeValue()` (`lib/engine/handlers/
+ *     client-onboarding.ts`) holds that two equally-ranked, disagreeing sources stay an
+ *     explicit `CONFLICT` rather than being silently resolved by recency or any other
+ *     incidental signal. An alphabetical-by-`id` tie-break would have been the same category
+ *     of mistake this portfolio has already rejected once, applied to role ids instead of
+ *     timestamps.
+ *
+ * Reaching for a NEW profile field (a rank, a priority, a hierarchy) to manufacture a
+ * tie-break would not resolve this — it would relocate the same invented policy into
+ * configuration while dressing it as data. If a future profile genuinely needs one role to
+ * outrank another at equal authority, that is a real modelling decision for whoever owns the
+ * canon to make explicitly — not an inference this function should make on their behalf.
+ *
+ * No role meeting `requiredAuthority` at all returns `UNRESOLVED_NO_QUALIFYING_ROLE` — a
+ * genuinely different condition from ambiguity, and never conflated with it (see
+ * `tests/profile.test.ts`, "the two unresolved reasons are genuinely distinguishable").
+ * Neither unresolved case ever fabricates a person or silently promotes an insufficient or
+ * ambiguous role — the same "fail loud, not plausible" discipline `MalformedWaitRecordError`/
+ * `MalformedOperationClaimError` already apply elsewhere in this codebase to missing data.
  *
  * Pure and synchronous, like every other profile utility in this file — no I/O, no clock, no
  * randomness. Resolving an owner is a lookup against already-loaded profile data, not a new
  * kind of judgment or a new execution authority: it decides WHO a permitted notification names,
  * never WHETHER the notification is permitted at all (that remains the engine core's own
- * authority gate, unchanged).
+ * authority gate, unchanged) — true whether the answer is a name or an honest ambiguity.
  */
 export function resolveEscalationOwner(profile: BusinessProfile, requiredAuthority: AuthorityLevel): EscalationOwnerResolution {
   const qualifying = profile.roles.filter((role) => role.authorityCeiling >= requiredAuthority);
   if (qualifying.length === 0) {
-    return { status: 'UNRESOLVED', target: UNRESOLVED_ESCALATION_OWNER };
+    return { status: 'UNRESOLVED_NO_QUALIFYING_ROLE', target: UNRESOLVED_NO_QUALIFYING_ROLE_TARGET };
   }
   const closestCeiling = Math.min(...qualifying.map((role) => role.authorityCeiling));
   const closestFit = qualifying.filter((role) => role.authorityCeiling === closestCeiling);
-  const [chosen] = [...closestFit].sort((a, b) => a.id.localeCompare(b.id));
+  if (closestFit.length > 1) {
+    // Sorted only so the target STRING is stable/order-independent for display and testing —
+    // this is not a tie-break: no role here is preferred over another, all are reported.
+    const sorted = [...closestFit].sort((a, b) => a.id.localeCompare(b.id));
+    return {
+      status: 'UNRESOLVED_AMBIGUOUS_OWNER',
+      candidates: sorted,
+      target: `${UNRESOLVED_AMBIGUOUS_OWNER_PREFIX}${sorted.map((role) => role.name).join(', ')}`,
+    };
+  }
+  const [chosen] = closestFit;
   if (chosen === undefined) {
-    return { status: 'UNRESOLVED', target: UNRESOLVED_ESCALATION_OWNER };
+    return { status: 'UNRESOLVED_NO_QUALIFYING_ROLE', target: UNRESOLVED_NO_QUALIFYING_ROLE_TARGET };
   }
   return { status: 'RESOLVED', role: chosen, target: chosen.name };
 }

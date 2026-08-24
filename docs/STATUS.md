@@ -1,17 +1,24 @@
 # Status
 
-**As of 2026-08-24 · Lead Rescue escalation notifications now name a real configured role
-instead of the "Named owner" simulation placeholder.** `resolveEscalationOwner`
-(`lib/model/profile.ts`) deterministically resolves, from `profile.roles`'
-`authorityCeiling` data alone, which configured role a notification should reach — closest-fit
-by required authority, alphabetical-by-id tie-break, `UNRESOLVED` (never a fabricated name)
-when nothing qualifies. Applied at all six Lead Rescue call sites that used to hard-code the
-placeholder, including a genuine two-tier distinction the profile's own data already supports:
-the routine "case ready" and "window elapsed" notifications resolve to `Client Partner`
-(the tied-but-broken authority-3 pair), while the two attention-timeout rules' own declared
-"next owner in the authority chain" language now genuinely resolves one tier higher, to
-`Managing Principal (founder)` — the only role at authority 4. See "Lead Rescue escalation
-owner resolution," below. Maturity does not change.
+**As of 2026-08-24 · Corrected: escalation owner resolution no longer breaks equal-authority
+ties alphabetically.** The prior pass's own `resolveEscalationOwner` picked the
+alphabetically-first role (`Client Partner`) whenever two roles tied at the closest qualifying
+`authorityCeiling` — presented as a resolved name, with no signal that a real choice had been
+made on no evidence. Audited against repository truth before changing anything: `authorityCeiling`
+is documented on `RoleSchema` itself as an execution CAP, never an ordering; no field, comment,
+or policy anywhere ranks `client-partner` above `head-of-delivery` (or vice versa); and this
+codebase's own Client Onboarding precedent (`resolveAuthoritativeValue`) already holds that two
+equally-ranked, disagreeing sources stay an explicit `CONFLICT` rather than being silently
+resolved. Alphabetical selection was the same category of mistake, applied to role ids instead
+of timestamps. `resolveEscalationOwner` now returns `UNRESOLVED_AMBIGUOUS_OWNER` — never a
+picked name — when a genuine tie exists, distinct from `UNRESOLVED_NO_QUALIFYING_ROLE`. See
+"Escalation owner resolution — semantic-integrity correction," below.
+
+**As of 2026-08-24 (prior pass, same day) · Lead Rescue escalation notifications now name a
+real configured role instead of the "Named owner" simulation placeholder** — the two-tier
+mechanism itself (standard vs. "next owner in the authority chain") is unchanged by the
+correction above; only the standard tier's own equal-ceiling tie is now honestly reported as
+ambiguous rather than resolved. See "Lead Rescue escalation owner resolution," below.
 
 **As of 2026-08-24 (prior pass, same day) · Lead Rescue's waiting incidents now wake themselves:
 a real n8n Schedule Trigger, on its own timer, calls the existing full-sweep endpoint with no
@@ -1671,22 +1678,117 @@ cleared the authority gate.
 `OperationClaimStore`, or any route. `npm run docs` produced no diff — no canon or profile data
 changed.
 
+## Escalation owner resolution — semantic-integrity correction — this pass
+
+**The concern, stated precisely.** The prior pass's `resolveEscalationOwner` broke ties between
+equal-`authorityCeiling` roles alphabetically by `id`. Presented with two roles genuinely tied
+at ceiling 3 (`client-partner`, `head-of-delivery`), it confidently returned `RESOLVED` /
+`Client Partner` — string-sort determinism dressed as a business decision, with no repository
+evidence that `client-partner` actually outranks `head-of-delivery` for escalation purposes.
+
+**Audit performed before changing any code, per instruction not to invent an answer.**
+
+1. *Does `authorityCeiling` represent an ordered hierarchy, an execution ceiling, or something
+   else?* An execution ceiling only — `RoleSchema`'s own doc comment: "The highest authority
+   level this person may exercise. **Caps what automation may do on their behalf.**" Its one
+   other use in this codebase (`validateProfileConsistency`, `lib/model/profile.ts`) reads it via
+   `Math.max(...)`, a ceiling check, never a hierarchy walk.
+2. *Does existing canon provide a semantic method to choose between equally-qualified roles?*
+   No field, comment, or documented policy anywhere ranks one same-ceiling role above another.
+   The one genuinely relevant precedent argues the opposite way: Client Onboarding's
+   `resolveAuthoritativeValue()` (`lib/engine/handlers/client-onboarding.ts`) holds that two
+   equally-ranked, disagreeing sources stay an explicit `CONFLICT`, never silently resolved by
+   recency or any other incidental signal — this portfolio has already rejected exactly this
+   category of shortcut once, for a structurally identical problem.
+3. *Does the escalation itself carry enough domain/context to distinguish them?* No. None of
+   the four standard-tier `NOTIFICATION` effects (or their `DecisionRecord`) carry any field
+   indicating which business domain a case belongs to, and Lead Rescue's own lifecycle
+   (enquiry → qualification → booking-ready) never reaches delivery/staffing territory at all —
+   there is no structural signal to route on even if one were sought.
+4. *Is there a canonical ordering that makes one the legitimate next owner?* Not a declared one.
+   `client-partner` appears repeatedly (six times, across Lead Rescue, Dormant Pipeline
+   Recovery, and Client Onboarding fixture data) as a `decidedBy`/`owner`/`ownerRoleId` value,
+   and its own `responsibilities` text ("Owns named accounts through qualification, scoping, and
+   proposal") fits Lead Rescue's domain more naturally than `head-of-delivery`'s ("engagement
+   staffing... audit-window handover"). Weighed deliberately and rejected as a basis: this is
+   circumstantial evidence from hand-authored narrative fixture data, not a declared rule — using
+   it would relocate the same invented policy into a different, harder-to-see place, exactly what
+   the task's own instruction warned against.
+5. *Was alphabetical ordering ever declared as policy anywhere?* No — confirmed by direct
+   search; it originated only in the prior pass's own implementation and its own documentation.
+
+**Conclusion: no legitimate semantic tie-break exists in canon.** `resolveEscalationOwner` no
+longer picks a winner among tied roles. `EscalationOwnerResolution.status` is now
+`'RESOLVED' | 'UNRESOLVED_NO_QUALIFYING_ROLE' | 'UNRESOLVED_AMBIGUOUS_OWNER'` — two genuinely
+distinguishable unresolved reasons, never conflated. The ambiguous case names every tied
+candidate (`candidates: readonly Role[]`) and produces a target string listing their names,
+prefixed `UNRESOLVED_AMBIGUOUS_OWNER_PREFIX` — the ambiguity is truthfully identified, not
+merely flagged. No new profile field (rank, priority, hierarchy) was added — the task's own
+instruction not to manufacture one by relocating the invented policy into configuration was
+followed.
+
+**What changes in practice, and what does not.** The four "standard-tier" notifications
+(`handleEnquiry`'s and `handleReply`'s `BOOKING_READY` routing, `lr-t14`/`lr-t22`'s wait-elapsed
+escalations) now correctly report the ambiguous target — this is a genuine behavior change from
+the prior pass, and the honest one. The two attention-timeout "next owner in the authority
+chain" notifications are completely unaffected: authority 4 is uniquely held by `founder`, so
+they continue to resolve cleanly to `Managing Principal (founder)`, proving the fix does not
+degrade a genuinely unique resolution into false ambiguity. `escalationOwnerTarget()`
+(`lib/engine/handlers/lead-rescue.ts`) and all six call sites are unchanged — they already only
+read `.target`, which stays a plain string regardless of which status produced it, so no handler
+code needed editing at all.
+
+**Falsifying tests.** `tests/profile.test.ts`: the tied-roles test now asserts
+`UNRESOLVED_AMBIGUOUS_OWNER` with both candidates named, and that the target is never either
+role's own name (proving the old alphabetical result no longer occurs); a rewritten
+order-independence test proves reversing `profile.roles` changes neither the status nor the
+candidate set nor the target string; the unique-founder test is retained, confirming genuine
+uniqueness still resolves normally; a new test proves the two unresolved reasons produce
+genuinely different statuses and target strings, never the same fallback reused; the purity
+test is extended to cover the ambiguous case specifically. `tests/lead-rescue-escalation-owner.test.ts`:
+the three standard-tier handler tests (`handleEnquiry`, `handleReply`, `lr-t14`) now assert the
+live-computed ambiguous target and explicitly assert it is neither `'Client Partner'` nor
+`'Head of Delivery'` — proving no silent pick survives at the handler level, not only at the
+resolver's own unit tests; both attention-timeout tests are unchanged, proving the higher tier's
+genuine uniqueness still propagates correctly; the idempotency test is unchanged and still
+passes, since ambiguity resolution never touches the claim store or `checkWaitIncident`'s
+identity/dedup logic. Two pre-existing assertions in `tests/lead-rescue-offer-wait.test.ts` that
+call `resolveEscalationOwner(KESTREL, 3).target` live (rather than a hardcoded string, a
+deliberate choice made the prior pass) needed no changes at all — they continued to pass
+correctly once the function they call was corrected, which is itself a small confirmation that
+referencing the live function rather than a literal string was the right call.
+
+**Files changed.** `lib/model/profile.ts` (`resolveEscalationOwner` rewritten;
+`UNRESOLVED_ESCALATION_OWNER` renamed `UNRESOLVED_NO_QUALIFYING_ROLE_TARGET`; new
+`UNRESOLVED_AMBIGUOUS_OWNER_PREFIX`; `EscalationOwnerResolution.status`/`.candidates` extended).
+`tests/profile.test.ts` (rewritten resolver tests). `tests/lead-rescue-escalation-owner.test.ts`
+(three standard-tier assertions corrected). Zero changes to
+`lib/engine/handlers/lead-rescue.ts`, `data/systems/lead-rescue.ts`,
+`data/profiles/kestrel/profile.ts`, the reducer, the authority gate, `WaitIncidentStore`, or
+`OperationClaimStore`. `npm run docs` produced no diff.
+
 ## Verification
 
 ```
-npm run verify     # typecheck + lint + 493 tests
+npm run verify     # typecheck + lint + 494 tests
 npm run build      # 29 pages prerender; 5 dynamic (ƒ) API routes; the engine executes at build/request time
 npm run docs       # regenerate canon from the model — no diff this pass
 ```
 
-All passing as of this pass. `tests/profile.test.ts` (+5) and `tests/lead-rescue-escalation-owner.test.ts`
-(new, 7 tests) prove `resolveEscalationOwner` and its application at every Lead Rescue call
-site — see "Lead Rescue escalation owner resolution," above, for what each proves. Two
-pre-existing assertions in `tests/lead-rescue-offer-wait.test.ts` were deliberately updated
-(the literal old placeholder string to the resolved value); every other pre-existing test file
-is unchanged and still passes unmodified. `npm run build` still reports 5 dynamic (`ƒ`) routes
-and 29 prerendered pages, unchanged — this pass added no new route, and no `data/`/profile
-change, confirmed by `npm run docs` producing zero diff.
+All passing as of this pass. `tests/profile.test.ts`'s resolver tests were rewritten (one net
+new: the two-unresolved-reasons test) and `tests/lead-rescue-escalation-owner.test.ts`'s three
+standard-tier assertions were corrected to expect honest ambiguity — see "Escalation owner
+resolution — semantic-integrity correction," above, for what each now proves.
+`tests/lead-rescue-offer-wait.test.ts` needed no changes (its two assertions call the live
+function rather than a hardcoded string). `npm run build` still reports 5 dynamic (`ƒ`) routes
+and 29 prerendered pages, unchanged — this correction touched no route, no `data/`, and no
+profile, confirmed by `npm run docs` producing zero diff.
+
+Prior pass, same day: `tests/profile.test.ts` (+5) and `tests/lead-rescue-escalation-owner.test.ts`
+(new, 7 tests) proved `resolveEscalationOwner` and its application at every Lead Rescue call
+site — see "Lead Rescue escalation owner resolution," above. Two pre-existing assertions in
+`tests/lead-rescue-offer-wait.test.ts` were deliberately updated (the literal old placeholder
+string to the resolved value).
 
 Prior pass, same day: `tests/lead-rescue-wait-sweep.test.ts` (4 tests) is new — see "Lead Rescue
 scheduled n8n sweep," above, for what each proves. `npm run docs` was re-run twice that pass:
@@ -1821,14 +1923,19 @@ effects, matching the "ordinary variation is left alone" claim exactly.
 
 ## Single recommended next fidelity gap
 
+**Unchanged by this pass's correction.** This pass was a narrow semantic-integrity fix scoped
+entirely to how escalation ties resolve; it touched nothing relevant to classification,
+outbound execution, or n8n. The recommendation below, made the prior pass, still stands on its
+own merits.
+
 **Bounded real AI classification — replace `FixtureDecisionProvider` with a genuine bounded
 model call for Lead Rescue's intake and reply-interpretation judgments, behind the exact
-`DecisionProvider` contract already built and tested.** With the scheduler (prior pass) and the
-authority-chain gap (this pass) both closed, the two candidates the portfolio's own prior
-assessment named for after the scheduler are the live ones remaining: bounded real AI
-classification, and real outbound provider execution (a live messaging send). A third —
-extending n8n ingress to `prospect.replied` — remains open (item 15) but is explicitly the same
-proven pattern applied a third time, not new evidence of capability.
+`DecisionProvider` contract already built and tested.** With the scheduler (two passes ago) and
+the authority-chain gap (prior pass, refined this pass) both closed, the two candidates the
+portfolio's own prior assessment named for after the scheduler are the live ones remaining:
+bounded real AI classification, and real outbound provider execution (a live messaging send). A
+third — extending n8n ingress to `prospect.replied` — remains open (item 15) but is explicitly
+the same proven pattern applied a third time, not new evidence of capability.
 
 **Why AI classification outranks the live send right now.** Both cross this portfolio's one
 remaining hard boundary — nothing has ever left the process — but they cross it in materially

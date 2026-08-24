@@ -9,6 +9,7 @@ import { FixtureDecisionProvider } from '@/lib/ports/decision-provider';
 import { InMemoryWaitIncidentStore, type WaitIncidentStore } from '@/lib/persistence/wait-incident-store';
 import { InMemoryOperationClaimStore } from '@/lib/persistence/operation-claim-store';
 import { checkWaitIncident, parkWaitingIncident, type WaitResumeDeps } from '@/lib/engine/wait-resume';
+import { resolveEscalationOwner } from '@/lib/model/profile';
 import type { EngineRun } from '@/lib/engine/types';
 import type { Scenario } from '@/lib/model/runtime';
 
@@ -19,12 +20,13 @@ import type { Scenario } from '@/lib/model/runtime';
  * hard-coded string in its place.
  *
  * Two tiers exist in the real profile data, not an invented hierarchy: authority 3 (the
- * uniform required level every "first-line" notification effect already declared) resolves
- * to a genuine tie between `client-partner` and `head-of-delivery`, broken alphabetically by
- * `id`; authority 4 — used only by the two attention-timeout "next owner in the authority
- * chain" notifications, matching that exact canon language — is uniquely held by `founder`.
- * Both are proven end to end here, through the real handler paths, not only against the
- * resolver in isolation (`tests/profile.test.ts` already proves the resolver itself).
+ * uniform required level every "first-line" notification effect already declared) hits a
+ * genuine tie between `client-partner` and `head-of-delivery`, and — per the corrected audit
+ * in `tests/profile.test.ts` — no canon anywhere ranks one above the other, so this tier
+ * correctly resolves AMBIGUOUS, never a silently-picked name; authority 4 — used only by the
+ * two attention-timeout "next owner in the authority chain" notifications, matching that
+ * exact canon language — is uniquely held by `founder` and resolves cleanly. Both are proven
+ * end to end here, through the real handler paths, not only against the resolver in isolation.
  */
 
 const DEPS: WaitResumeDeps = {
@@ -34,7 +36,7 @@ const DEPS: WaitResumeDeps = {
   reevaluationEventType: 'lead.wait.reevaluated',
 };
 
-const STANDARD_TIER_OWNER = 'Client Partner';
+const STANDARD_TIER_TARGET = resolveEscalationOwner(KESTREL, 3).target;
 const NEXT_OWNER_TIER = 'Managing Principal (founder)';
 
 function allTargets(run: EngineRun): string[] {
@@ -42,7 +44,7 @@ function allTargets(run: EngineRun): string[] {
 }
 
 describe('Lead Rescue escalation owner resolution — applied consistently, not just at one call site', () => {
-  it('handleEnquiry: a qualified, complete enquiry routes to the real standard-tier configured owner, not "Named owner"', async () => {
+  it('handleEnquiry: a qualified, complete enquiry routes to the honestly ambiguous standard-tier target, never a silently-picked name and never "Named owner"', async () => {
     const scenario = leadRescueScenarioBySlug('offer-window-elapses');
     if (scenario === undefined) throw new Error('fixture scenario not found');
     const enquiryEvent = scenario.events[0];
@@ -58,11 +60,13 @@ describe('Lead Rescue escalation owner resolution — applied consistently, not 
 
     expect(run.finalState.lifecycleState).toBe('BOOKING_READY');
     const notify = run.sideEffects.find((s) => s.idempotencyKey.startsWith('notify:'));
-    expect(notify?.target).toBe(STANDARD_TIER_OWNER);
+    expect(notify?.target).toBe(STANDARD_TIER_TARGET);
+    expect(notify?.target).not.toBe('Client Partner');
+    expect(notify?.target).not.toBe('Head of Delivery');
     expect(allTargets(run)).not.toContain('Named owner');
   });
 
-  it('handleReply (a materially different code path from handleEnquiry): a reply completing the missing fields also routes to the SAME resolver-computed owner, never a second hard-coded string', async () => {
+  it('handleReply (a materially different code path from handleEnquiry): a reply completing the missing fields resolves the SAME ambiguous target, never a second hard-coded string', async () => {
     const scenario = leadRescueScenarioBySlug('after-hours-enquiry');
     if (scenario === undefined) throw new Error('fixture scenario not found');
     const run = await runLeadRescue(scenario);
@@ -71,11 +75,11 @@ describe('Lead Rescue escalation owner resolution — applied consistently, not 
     // test fires at the BOOKING_READY transition itself, not at whatever the final state is.
     expect(run.transitions.some((t) => t.to === 'BOOKING_READY' && t.accepted)).toBe(true);
     const notify = run.sideEffects.find((s) => s.idempotencyKey.startsWith('notify:'));
-    expect(notify?.target).toBe(STANDARD_TIER_OWNER);
+    expect(notify?.target).toBe(STANDARD_TIER_TARGET);
     expect(allTargets(run)).not.toContain('Named owner');
   });
 
-  it('lr-t14 (reply-window elapsed) resolves the standard-tier owner through checkWaitIncident, the wait/resume orchestration boundary', async () => {
+  it('lr-t14 (reply-window elapsed) resolves the SAME ambiguous standard-tier target through checkWaitIncident, the wait/resume orchestration boundary', async () => {
     const scenario = leadRescueScenarioBySlug('reply-window-elapses');
     if (scenario === undefined) throw new Error('fixture scenario not found');
     const enquiryEvent = scenario.events[0];
@@ -99,7 +103,7 @@ describe('Lead Rescue escalation owner resolution — applied consistently, not 
 
     expect(result.outcome).toBe('ELAPSED');
     const notify = (result.entries ?? []).flatMap((e) => e.sideEffects).find((s) => s.idempotencyKey.includes('wait-elapsed'));
-    expect(notify?.target).toBe(STANDARD_TIER_OWNER);
+    expect(notify?.target).toBe(STANDARD_TIER_TARGET);
   });
 
   it('handleReviewAttentionTimeout ("next owner in the authority chain"): resolves the genuinely higher-tier owner, distinct from the standard tier', async () => {
@@ -128,7 +132,7 @@ describe('Lead Rescue escalation owner resolution — applied consistently, not 
     expect(result.outcome).toBe('ATTENTION_OVERDUE');
     const notify = (result.entries ?? []).flatMap((e) => e.sideEffects).find((s) => s.idempotencyKey.includes('review-overdue'));
     expect(notify?.target).toBe(NEXT_OWNER_TIER);
-    expect(notify?.target).not.toBe(STANDARD_TIER_OWNER);
+    expect(notify?.target).not.toBe(STANDARD_TIER_TARGET);
   });
 
   it('handleDispatchAttentionTimeout ("next owner in the authority chain"): resolves the SAME higher tier as the review path, via a materially different rule', async () => {
