@@ -1751,7 +1751,15 @@ function handleOfferDespatched(ctx: HandlerContext): HandlerOutcome {
             kind: 'MESSAGE_SEND',
             description: despatch.offerSummary,
             target: despatch.target,
-            idempotencyKey: `offer:${event.entityId}:${event.eventId}`,
+            // Keyed on bookingReadyAt, NOT event.eventId: this must be the SAME identity for
+            // every concurrent despatch attempt against the SAME BOOKING_READY cycle (two
+            // overlapping requests racing to despatch), so a durable claim on it (see
+            // `dispatchAuthorizedOffer` in lib/engine/wait-resume.ts) can actually detect the
+            // race. bookingReadyAt is stable for the lifetime of one un-dispatched cycle and
+            // changes only when the case genuinely leaves and re-enters BOOKING_READY — the
+            // same "distinguishable waiting occurrence" identity lr-t14/lr-t22's own notification
+            // keys already rely on `revision` for, exactly for this reason.
+            idempotencyKey: `offer:${event.entityId}:${state.facts['bookingReadyAt'] ?? event.eventId}`,
             authority: 3,
             policyPermits: true,
             ...(despatchAttempt === null

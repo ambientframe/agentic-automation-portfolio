@@ -10,20 +10,25 @@ import type { WaitResumeDeps } from './wait-resume';
 
 /**
  * The demo's stand-in `SideEffectExecutor` — the observable execution boundary
- * `checkWaitIncident` now guards behind the durable claim (see `wait-resume.ts`'s module
- * docstring). Deterministically reports SUCCEEDED for every attempt: there is no live
- * notification provider anywhere in this portfolio, so "always succeeds" is the honest
- * stand-in every other SIMULATED effect in this codebase already uses, made real here as an
- * actual awaited call instead of a data label, so the claim-then-invoke ordering this pass
- * closed is exercised by the live demo, not only by tests. Swapping in a genuine provider
- * later means implementing this ONE interface differently — nothing in `wait-resume.ts`,
- * `checkWaitIncident`, or the claim store would change.
+ * `checkWaitIncident` AND `dispatchAuthorizedOffer` both guard behind a durable claim (see
+ * `wait-resume.ts`'s module docstring). Deterministically reports SUCCEEDED for every
+ * attempt: there is no live notification or messaging provider anywhere in this portfolio,
+ * so "always succeeds" is the honest stand-in every other SIMULATED effect in this codebase
+ * already uses, made real here as an actual awaited call instead of a data label, so the
+ * claim-then-invoke ordering is exercised by the live demo, not only by tests. One instance,
+ * reused unchanged for BOTH the wait-elapsed NOTIFICATION (lr-t14/lr-t22) and the operator-
+ * initiated offer MESSAGE_SEND (`lead.offer.despatched`) — the port does not care what kind
+ * of effect it is asked to send, and inventing a second demo executor for the second kind
+ * would be exactly the "parallel execution model" this pass was asked not to build. Swapping
+ * in a genuine provider later means implementing this ONE interface differently — nothing in
+ * `wait-resume.ts`, `checkWaitIncident`, `dispatchAuthorizedOffer`, or the claim store would
+ * change.
  */
-class AlwaysSucceedsNotificationExecutor implements SideEffectExecutor {
-  readonly id = 'lead-rescue-wait-resume-simulated-notification-executor';
+class AlwaysSucceedsSimulatedExecutor implements SideEffectExecutor {
+  readonly id = 'lead-rescue-wait-resume-simulated-executor';
   readonly mode: ExecutionMode = 'SIMULATED';
   readonly description =
-    'Deterministically simulated notification delivery. No provider is invoked and nothing leaves this process.';
+    'Deterministically simulated delivery (notification or offer message). No provider is invoked and nothing leaves this process.';
 
   async attemptSend(request: SendRequest): Promise<SendOutcome> {
     void request;
@@ -33,7 +38,7 @@ class AlwaysSucceedsNotificationExecutor implements SideEffectExecutor {
   async attemptVerify(request: VerifyRequest): Promise<VerifyOutcome> {
     void request;
     throw new Error(
-      'AlwaysSucceedsNotificationExecutor.attemptVerify is not used: this executor never returns OUTCOME_UNKNOWN, so nothing ever needs independent verification.',
+      'AlwaysSucceedsSimulatedExecutor.attemptVerify is not used: this executor never returns OUTCOME_UNKNOWN, so nothing ever needs independent verification.',
     );
   }
 }
@@ -71,7 +76,7 @@ export const LEAD_RESCUE_WAIT_DEPS: WaitResumeDeps = {
   profile: KESTREL,
   handlers: LEAD_RESCUE_HANDLERS,
   reevaluationEventType: 'lead.wait.reevaluated',
-  executor: new AlwaysSucceedsNotificationExecutor(),
+  executor: new AlwaysSucceedsSimulatedExecutor(),
 };
 
 /**

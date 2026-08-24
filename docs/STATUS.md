@@ -1,9 +1,11 @@
 # Status
 
-**As of 2026-08-23 · lr-t22 semantic-integrity correction — BOOKING_READY entry (via any of
-its five paths) proves only internal readiness, never that a prospect received an offer; the
-unanswered-offer clock now starts at a genuinely new fact, `offerSentAt`, written by exactly
-one explicit event representing a despatched offer, never by readiness alone**
+**As of 2026-08-23 · the reviewed-offer lifecycle is now a live, interactive operator
+journey — NEEDS_HUMAN → human decision → BOOKING_READY → claim-gated simulated offer
+despatch → durable wait → lr-t22 escalation — click-through in the browser, not only
+readable in a fixture-authored scenario, with the same false-positive risk this portfolio
+already closed for scenario replay (an uncertain despatch durably recording `offerSentAt`)
+now also closed for the live path**
 
 ## Portfolio maturity
 
@@ -705,6 +707,145 @@ generic wait/resume/claim machinery genuinely did not need to know which fact an
 category's clock, confirmed again rather than merely re-asserted. `npm run docs` was re-run
 and produced no diff, confirming no canon or profile drift.
 
+## The reviewed-offer operator journey goes live — this pass
+
+**What the prior pass left readable but not clickable.** The prior pass proved, in one
+canonical fixture (`reviewed-offer-elapses`), that a human-cleared case correctly separates
+readiness (`bookingReadyAt`) from offer-sent evidence (`offerSentAt`). That proof lived
+entirely in a deterministic scenario replay — an observer could read the transcript, not
+drive the decision themselves. This pass's own "single recommended next fidelity gap" named
+the resulting hole precisely: the live `/lead-rescue/wait` demo could park a pre-authored
+`BOOKING_READY` incident and watch it wait, but could not let a visitor watch a case arrive
+at `NEEDS_HUMAN`, decide it, and despatch a real offer to it, each step rendered as it
+happens. This pass closes that hole.
+
+**The journey, click by click.** `/lead-rescue/wait` now has three stages, each a distinct
+panel: **Cases under human review** (NEEDS_HUMAN / ESCALATED / SUPPRESSION_REVIEW — why
+automation stopped, what remains unresolved, a decision form); **Ready — no offer sent yet**
+(BOOKING_READY, no `offerSentAt` — a despatch form, explicit that readiness is not delivery);
+**Waiting for a response** (a genuine timer running — the pre-existing reply/offer table,
+untouched). A new "Start a case needing human review" button parks only the fixture's
+enquiry event, reaching a genuine `NEEDS_HUMAN` (`lr-t11`, policy-sensitive, zero autonomous
+action) with zero pre-baked decision or despatch. The operator then supplies both: a decision
+(role + decision kind + rationale) and, once cleared, a despatch (role + recipient + offer
+content) — through two new routes, `POST .../decide` and `POST .../dispatch`.
+
+**The false-positive risk this pass found and closed at the orchestration layer.**
+`handleOfferDespatched`'s own pure computation has always included `offerSentAt` in its plan,
+unconditionally — the same "EXECUTED is a plan, not an action" discipline this codebase
+already documents extensively for the wait-elapsed notification. For scenario replay that is
+correct and unchanged. But this pass's brief named a genuine defect in extending that same
+plan to a LIVE, persisted journey: if the orchestration layer durably wrote that plan to disk
+the instant `applyEvent` computed it, an offer whose simulated send came back
+`OUTCOME_UNKNOWN` would still start a real 48-hour countdown to escalation — punishing a
+prospect for not answering an offer that may never have reached them. `dispatchAuthorizedOffer`
+(`lib/engine/wait-resume.ts`, new this pass) closes this by reusing, not reinventing, the
+EXACT claim-then-invoke ordering `checkWaitIncident` already proved for lr-t14/lr-t22's own
+notification: plan (pure `applyEvent`), claim (durable, exclusive, via the unmodified
+`OperationClaimStore`), invoke the configured executor ONLY after the claim is won, confirm
+only on genuine success — and only THEN, never before, is the plan's `offerSentAt` persisted
+via `store.park()`. An `UNCERTAIN` outcome leaves the original record — still `BOOKING_READY`,
+still no `offerSentAt` — completely untouched. Falsified directly: temporarily removing the
+post-claim gate (returning to "always park the computed plan") made three tests fail
+immediately, each showing a falsely `CONFIRMED` outcome where `UNCERTAIN` was required — the
+exact defect this pass's brief asked to be closed, reproduced and then closed for real.
+
+**A second, narrower defect: a self-loop identity collision.** `handleOfferDespatched`'s
+proposed effect was previously keyed by `event.eventId` — fine for a single authored fixture
+event, wrong for a live, resubmittable action: two concurrent despatch requests against the
+SAME `BOOKING_READY` cycle would mint two different `eventId`s and therefore two different
+idempotency keys, defeating the claim store's exclusivity entirely (each request would look
+like a genuinely different operation). The key is now `offer:{entityId}:{bookingReadyAt}` —
+stable for the entire lifetime of one un-dispatched `BOOKING_READY` cycle (changing only when
+a case genuinely leaves and re-enters readiness), so two racing requests compute the
+IDENTICAL identity and collide on the SAME durable claim, exactly the property
+`OperationClaimStore` exists to enforce. No existing test asserted the old key's exact value
+(all checked `.startsWith('offer:')`), so this is a correctness fix, not a breaking change.
+
+**A second orchestration function for the decision step, with a guard the shared handler
+does not itself need.** `applyHumanDecision` (`lib/engine/wait-resume.ts`) applies one
+`human.decision.recorded` event against a case parked in `NEEDS_HUMAN` / `ESCALATED` /
+`SUPPRESSION_REVIEW`, reusing `handleHumanDecision` completely unchanged. On top of the
+handler's own (correct, scenario-appropriate) behavior, this function adds two guards a
+one-shot scenario replay never needed: an expected-revision check (refusing a stale or
+duplicate resubmission, the same discipline `WaitIncidentStore.resolve()` already applies to
+racing resumes) and treating the handler's own authority verification as GATING rather than
+merely informational — `handleHumanDecision` records a PASS/FAIL authority check but has
+never blocked on it, correct for narrating a scenario, insufficient for an interactive
+surface a person can submit to with the wrong role. Falsified directly: submitting a decision
+as `'analyst'` (authority 1, below the handler's own `>= 2` threshold) is refused
+(`UNAUTHORIZED`) with the original record untouched, verified both by test and live in the
+browser.
+
+**Reused without any change:** `applyEvent`, `handleHumanDecision`, `handleOfferDespatched`
+(beyond the one identity-key fix above), `WaitIncidentStore` (including its revision
+high-water mark), `OperationClaimStore`, `checkWaitIncident`, and the demo's own
+`SideEffectExecutor` — renamed `AlwaysSucceedsSimulatedExecutor` (from
+`AlwaysSucceedsNotificationExecutor`) because it is now genuinely shared, unchanged in
+behavior, between the wait-elapsed notification and the operator-initiated offer send, rather
+than a second executor invented for the second kind of send. A review-stage or ready-stage
+snapshot is parked directly via `store.park()` rather than through `parkWaitingIncident` —
+whose own documented contract is scoped to "already in a genuinely waiting lifecycle
+state" — keeping that existing wrapper's contract honest rather than stretching it; the
+underlying durability is identical either way, since `WaitIncidentRecord` was never
+wait-specific in its own type.
+
+**Falsifying tests, written before and during implementation.**
+`tests/lead-rescue-review-dispatch.test.ts` (19 tests, new this pass) proves: a case reaches
+a legitimate `NEEDS_HUMAN` with zero autonomous action; the parked record exposes the
+escalation reason and missing information a review screen needs; an authorized decision
+reaches `BOOKING_READY` through the real `lr-t24` transition; insufficient authority, a
+malformed payload, a stale/duplicate resubmission, an out-of-order resubmission against a
+case no longer under review, and a decision against a nonexistent or terminal incident are
+ALL refused safely with the original record untouched; `BOOKING_READY` alone starts no timer
+even ten thousand hours later; an explicit despatch produces a genuine prospect-facing
+`MESSAGE_SEND` (never a `NOTIFICATION`) with `executionMode: 'SIMULATED'`; a confirmed
+despatch starts a real, checkable 48-hour window (before: untouched; at/after: `lr-t22`
+fires); an uncertain or rejected despatch creates no offer-sent evidence and never falsely
+elapses; re-dispatching an already-dispatched case is refused with no second send attempted;
+two concurrent despatch attempts on the same cleared case invoke the observable executor at
+most once (file-backed stores, genuine `Promise.all` racing); a crash after invoking but
+before confirming yields `UNCERTAIN` and a fresh recovery runtime never replays the send; a
+fresh runtime reconstructs every stage — review, decision, dispatch, elapse — across
+independently constructed store instances; and the dispatch claim identity and the
+wait-elapsed notification claim identity are distinct and both independently confirmable
+within the same journey. Two of the most safety-critical guards — the uncertain-dispatch
+persistence gate and the revision/state-allowlist guard on decisions — were confirmed
+falsifying directly: temporarily disabling each one reproduced exactly the failures the
+corresponding tests were written to catch, then the fix was restored and re-verified green.
+
+**Live-verified in the browser, the full journey in one sitting.** Started a review case
+(`NEEDS_HUMAN`, "Policy-sensitive content detected. Routed to a person rather than
+answered."); submitted a decision as `analyst` and confirmed `UNAUTHORIZED` with the case
+still listed under review; submitted the same decision as `client-partner` and watched it
+move to "Ready — no offer sent yet" with `outcome: "ACCEPTED"` and `bookingReadyAt` set;
+despatched an offer and watched it move to "Waiting for a response" with `outcome:
+"CONFIRMED"`, `offerSentAt` set, and a 48-hour deadline computed from the despatch time, not
+the enquiry or the decision; clicked "Check" before the deadline and confirmed
+`STILL_WAITING`; clicked "Simulate past deadline & check" and confirmed `outcome: "ELAPSED"`,
+`lr-t22`, final state `NEEDS_HUMAN`; confirmed the incident disappeared from the waiting list
+on resolution; then, independently, parked a `reply` (lr-t14) demo incident and confirmed it
+still parks, lists, and computes its 24-hour deadline exactly as before, completely
+unaffected by any of this pass's changes.
+
+**Files changed.** `lib/engine/wait-resume.ts` (`applyHumanDecision`, `dispatchAuthorizedOffer`,
+and three small exported/shared helpers — `executedSideEffects`, `operationClaimId`,
+`downgradeEffect` — promoted from private to exported so the new functions reuse them rather
+than re-deriving the same logic; `checkWaitIncident` itself unchanged in behavior, only
+refactored to share a `freshInternals()`/`toStoredEngineState()` helper with the new
+functions). `lib/engine/handlers/lead-rescue.ts` (`handleOfferDespatched`'s idempotencyKey
+now keyed by `bookingReadyAt` instead of `event.eventId` — the self-loop identity fix above).
+`lib/engine/lead-rescue-wait-runtime.ts` (executor
+class renamed, one export, one field value, no behavior change).
+`app/api/lead-rescue/wait-incidents/route.ts` (a `review` kind and `stage` computation, both
+additive). Two new routes: `app/api/lead-rescue/wait-incidents/decide/route.ts` and
+`.../dispatch/route.ts`. `app/lead-rescue/wait/page.tsx` (three-panel rewrite: review /
+ready / waiting, the existing waiting table preserved verbatim in behavior). One new test
+file, `tests/lead-rescue-review-dispatch.test.ts`. Zero changes to `data/systems/lead-rescue.ts`
+(canon), `data/profiles/kestrel/profile.ts`, `lib/engine/reducer.ts`, `lib/engine/run.ts`,
+`lib/persistence/wait-incident-store.ts`, or `lib/persistence/operation-claim-store.ts`.
+`npm run docs` was re-run and produced no diff.
+
 ## What is REAL
 
 Real in the sense of *actually executing code*, not *connected to the outside world*.
@@ -767,6 +908,14 @@ New this pass (Lead Rescue wait/resume):
   closed a genuine false-positive risk the prior implementation carried: entering
   `BOOKING_READY` alone, via any of its five paths, can no longer be mistaken for proof an
   offer was sent.
+- **The full reviewed-offer lifecycle is now a live, clickable operator journey, this
+  pass.** `/lead-rescue/wait` genuinely drives a case from a real `NEEDS_HUMAN` through an
+  authorized human decision (`applyHumanDecision`), a claim-gated simulated offer despatch
+  (`dispatchAuthorizedOffer`), a durable wait, and a real `lr-t22` escalation — each step a
+  real file write and a real HTTP round trip, not a fixture replay. The same false-positive
+  risk this pass's own earlier section closed for scenario replay (an uncertain despatch
+  durably recording `offerSentAt`) is now also closed for this live path, by reusing —
+  unmodified — the exact claim-then-invoke ordering `checkWaitIncident` already proved.
 
 New in the Owner Revenue Intelligence pass (prior), retained for continuity:
 
@@ -964,31 +1113,31 @@ Everything else stayed exactly as domain-specific as the first three systems' ow
 ## Verification
 
 ```
-npm run verify     # typecheck + lint + 428 tests
-npm run build      # 29 pages prerender or route; the engine executes at build/request time
+npm run verify     # typecheck + lint + 447 tests
+npm run build      # 29 pages prerender; 4 dynamic (ƒ) API routes; the engine executes at build/request time
 npm run docs       # regenerate canon from the model
 ```
 
-All passing as of this pass. `tests/lead-rescue-offer-wait.test.ts` grew from 10 to 19 tests
-(the deterministic rule's own guardrails, now anchored to `offerSentAt`, plus the
-`lr-t24`/`lr-t27`/`lr-t34` originating-state proofs, the confirmed-vs-uncertain despatch
-distinction, the re-park-without-restart proof, and the despatch-guard no-op);
-`tests/lead-rescue-offer-wait-resume.test.ts` (7 tests, unchanged in count — persistence,
-cross-runtime racing, and crash recovery for the offer category re-verified against the
-corrected anchor fact); `tests/lead-rescue.test.ts` gained 2 tests (`bookingReadyAt`-not-
-`offerSentAt` assertions on the two existing scenarios that exercise `lr-t24`/`lr-t34`) and
-its scenario-list assertion now names the new eighth scenario. Every other lr-t14/lr-t22
-test file (`tests/wait-incident-store.test.ts`, `tests/operation-claim-store.test.ts`,
-`tests/lead-rescue-wait-resume.test.ts`, `tests/lead-rescue-wait-resume-concurrency.test.ts`,
-`tests/lead-rescue-wait-resume-execution-boundary.test.ts`) is byte-for-byte unchanged and
-still passes — the generic machinery those files prove never needed to change.
-`npm run build` now reports 29 pages (28 before this pass) — the new
-`reviewed-offer-elapses` scenario's own simulator page — and still exactly two `ƒ`
-(server-rendered on demand) routes, `/api/lead-rescue/wait-incidents` and its `/check`
-sibling, unchanged from the prior pass. `npm run docs` was re-run and produced NO diff:
-no new lifecycle state, transition, side-effect kind, operating parameter, or client policy
-was needed, so `docs/NORTH_STAR_CANON.md`, `docs/FAILURE_MODE_REGISTER.md`, and
-`docs/RESEARCH_LEDGER.md` are all unchanged by this pass.
+All passing as of this pass. `tests/lead-rescue-review-dispatch.test.ts` (19 tests, new)
+proves the live operator journey end to end — human decision, offer despatch, and the
+guards around both — through `applyHumanDecision`/`dispatchAuthorizedOffer` directly, the
+same "test the orchestration layer, not the route handler" discipline
+`tests/lead-rescue-offer-wait-resume.test.ts` already established for `checkWaitIncident`
+(this repository has no precedent, and this pass added none, for unit-testing a Next.js
+route handler directly — routes stay thin and are verified live in the browser instead).
+Every pre-existing lr-t14/lr-t22 test file (`tests/wait-incident-store.test.ts`,
+`tests/operation-claim-store.test.ts`, `tests/lead-rescue-wait-resume.test.ts`,
+`tests/lead-rescue-wait-resume-concurrency.test.ts`,
+`tests/lead-rescue-wait-resume-execution-boundary.test.ts`,
+`tests/lead-rescue-offer-wait.test.ts`, `tests/lead-rescue-offer-wait-resume.test.ts`,
+`tests/lead-rescue.test.ts`) is unchanged and still passes — confirming the
+`bookingReadyAt`-keyed identity fix in `handleOfferDespatched` did not alter any previously
+asserted behavior. `npm run build` still reports 29 prerendered pages (no new scenario this
+pass) but now 4 dynamic (`ƒ`) routes, not 2: the existing `/api/lead-rescue/wait-incidents`
+and `/check`, plus the two new `/decide` and `/dispatch`. `npm run docs` was re-run and
+produced NO diff: no new lifecycle state, transition, side-effect kind, operating parameter,
+or client policy was needed — this pass is entirely an orchestration and UI layer on top of
+canon and profile data that were already complete.
 
 Visual inspection performed on the portfolio index, the Owner Revenue Intelligence dossier,
 and both new scenario pages — the run-summary panel's existing generic counters render
@@ -1079,50 +1228,68 @@ effects, matching the "ordinary variation is left alone" claim exactly.
     `BOOKING_READY` entry paths — old or newly-covered — ever actually provide. See "lr-t22
     semantic-integrity correction — this pass," above, for the fix: a new fact, `offerSentAt`,
     written only by a new, explicit despatch event, now governs `lr-t22` instead.
-12. **The interactive wait/resume demo (`app/lead-rescue/wait/page.tsx`) does not let an
-    operator drive the human-review chain — only replay it from a fixture, this pass.** The
-    new canonical scenario (`reviewed-offer-elapses`) proves, in a deterministic replay, that
-    a policy-sensitive enquiry can be cleared by a person and then have a real offer
-    despatched to it before the wait clock starts. The live demo page still only offers two
-    "park a pre-authored incident" buttons; a visitor cannot submit their own
-    `human.decision.recorded` or `lead.offer.despatched` event and watch the case move
-    through `NEEDS_HUMAN -> BOOKING_READY -> (offer despatched) -> waiting` in real time, the
-    way the "reply" and "offer" park buttons already let them watch the WAIT itself happen
-    for real. The single recommended next fidelity gap below.
+12. **CLOSED this pass.** The interactive wait/resume demo now lets an operator drive the
+    human-review chain live, not only replay it from a fixture — see "The reviewed-offer
+    operator journey goes live," above. `app/lead-rescue/wait/page.tsx` genuinely applies an
+    operator-submitted `human.decision.recorded` and `lead.offer.despatched` event, through
+    `applyHumanDecision`/`dispatchAuthorizedOffer`, each step's own outcome and decision
+    record rendered as it happens.
+13. **A case parked under review, or ready but never despatched, has no timeout at all,
+    surfaced by this pass's own new live surface.** Canon already declares this failure mode
+    by name — `lr-fm-approval-timeout`, "HUMAN_APPROVAL_TIMEOUT": "A case held for human
+    approval is never actioned... the lead decays silently while the system reports it as
+    correctly parked," with `verificationTest: 'Pending — approval timeout scenario not yet
+    authored.'` This pass's own new "Cases under human review" and "Ready — no offer sent
+    yet" panels make the gap concrete and visible for the first time: a case parked there via
+    `store.park()` sits with no expiry, no reminder, and no escalation path if nobody ever
+    submits a decision or a despatch — genuinely different from `WAITING_FOR_REPLY` and a
+    despatched `BOOKING_READY`, both of which already have `lr-t14`/`lr-t22` governing them.
 
 ## Single recommended next fidelity gap
 
-**The interactive wait/resume demo lets a visitor watch a wait elapse for real, but not
-drive the human-review-then-offer chain that decides whether one should ever start.**
-This pass proved, in canon-backed fixture form (`reviewed-offer-elapses`) and in code
-(`handleHumanDecision`'s `bookingReadyAt` write, `handleOfferDespatched`'s `offerSentAt`
-write), that clearing a case and despatching an offer to it are two distinct, human-
-authorized actions — exactly the commercial distinction a buyer evaluating this system would
-want to see happen, not just read about in a scenario transcript. `app/lead-rescue/wait/page.tsx`
-already proves the WAIT half of this live (real file, real clock, real claim); it does not yet
-prove the DECISION half live — a visitor can only park a case that is already `BOOKING_READY`
-via a pre-authored fixture, never watch a case sitting in `NEEDS_HUMAN` get cleared, then have
-an offer despatched to it, with each step's own decision record rendered as it happens.
+**A case parked under human review, or cleared but never despatched, can sit forever with no
+reminder and no escalation.** `lr-fm-approval-timeout` is not a hypothetical: it is a
+declared failure mode in `data/systems/lead-rescue.ts`, named "HUMAN_APPROVAL_TIMEOUT," with
+its own `recovery` ("Escalate to the next owner in the authority chain") and its own
+`escalationCondition` ("Review window elapsed without acceptance") — and its
+`verificationTest` has read `'Pending — approval timeout scenario not yet authored'` since
+before this pass touched anything. This pass's own new live surface is what makes the gap
+concrete rather than abstract: a real operator can now park a real case into "Cases under
+human review" or "Ready — no offer sent yet" and then simply never act on it, and nothing in
+this codebase notices. `WAITING_FOR_REPLY` and a despatched `BOOKING_READY` both already have
+a genuine timer (`lr-t14`, `lr-t22`); the review and ready stages this pass just built do not.
 
 **Why this outranks another narrowly technical edge case.** Every remaining technical gap
-this pass could have chased instead — `lr-t21` (`BOOKING_READY -> BOOKED`) reached without an
-`offerSentAt` on file, a live UI affordance for authoring `lead.offer.despatched`'s own
-`OfferDespatchPayloadSchema`, a third waiting category to generalise to — is speculative
-relative to what this pass's own work concretely produced: a genuinely commercial two-actor
-grammar (a reviewer clears a case; someone then authorizes and sends the actual offer) that
-now exists in the engine and in one fixture, but is not yet something a person can click
-through and watch happen, the single most persuasive proof this portfolio's whole "wait/resume,
-live" page exists to offer. This is also the first Lead Rescue gap in several passes that is
-squarely a VISIBLE/commercial improvement rather than a technical correctness edge, matching
-this pass's own final-report priority: prefer an appreciable visible or commercial gap over
-another narrowly technical one when both are legitimately available.
+this pass's own work could point to instead — `lr-t21` reached without an `offerSentAt` on
+file, a live UI affordance for every one of `HumanDecisionPayloadSchema`'s five decision
+kinds rather than the three currently offered, optimistic-concurrency protection on the
+decision step to match the dispatch step's own claim-gated exclusivity — is a correctness
+polish on a path that already behaves safely today (each of those either cannot happen given
+existing guards, or fails safely if it does). The approval-timeout gap is different in kind:
+it is a DECLARED canon failure mode with a `Pending` verification test, now demonstrable for
+the first time because this pass built the review/ready surface that makes it real rather
+than theoretical — the same reasoning `docs/STATUS.md` has applied every time a fidelity gap
+was promoted to "next" because a prior pass's own work turned it from abstract into concrete.
+
+**Why this is not a repeat of `lr-t14`/`lr-t22`, and why it fits this architecture without a
+redesign.** A third genuinely different waiting condition — "reviewed but not yet decided,"
+and "cleared but not yet despatched" — would be the first real signal, per this codebase's
+own repeatedly-stated discipline, that generalising the wait/resume pattern into something
+more reusable is warranted rather than speculative. Today, two is not yet three: this would
+be the SAME `WaitIncidentStore`/`OperationClaimStore`/`checkWaitIncident`-shaped machinery
+applied a third time, most likely via one or two more canon transitions (an escalation path
+out of unattended review, matching `lr-fm-approval-timeout`'s own declared recovery) and a
+third small `handle*WaitReevaluation`-shaped rule — not a new persistence layer, not a new
+claim primitive, not a new UI framework.
 
 **Do not begin closing this gap from this document.** Recorded here as the evidence-based
 next candidate, the same discipline every prior pass's "next fidelity gap" section applied —
-not as a plan to execute without its own re-verification, and not without first deciding a
-genuine design question this document does not resolve: should the live demo let a visitor
-type their own offer content and decision rationale (closer to a real operator console), or
-replay the same fixture content the canonical scenario already uses (closer to the existing
-"park a demo incident" buttons' own minimal-affordance design)? That is a UX decision, not an
-architecture one, and belongs to whoever picks this gap up next, informed by actually looking
-at the existing page rather than assumed here.
+not as a plan to execute without its own re-verification, and not without first deciding
+genuine policy questions this document does not resolve: what review window is appropriate
+(a new client policy, the same shape `kestrel-reply-wait-window` and
+`kestrel-booking-offer-window` already established), which lifecycle state an unattended
+review or un-despatched-offer escalates TO (canon may need a new transition, or an existing
+one — e.g. `lr-t23`/`ESCALATED` — may already be the right target), and whether "ready but
+undespatched" and "under review" warrant the same window or two different ones. These are
+business-policy decisions, not implementation details, and belong to whoever picks this gap
+up next.

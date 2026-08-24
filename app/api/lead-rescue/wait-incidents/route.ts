@@ -9,6 +9,7 @@ import { LEAD_RESCUE_HANDLERS } from '@/lib/engine/handlers/lead-rescue';
 import { FixtureDecisionProvider } from '@/lib/ports/decision-provider';
 import { parkWaitingIncident } from '@/lib/engine/wait-resume';
 import { leadRescueWaitStore } from '@/lib/engine/lead-rescue-wait-runtime';
+import type { WaitIncidentRecord } from '@/lib/persistence/wait-incident-store';
 import type { CanonicalEvent, Scenario } from '@/lib/model/runtime';
 
 /**
@@ -19,30 +20,61 @@ import type { CanonicalEvent, Scenario } from '@/lib/model/runtime';
  * honestly claim "executed on this request" without the SSG caveat `docs/STATUS.md`
  * records for `app/simulator/[slug]`.
  *
- * Two waiting categories share this one surface — WAITING_FOR_REPLY (lr-t14) and
- * BOOKING_READY (lr-t22) — exactly as they share `WaitIncidentStore`, `checkWaitIncident`,
- * and `OperationClaimStore` underneath. `WAIT_KINDS` is the one place this route needs to
- * know the two apart: which fixture scenario seeds a demo incident, and which fact/window
- * pair its deadline is computed from. Nothing else here branches on category.
+ * THREE stages share this one store, distinguished by `stageFor()` below reading the
+ * incident's own current lifecycle state and facts — never a separately tracked label this
+ * route could drift out of sync with:
+ *   'review'  — NEEDS_HUMAN / ESCALATED / SUPPRESSION_REVIEW. Under human review; no clock
+ *               runs. Resumed by `POST .../decide` (`applyHumanDecision`).
+ *   'ready'   — BOOKING_READY, no offer despatched yet. Readiness only; still no clock.
+ *               Resumed by `POST .../dispatch` (`dispatchAuthorizedOffer`).
+ *   'waiting' — WAITING_FOR_REPLY, or BOOKING_READY with `offerSentAt` present. A genuine
+ *               timer is running. Resumed by `POST .../check` (`checkWaitIncident`),
+ *               unchanged from every prior pass.
+ * A 'review' or 'ready' record is every bit as durable as a 'waiting' one — same file, same
+ * temp-then-rename guarantee — it is simply not YET governed by a timer. See
+ * `lib/engine/wait-resume.ts`'s own module-level note on `applyHumanDecision`/
+ * `dispatchAuthorizedOffer` for why this does not stretch `WaitIncidentStore`'s contract.
  */
 export const dynamic = 'force-dynamic';
+
+const UNDER_REVIEW_STATES = ['NEEDS_HUMAN', 'ESCALATED', 'SUPPRESSION_REVIEW'];
+
+function stageFor(record: WaitIncidentRecord): 'review' | 'ready' | 'waiting' {
+  if (UNDER_REVIEW_STATES.includes(record.engineState.lifecycleState)) return 'review';
+  if (record.engineState.lifecycleState === 'BOOKING_READY' && record.engineState.facts['offerSentAt'] === undefined) {
+    return 'ready';
+  }
+  return 'waiting';
+}
 
 const WAIT_KINDS = {
   reply: {
     scenarioSlug: 'reply-window-elapses',
     expectedState: 'WAITING_FOR_REPLY',
-    waitStartedFact: 'waitStartedAt',
-    windowParam: 'replyWaitWindowHours',
+    waitStartedFact: 'waitStartedAt' as const,
+    windowParam: 'replyWaitWindowHours' as const,
+    /** Every setup event up to (not including) the first event of this type. */
+    stopBeforeType: 'lead.wait.reevaluated',
   },
   offer: {
     scenarioSlug: 'offer-window-elapses',
     expectedState: 'BOOKING_READY',
     // NOT bookingReadyAt: that fact only records readiness, never proof an offer reached
     // the prospect. The clock starts at offerSentAt, written once the fixture's own
-    // lead.offer.despatched setup event is replayed below — see WAIT_START_FACTS in
-    // `check/route.ts` for the same discriminant used on the read side.
-    waitStartedFact: 'offerSentAt',
-    windowParam: 'bookingOfferWindowHours',
+    // lead.offer.despatched setup event is replayed below.
+    waitStartedFact: 'offerSentAt' as const,
+    windowParam: 'bookingOfferWindowHours' as const,
+    stopBeforeType: 'lead.wait.reevaluated',
+  },
+  review: {
+    scenarioSlug: 'reviewed-offer-elapses',
+    expectedState: 'NEEDS_HUMAN',
+    // No clock at all yet — this kind parks ONLY the enquiry. The operator, not a fixture,
+    // supplies the human.decision.recorded and lead.offer.despatched events that follow, via
+    // POST .../decide and POST .../dispatch.
+    waitStartedFact: null,
+    windowParam: null,
+    stopBeforeType: 'human.decision.recorded',
   },
 } as const;
 
@@ -52,34 +84,42 @@ const REPLY_WINDOW_HOURS = numberParam(KESTREL, 'replyWaitWindowHours');
 const OFFER_WINDOW_HOURS = numberParam(KESTREL, 'bookingOfferWindowHours');
 
 export async function GET(): Promise<NextResponse> {
-  const waiting = await leadRescueWaitStore.listWaiting();
+  const all = await leadRescueWaitStore.listWaiting();
 
-  const incidents = waiting
+  const incidents = all
     .map((record) => {
-      const waitStartedAt = record.engineState.facts[WAIT_KINDS.reply.waitStartedFact] ?? null;
-      const bookingReadyAt = record.engineState.facts[WAIT_KINDS.offer.waitStartedFact] ?? null;
-      // Which fact is present tells us which category this incident is — the same
-      // authoritative-fact discriminant `handleWaitReevaluation` itself uses, not a second,
-      // separately-tracked label this route could drift out of sync with.
-      const kind: WaitKind | null = waitStartedAt !== null ? 'reply' : bookingReadyAt !== null ? 'offer' : null;
-      const waitStartedFactValue = kind === 'offer' ? bookingReadyAt : waitStartedAt;
+      const stage = stageFor(record);
+      const waitStartedAt =
+        stage !== 'waiting'
+          ? null
+          : (record.engineState.facts['waitStartedAt'] ?? record.engineState.facts['offerSentAt'] ?? null);
+      const kind: WaitKind | null =
+        stage !== 'waiting' ? null : record.engineState.facts['waitStartedAt'] !== undefined ? 'reply' : 'offer';
       const windowHours = kind === 'offer' ? OFFER_WINDOW_HOURS : kind === 'reply' ? REPLY_WINDOW_HOURS : null;
       const deadlineAt =
-        waitStartedFactValue === null || windowHours === null
+        waitStartedAt === null || windowHours === null
           ? null
-          : new Date(Date.parse(waitStartedFactValue) + windowHours * 3_600_000).toISOString();
+          : new Date(Date.parse(waitStartedAt) + windowHours * 3_600_000).toISOString();
       return {
         incidentId: record.incidentId,
         correlationId: record.correlationId,
         lifecycleState: record.engineState.lifecycleState,
+        stage,
         kind,
-        waitStartedAt: waitStartedFactValue,
+        waitStartedAt,
         windowHours,
         deadlineAt,
         revision: record.revision,
+        // Additive, present regardless of stage — what a review/ready screen needs to explain
+        // itself: why automation stopped, what remains unresolved, and readiness evidence.
+        awaitingHuman: record.engineState.awaitingHuman,
+        missingInformation: record.engineState.missingInformation,
+        bookingReadyAt: record.engineState.facts['bookingReadyAt'] ?? null,
+        contactName: record.engineState.facts['contactName'] ?? null,
+        company: record.engineState.facts['company'] ?? null,
       };
     })
-    .sort((a, b) => (a.waitStartedAt ?? '').localeCompare(b.waitStartedAt ?? ''));
+    .sort((a, b) => a.incidentId.localeCompare(b.incidentId));
 
   return NextResponse.json({
     incidents,
@@ -88,7 +128,7 @@ export async function GET(): Promise<NextResponse> {
 }
 
 const ParkRequestSchema = z.object({
-  kind: z.enum(['reply', 'offer']).optional(),
+  kind: z.enum(['reply', 'offer', 'review']).optional(),
 });
 
 /**
@@ -97,13 +137,11 @@ const ParkRequestSchema = z.object({
  * its wait start. `kind` defaults to `'reply'`, preserving this route's exact prior
  * behaviour for any caller that doesn't specify one.
  *
- * Replays every SETUP event in the fixture — everything up to (not including) its first
- * `lead.wait.reevaluated` check — not just the first. For `reply` that is still one event
- * (the enquiry). For `offer` it is now two: the enquiry (readiness, bookingReadyAt) AND the
- * fixture's own `lead.offer.despatched` event (offer-sent evidence, offerSentAt) — the actual
- * event this park flow's wait clock is computed from. Generic on purpose: a future third
- * waiting category needs no change here, only a longer or shorter run of setup events in its
- * own fixture.
+ * Replays every SETUP event in the fixture — everything up to (not including) its
+ * `stopBeforeType` event. For `reply` that is one event (the enquiry). For `offer` it is two
+ * (the enquiry, then the fixture's own offer despatch). For `review` it is ALSO just one (the
+ * enquiry) — deliberately stopping BEFORE the fixture's own human decision, so the operator
+ * supplies that step themselves rather than having it pre-baked.
  */
 export async function POST(request: Request): Promise<NextResponse> {
   const rawBody: unknown = await request.json().catch(() => ({}));
@@ -112,17 +150,14 @@ export async function POST(request: Request): Promise<NextResponse> {
     return NextResponse.json({ error: 'invalid request body' }, { status: 400 });
   }
   const kind: WaitKind = parsedBody.data.kind ?? 'reply';
-  const { scenarioSlug, expectedState } = WAIT_KINDS[kind];
+  const { scenarioSlug, expectedState, stopBeforeType } = WAIT_KINDS[kind];
 
   const found = leadRescueScenarioBySlug(scenarioSlug);
   if (found === undefined) {
     return NextResponse.json({ error: `fixture scenario "${scenarioSlug}" not found` }, { status: 500 });
   }
-  const setupEvents = found.events.filter((_, i) => {
-    // Every event before the first lead.wait.reevaluated check.
-    const firstCheckIndex = found.events.findIndex((e) => e.type === 'lead.wait.reevaluated');
-    return firstCheckIndex === -1 || i < firstCheckIndex;
-  });
+  const firstStopIndex = found.events.findIndex((e) => e.type === stopBeforeType);
+  const setupEvents = firstStopIndex === -1 ? found.events : found.events.slice(0, firstStopIndex);
   if (setupEvents.length === 0) {
     return NextResponse.json({ error: 'fixture scenario has no setup events' }, { status: 500 });
   }
@@ -154,11 +189,22 @@ export async function POST(request: Request): Promise<NextResponse> {
     );
   }
 
-  const parked = await parkWaitingIncident(leadRescueWaitStore, LEAD_RESCUE, {
-    incidentId,
-    correlationId: `inc-${incidentId}`,
-    engineState: run.finalState,
-  });
+  const parked =
+    kind === 'review'
+      ? // Under review, not genuinely waiting on a timer — parked directly rather than
+        // through `parkWaitingIncident`, whose own contract is scoped to the genuinely-
+        // waiting case. Mechanically identical durability; the distinction is semantic.
+        await leadRescueWaitStore.park({
+          incidentId,
+          systemId: LEAD_RESCUE.id,
+          correlationId: `inc-${incidentId}`,
+          engineState: { ...run.finalState, missingInformation: [...run.finalState.missingInformation] },
+        })
+      : await parkWaitingIncident(leadRescueWaitStore, LEAD_RESCUE, {
+          incidentId,
+          correlationId: `inc-${incidentId}`,
+          engineState: run.finalState,
+        });
 
   return NextResponse.json({ parked, kind });
 }

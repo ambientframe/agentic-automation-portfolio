@@ -3,21 +3,41 @@
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 
+type Stage = 'review' | 'ready' | 'waiting';
+
 interface IncidentSummary {
   readonly incidentId: string;
   readonly correlationId: string;
   readonly lifecycleState: string;
+  readonly stage: Stage;
   readonly kind: 'reply' | 'offer' | null;
   readonly waitStartedAt: string | null;
   readonly windowHours: number | null;
   readonly deadlineAt: string | null;
   readonly revision: number;
+  readonly awaitingHuman: string | null;
+  readonly missingInformation: readonly string[];
+  readonly bookingReadyAt: string | null;
+  readonly contactName: string | null;
+  readonly company: string | null;
 }
 
 const KIND_LABEL: Record<'reply' | 'offer', string> = {
   reply: 'reply (lr-t14)',
   offer: 'offer (lr-t22)',
 };
+
+/** Two roles, deliberately spanning the authority gate: one passes it, one does not. */
+const DECIDER_OPTIONS = [
+  { id: 'client-partner', label: 'Client partner — authority 3 (sufficient)' },
+  { id: 'analyst', label: 'Analyst — authority 1 (insufficient; will be rejected)' },
+];
+
+const DECISION_OPTIONS = [
+  { value: 'CLEARED_TO_PROCEED', label: 'Clear to proceed' },
+  { value: 'CLOSED_BAD_FIT', label: 'Close — not a fit' },
+  { value: 'ESCALATE', label: 'Escalate for a second opinion' },
+];
 
 export default function LeadRescueWaitPage() {
   const [incidents, setIncidents] = useState<readonly IncidentSummary[]>([]);
@@ -41,7 +61,7 @@ export default function LeadRescueWaitPage() {
   }, [refresh]);
 
   const parkDemoIncident = useCallback(
-    async (kind: 'reply' | 'offer') => {
+    async (kind: 'reply' | 'offer' | 'review') => {
       setBusy(true);
       try {
         await fetch('/api/lead-rescue/wait-incidents', {
@@ -76,6 +96,62 @@ export default function LeadRescueWaitPage() {
     [refresh],
   );
 
+  const submitDecision = useCallback(
+    async (incidentId: string, expectedRevision: number, form: HTMLFormElement) => {
+      const data = new FormData(form);
+      setBusy(true);
+      try {
+        const res = await fetch('/api/lead-rescue/wait-incidents/decide', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            incidentId,
+            expectedRevision,
+            decidedBy: data.get('decidedBy'),
+            decision: data.get('decision'),
+            rationale: data.get('rationale'),
+          }),
+        });
+        const result: unknown = await res.json();
+        setLastResult(result);
+        await refresh();
+      } finally {
+        setBusy(false);
+      }
+    },
+    [refresh],
+  );
+
+  const submitDispatch = useCallback(
+    async (incidentId: string, expectedRevision: number, form: HTMLFormElement) => {
+      const data = new FormData(form);
+      setBusy(true);
+      try {
+        const res = await fetch('/api/lead-rescue/wait-incidents/dispatch', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            incidentId,
+            expectedRevision,
+            decidedBy: data.get('decidedBy'),
+            target: data.get('target'),
+            offerSummary: data.get('offerSummary'),
+          }),
+        });
+        const result: unknown = await res.json();
+        setLastResult(result);
+        await refresh();
+      } finally {
+        setBusy(false);
+      }
+    },
+    [refresh],
+  );
+
+  const reviewIncidents = incidents.filter((i) => i.stage === 'review');
+  const readyIncidents = incidents.filter((i) => i.stage === 'ready');
+  const waitingIncidents = incidents.filter((i) => i.stage === 'waiting');
+
   return (
     <div className="mx-auto max-w-4xl px-6 py-12 space-y-8">
       <nav className="instrument">
@@ -86,27 +162,34 @@ export default function LeadRescueWaitPage() {
 
       <header className="space-y-4">
         <span className="label">Lead Rescue · wait/resume, live</span>
-        <h1 className="display text-3xl sm:text-4xl">A persisted wait, checked for real</h1>
+        <h1 className="display text-3xl sm:text-4xl">A reviewed offer, followed end to end</h1>
         <p className="lede prose-measure">
           Every scenario in the simulator replays a deterministic run from authored fixture
-          events. This page does not: parking an incident here writes a real record to a JSON
-          file on disk, and checking it reads the real server clock, loads that record back off
-          disk, and applies the same deterministic rule through the same engine —
-          independently of whatever process parked it. Two waiting categories share this one
-          durable runtime: a reply wait (lr-t14, WAITING_FOR_REPLY) and a booking-offer wait
-          (lr-t22, BOOKING_READY) — the same <code>WaitIncidentStore</code>,{' '}
-          <code>checkWaitIncident</code>, and durable claim, never a second mechanism built to
-          match.
+          events. This page does not: every action below writes a real record to a JSON file
+          on disk and reads the real server clock. Follow one case through the full journey —
+          a person reviews why automation stopped, decides what happens next, a genuinely
+          separate action despatches a simulated offer to the prospect, and only THAT starts
+          the durable countdown to escalation.
         </p>
       </header>
 
-      <section className="border rule rounded-sm p-4 space-y-4" style={{ background: 'var(--panel)' }}>
+      {/* ------------------------------------------------------------------ */}
+      {/* Stage 1: park a demo case */}
+      {/* ------------------------------------------------------------------ */}
+      <section className="border rule rounded-sm p-4 space-y-3" style={{ background: 'var(--panel)' }}>
         <div className="flex flex-wrap items-center gap-3">
+          <button
+            onClick={() => parkDemoIncident('review')}
+            disabled={busy}
+            className="badge"
+            style={{ borderColor: 'var(--accent)', color: 'var(--accent)' }}
+          >
+            Start a case needing human review (lr-t11 → lr-t24)
+          </button>
           <button
             onClick={() => parkDemoIncident('reply')}
             disabled={busy}
             className="badge"
-            style={{ borderColor: 'var(--accent)', color: 'var(--accent)' }}
           >
             Park a demo incident (reply, lr-t14)
           </button>
@@ -114,19 +197,180 @@ export default function LeadRescueWaitPage() {
             onClick={() => parkDemoIncident('offer')}
             disabled={busy}
             className="badge"
-            style={{ borderColor: 'var(--accent)', color: 'var(--accent)' }}
           >
-            Park a demo incident (offer, lr-t22)
+            Park a demo incident (direct offer, lr-t22)
           </button>
           <button onClick={() => checkNow()} disabled={busy} className="badge" style={{ borderColor: 'var(--rule-strong)' }}>
-            Check all now (real clock)
+            Check all waiting now (real clock)
           </button>
-          <span className="instrument" style={{ color: 'var(--ink-faint)' }}>
-            Configured windows: reply {windows?.reply ?? '…'}h (kestrel-reply-wait-window) · offer{' '}
-            {windows?.offer ?? '…'}h (kestrel-booking-offer-window)
-          </span>
         </div>
+        <p className="instrument" style={{ color: 'var(--ink-faint)' }}>
+          Configured windows: reply {windows?.reply ?? '…'}h (kestrel-reply-wait-window) · offer{' '}
+          {windows?.offer ?? '…'}h (kestrel-booking-offer-window)
+        </p>
+      </section>
 
+      {/* ------------------------------------------------------------------ */}
+      {/* Stage 2: cases under human review */}
+      {/* ------------------------------------------------------------------ */}
+      <section className="border rule rounded-sm p-4 space-y-4" style={{ background: 'var(--panel)' }}>
+        <div>
+          <h2 className="label">Cases under human review</h2>
+          <p className="instrument" style={{ color: 'var(--ink-muted)' }}>
+            Automation stopped on purpose. No message has gone anywhere. A named person decides what happens next.
+          </p>
+        </div>
+        {reviewIncidents.length === 0 && (
+          <p className="instrument" style={{ color: 'var(--ink-faint)' }}>
+            No cases currently under review.
+          </p>
+        )}
+        <div className="space-y-4">
+          {reviewIncidents.map((incident) => (
+            <form
+              key={incident.incidentId}
+              className="border rule rounded-sm p-3 space-y-2"
+              onSubmit={(e) => {
+                e.preventDefault();
+                submitDecision(incident.incidentId, incident.revision, e.currentTarget);
+              }}
+            >
+              <div className="flex flex-wrap items-baseline justify-between gap-2">
+                <span className="instrument font-medium">{incident.incidentId}</span>
+                <span className="badge" style={{ borderColor: 'var(--rule-strong)' }}>{incident.lifecycleState}</span>
+              </div>
+              {(incident.contactName ?? incident.company) !== null && (
+                <p className="instrument" style={{ color: 'var(--ink-muted)' }}>
+                  {incident.contactName} · {incident.company}
+                </p>
+              )}
+              <p className="instrument">
+                <strong>Why this needs a person:</strong> {incident.awaitingHuman ?? '—'}
+              </p>
+              {incident.missingInformation.length > 0 && (
+                <p className="instrument" style={{ color: 'var(--ink-muted)' }}>
+                  Still unresolved: {incident.missingInformation.join(', ')}
+                </p>
+              )}
+              <div className="flex flex-wrap items-center gap-2">
+                <label className="instrument" style={{ color: 'var(--ink-muted)' }}>
+                  Decide as
+                  <select name="decidedBy" defaultValue="client-partner" className="ml-2 border rule rounded-sm px-1 py-0.5">
+                    {DECIDER_OPTIONS.map((o) => (
+                      <option key={o.id} value={o.id}>
+                        {o.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="instrument" style={{ color: 'var(--ink-muted)' }}>
+                  Decision
+                  <select name="decision" defaultValue="CLEARED_TO_PROCEED" className="ml-2 border rule rounded-sm px-1 py-0.5">
+                    {DECISION_OPTIONS.map((o) => (
+                      <option key={o.value} value={o.value}>
+                        {o.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+              <input
+                name="rationale"
+                defaultValue="Reviewed the case personally and confirmed there is no blocker to proceeding."
+                className="w-full border rule rounded-sm px-2 py-1 instrument text-sm"
+                aria-label="Rationale"
+              />
+              <button type="submit" disabled={busy} className="badge" style={{ borderColor: 'var(--accent)', color: 'var(--accent)' }}>
+                Submit decision
+              </button>
+            </form>
+          ))}
+        </div>
+      </section>
+
+      {/* ------------------------------------------------------------------ */}
+      {/* Stage 3: ready, offer not yet despatched */}
+      {/* ------------------------------------------------------------------ */}
+      <section className="border rule rounded-sm p-4 space-y-4" style={{ background: 'var(--panel)' }}>
+        <div>
+          <h2 className="label">Ready — no offer sent yet</h2>
+          <p className="instrument" style={{ color: 'var(--ink-muted)' }}>
+            Enough is known to offer a next commercial step. That is readiness, not delivery — nothing has
+            reached the prospect and no clock is running until someone explicitly sends it.
+          </p>
+        </div>
+        {readyIncidents.length === 0 && (
+          <p className="instrument" style={{ color: 'var(--ink-faint)' }}>
+            No cases currently ready and un-offered.
+          </p>
+        )}
+        <div className="space-y-4">
+          {readyIncidents.map((incident) => (
+            <form
+              key={incident.incidentId}
+              className="border rule rounded-sm p-3 space-y-2"
+              onSubmit={(e) => {
+                e.preventDefault();
+                submitDispatch(incident.incidentId, incident.revision, e.currentTarget);
+              }}
+            >
+              <div className="flex flex-wrap items-baseline justify-between gap-2">
+                <span className="instrument font-medium">{incident.incidentId}</span>
+                <span className="badge" style={{ borderColor: 'var(--rule-strong)' }}>BOOKING_READY · ready since {incident.bookingReadyAt}</span>
+              </div>
+              <label className="instrument block" style={{ color: 'var(--ink-muted)' }}>
+                Sending to (the prospect, never the owner)
+                <input
+                  name="target"
+                  defaultValue={incident.contactName !== null ? `${incident.contactName} (on file for this enquiry)` : 'the prospect on file'}
+                  className="mt-1 w-full border rule rounded-sm px-2 py-1 instrument text-sm"
+                />
+              </label>
+              <label className="instrument block" style={{ color: 'var(--ink-muted)' }}>
+                Offer content
+                <input
+                  name="offerSummary"
+                  defaultValue="Offered a 30-minute scoping call for next Wednesday 10:00 or Thursday 14:00. No pricing or commitment stated."
+                  className="mt-1 w-full border rule rounded-sm px-2 py-1 instrument text-sm"
+                />
+              </label>
+              <div className="flex flex-wrap items-center gap-2">
+                <label className="instrument" style={{ color: 'var(--ink-muted)' }}>
+                  Authorize as
+                  <select name="decidedBy" defaultValue="client-partner" className="ml-2 border rule rounded-sm px-1 py-0.5">
+                    {DECIDER_OPTIONS.map((o) => (
+                      <option key={o.id} value={o.id}>
+                        {o.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <button
+                  type="submit"
+                  disabled={busy}
+                  className="badge"
+                  style={{ borderColor: 'var(--accent)', color: 'var(--accent)' }}
+                >
+                  Despatch offer (simulated)
+                </button>
+              </div>
+            </form>
+          ))}
+        </div>
+      </section>
+
+      {/* ------------------------------------------------------------------ */}
+      {/* Stage 4: genuinely waiting on a timer */}
+      {/* ------------------------------------------------------------------ */}
+      <section className="border rule rounded-sm p-4 space-y-4" style={{ background: 'var(--panel)' }}>
+        <div>
+          <h2 className="label">Waiting for a response</h2>
+          <p className="instrument" style={{ color: 'var(--ink-muted)' }}>
+            A real clock is running: a question was asked, or an offer was actually despatched. Two waiting
+            categories share this one durable runtime — the same <code>WaitIncidentStore</code>,{' '}
+            <code>checkWaitIncident</code>, and durable claim.
+          </p>
+        </div>
         <div className="overflow-x-auto">
           <table className="w-full instrument text-sm" style={{ minWidth: '640px' }}>
             <thead>
@@ -140,14 +384,14 @@ export default function LeadRescueWaitPage() {
               </tr>
             </thead>
             <tbody>
-              {incidents.length === 0 && (
+              {waitingIncidents.length === 0 && (
                 <tr>
                   <td colSpan={6} className="py-3" style={{ color: 'var(--ink-faint)' }}>
                     No incidents currently waiting.
                   </td>
                 </tr>
               )}
-              {incidents.map((incident) => (
+              {waitingIncidents.map((incident) => (
                 <tr key={incident.incidentId} className="border-t rule">
                   <td className="py-2 pr-2">{incident.incidentId}</td>
                   <td className="pr-2">{incident.kind === null ? '—' : KIND_LABEL[incident.kind]}</td>
@@ -176,7 +420,7 @@ export default function LeadRescueWaitPage() {
 
       {lastResult !== null && (
         <section className="border rule rounded-sm p-4 space-y-2" style={{ background: 'var(--panel)' }}>
-          <h2 className="label">Last check result</h2>
+          <h2 className="label">Last action result</h2>
           <pre className="instrument text-xs overflow-x-auto" style={{ color: 'var(--ink-muted)' }}>
             {JSON.stringify(lastResult, null, 2)}
           </pre>
@@ -191,12 +435,13 @@ export default function LeadRescueWaitPage() {
               Genuinely executing
             </p>
             <ul className="instrument space-y-1" style={{ color: 'var(--ink-muted)' }}>
-              <li>· Either &ldquo;Park a demo incident&rdquo; button runs the real engine — the same handler and reducer the simulator uses — to reach WAITING_FOR_REPLY or BOOKING_READY, then writes the resulting state to a real file. For the offer kind this replays two real events, not one: the enquiry (readiness) and the fixture&apos;s own explicit offer-despatch event — reaching BOOKING_READY alone is never enough to start this clock.</li>
-              <li>· &ldquo;Check&rdquo; reads the real server clock once and applies exactly one lead.wait.reevaluated event against the record loaded back off disk — the SAME event type for both kinds; which rule (lr-t14 or lr-t22) applies is read off the incident&apos;s own current lifecycle state, not a label this page supplies.</li>
-              <li>· A check before the deadline is a genuine no-op: no transition, no side effect, the record untouched.</li>
-              <li>· A check after the deadline fires the matching rule through the ordinary authority and idempotency gates, same as any other transition.</li>
-              <li>· Restarting the dev server does not lose a waiting incident — the file on disk is the only place this state lives.</li>
-              <li>· The notification itself is durably claimed before it is trusted: two overlapping checks on the same incident can never both report it EXECUTED. A claim that is recorded but never confirmed (e.g. a crash mid-check) surfaces as an <code>UNCERTAIN</code> result rather than being silently retried — visible in the raw result below as <code>outcome: &quot;UNCERTAIN&quot;</code>.</li>
+              <li>· &ldquo;Start a case needing human review&rdquo; runs the real engine to a genuine NEEDS_HUMAN (lr-t11), then writes it to a real file. Nothing autonomous has happened to this case.</li>
+              <li>· &ldquo;Submit decision&rdquo; applies a real human.decision.recorded event through the actual canonical handler (handleHumanDecision) and the engine&apos;s own transition-legality gate. An insufficiently authorized or stale/out-of-order decision is refused and the record is left untouched — try the &ldquo;Analyst&rdquo; option to see it happen.</li>
+              <li>· A cleared case reaching BOOKING_READY writes only readiness evidence. No offer-wait clock starts, and re-checking it — even far in the future — is a genuine no-op.</li>
+              <li>· &ldquo;Despatch offer&rdquo; applies a real lead.offer.despatched event through a durable claim, then a genuinely awaited (simulated) send — the SAME claim-then-invoke ordering already proven for the wait-elapsed notification. Only a CONFIRMED result durably records the offer-sent timestamp and starts the 48-hour window; a rejected or uncertain attempt changes nothing.</li>
+              <li>· &ldquo;Check&rdquo; reads the real server clock once and applies exactly one lead.wait.reevaluated event against the record loaded back off disk. A check before the deadline is a genuine no-op; a check after it fires lr-t14 or lr-t22 through the ordinary authority and idempotency gates.</li>
+              <li>· Restarting the dev server loses nothing at any stage — review, ready, or waiting — the file on disk is the only place this state lives.</li>
+              <li>· Every despatch and every escalation is durably claimed before it is trusted: two overlapping attempts on the same case can never both report success. A claim recorded but never confirmed surfaces as <code>UNCERTAIN</code> rather than being silently retried.</li>
             </ul>
           </div>
           <div className="space-y-2">
@@ -205,7 +450,7 @@ export default function LeadRescueWaitPage() {
             </p>
             <ul className="instrument space-y-1" style={{ color: 'var(--ink-muted)' }}>
               <li>· &ldquo;Simulate past deadline &amp; check&rdquo; is the one control that does not use the real clock — it supplies a timestamp just past the deadline instead, through the identical check path a genuine hours-later check would take.</li>
-              <li>· The notification effect on escalation is simulated — nothing leaves this process.</li>
+              <li>· The offer despatch and the escalation notification are both simulated sends — a deterministic, always-succeeds stand-in. Nothing leaves this process, and no real prospect or provider is involved.</li>
               <li>· This demo store is a single JSON file, adequate for a prototype; a production deployment on an ephemeral filesystem would need a persistent volume behind the same `WaitIncidentStore` interface, unchanged.</li>
             </ul>
           </div>

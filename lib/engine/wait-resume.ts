@@ -153,10 +153,31 @@ export interface WaitCheckResult {
  * Every side effect `applyEvent` marked EXECUTED, re-keyed by its own idempotencyKey. In
  * practice this is one entry for Lead Rescue's wait-elapsed notification, but nothing here
  * assumes exactly one — a future reuse of this same resume boundary (e.g. lr-t22) may
- * propose more than one.
+ * propose more than one. Exported: `dispatchAuthorizedOffer`, below, reuses this exact
+ * function rather than re-deriving "which effects need a durable claim" a second way.
  */
-function executedSideEffects(entries: readonly TimelineEntry[]): SideEffect[] {
+export function executedSideEffects(entries: readonly TimelineEntry[]): SideEffect[] {
   return entries.flatMap((entry) => entry.sideEffects).filter((effect) => effect.status === 'EXECUTED');
+}
+
+function freshInternals(): EngineInternals {
+  return { effects: new SideEffectLedger(), events: new EventLedger(), executions: new ExecutionLedger() };
+}
+
+/**
+ * Defensive copy into `WaitIncidentRecord`'s own (mutable-field) shape — the same copy
+ * `parkWaitingIncident` already makes for its own caller, applied here for `applyHumanDecision`
+ * and `dispatchAuthorizedOffer`'s re-parks, so a later mutation on `result.state` (there isn't
+ * one today, but nothing here should rely on that) can never reach a persisted record.
+ */
+function toStoredEngineState(state: EngineState): WaitIncidentRecord['engineState'] {
+  return {
+    lifecycleState: state.lifecycleState,
+    facts: { ...state.facts },
+    suppressed: state.suppressed,
+    awaitingHuman: state.awaitingHuman,
+    missingInformation: [...state.missingInformation],
+  };
 }
 
 /**
@@ -172,7 +193,7 @@ function executedSideEffects(entries: readonly TimelineEntry[]): SideEffect[] {
  * distinct wait cycles for the same incident — exactly the "stable business-operation
  * identity" the fix requires, without reaching for volatile timestamps or eventIds.
  */
-function operationClaimId(effect: SideEffect, record: WaitIncidentRecord): string {
+export function operationClaimId(effect: SideEffect, record: WaitIncidentRecord): string {
   return `${effect.idempotencyKey}@rev${record.revision}`;
 }
 
@@ -183,7 +204,7 @@ function operationClaimId(effect: SideEffect, record: WaitIncidentRecord): strin
  * never an upgrade, so nothing here can make an effect look MORE executed than the pure core
  * actually computed.
  */
-function downgradeEffect(
+export function downgradeEffect(
   entries: readonly TimelineEntry[],
   idempotencyKey: string,
   status: 'SUPPRESSED_DUPLICATE' | 'OUTCOME_UNKNOWN',
@@ -241,11 +262,7 @@ export async function checkWaitIncident(
     payload: {},
   };
 
-  const internals: EngineInternals = {
-    effects: new SideEffectLedger(),
-    events: new EventLedger(),
-    executions: new ExecutionLedger(),
-  };
+  const internals = freshInternals();
 
   const result = applyEvent(record.engineState, event, {
     system: deps.system,
@@ -360,4 +377,250 @@ export async function checkAllWaitingIncidents(
     results.push(await checkWaitIncident(store, claimStore, record.incidentId, nowIso, deps, runtimeId));
   }
   return results;
+}
+
+// ---------------------------------------------------------------------------
+// HUMAN REVIEW: NEEDS_HUMAN / ESCALATED / SUPPRESSION_REVIEW -> a canonical disposition.
+//
+// A genuinely different boundary from the wait-elapsed one above, sharing the same store
+// for the same reason `WaitIncidentRecord` was never wait-specific in its own type: it is
+// the smallest snapshot that survives a process boundary, regardless of WHY an incident is
+// parked. `store.park()` (not `parkWaitingIncident`, which exists specifically for the
+// "already reached a genuinely waiting state" caller) is called directly by
+// `parkReviewCase`-shaped callers — see `app/api/lead-rescue/wait-incidents/route.ts`'s
+// `review` kind — for exactly this reason: a case under human review is not "waiting on a
+// timer," so labelling it through the wait-specific wrapper would be dishonest. It IS every
+// bit as durable as a genuinely waiting record — the underlying file and temp-then-rename
+// guarantee do not care what lifecycle state a snapshot represents — the distinction that
+// matters is semantic (what resumes it: a clock, or a person), not durability.
+// ---------------------------------------------------------------------------
+
+/**
+ * Lifecycle states a `human.decision.recorded` event may legitimately be applied against
+ * through this boundary. Not enforced by `handleHumanDecision` itself — that handler (shared
+ * by every scenario and test in this system) applies unconditionally and lets the engine's
+ * own transition-legality gate be the only check, correct for a one-shot scenario replay but
+ * not sufficient for a LIVE, resubmittable interactive surface: a decision resubmitted after
+ * the case already left one of these states would otherwise hit a self-loop
+ * (`humanTarget()`'s `'CLEARED_TO_PROCEED' -> 'BOOKING_READY'` mapping, applied to a case
+ * ALREADY in `BOOKING_READY`), which bypasses the engine's from/to legality check entirely
+ * (self-loops are unconditionally accepted — see `lib/engine/reducer.ts`) and would silently
+ * re-stamp `bookingReadyAt` a second time. This allowlist is that missing guard, added here
+ * at the orchestration boundary rather than inside the shared handler.
+ */
+const UNDER_REVIEW_STATES = ['NEEDS_HUMAN', 'ESCALATED', 'SUPPRESSION_REVIEW'];
+
+export type DecisionOutcome = 'NOT_FOUND' | 'STALE_REVISION' | 'NOT_UNDER_REVIEW' | 'REJECTED' | 'UNAUTHORIZED' | 'ACCEPTED';
+
+export interface DecisionResult {
+  readonly incidentId: string;
+  readonly outcome: DecisionOutcome;
+  /** Present except on NOT_FOUND: the record BEFORE this call for every rejected outcome, or the freshly re-parked one on ACCEPTED. */
+  readonly record?: WaitIncidentRecord;
+  readonly entries?: readonly TimelineEntry[];
+}
+
+/**
+ * Applies one `human.decision.recorded` event against a case parked in one of
+ * `UNDER_REVIEW_STATES`. On an authorized, canonically-accepted decision, re-parks the
+ * resulting state — a genuinely new revision, exactly like every other re-park in this
+ * module — and returns it. Every other outcome leaves the original record completely
+ * untouched, so a caller can safely retry with corrected input.
+ *
+ * Reuses `applyEvent` and `handleHumanDecision` exactly as authored for scenario replay;
+ * nothing about the pure handler changed to support this. The guards this function adds on
+ * top of what the handler itself checks — the state allowlist above, the expected-revision
+ * match, and treating the handler's OWN authority verification as gating rather than merely
+ * informational — are additive safety appropriate to an interactive surface a person can
+ * resubmit to, not a change to the handler every scenario and test already relies on.
+ */
+export async function applyHumanDecision(
+  store: WaitIncidentStore,
+  incidentId: string,
+  expectedRevision: number,
+  event: CanonicalEvent,
+  deps: Pick<WaitResumeDeps, 'system' | 'profile' | 'handlers'>,
+): Promise<DecisionResult> {
+  const record = await store.load(incidentId);
+  if (record === undefined) return { incidentId, outcome: 'NOT_FOUND' };
+  if (record.revision !== expectedRevision) return { incidentId, outcome: 'STALE_REVISION', record };
+  if (!UNDER_REVIEW_STATES.includes(record.engineState.lifecycleState)) {
+    return { incidentId, outcome: 'NOT_UNDER_REVIEW', record };
+  }
+
+  const result = applyEvent(record.engineState, event, {
+    system: deps.system,
+    profile: deps.profile,
+    handlers: deps.handlers,
+    judgments: new Map(),
+    internals: freshInternals(),
+  });
+
+  const accepted = result.entries.flatMap((e) => e.transitions).some((t) => t.accepted);
+  if (!accepted) return { incidentId, outcome: 'REJECTED', record, entries: result.entries };
+
+  const authorityCheck = result.entries.flatMap((e) => e.verifications).find((v) => v.check.includes('authority'));
+  if (authorityCheck !== undefined && authorityCheck.result !== 'PASS') {
+    return { incidentId, outcome: 'UNAUTHORIZED', record, entries: result.entries };
+  }
+
+  const reparked = await store.park({
+    incidentId: record.incidentId,
+    systemId: record.systemId,
+    correlationId: record.correlationId,
+    engineState: toStoredEngineState(result.state),
+  });
+  return { incidentId, outcome: 'ACCEPTED', record: reparked, entries: result.entries };
+}
+
+// ---------------------------------------------------------------------------
+// OFFER DESPATCH: a claim-gated, genuinely observable prospect-facing send.
+// ---------------------------------------------------------------------------
+
+export type DispatchOutcome = 'NOT_FOUND' | 'STALE_REVISION' | 'NOT_READY' | 'ALREADY_DISPATCHED' | 'REJECTED' | 'CONFIRMED' | 'UNCERTAIN';
+
+export interface DispatchResult {
+  readonly incidentId: string;
+  readonly outcome: DispatchOutcome;
+  /** Present on CONFIRMED: the newly re-parked, now genuinely waiting (offerSentAt-bearing) record. */
+  readonly record?: WaitIncidentRecord;
+  readonly entries?: readonly TimelineEntry[];
+  /** Present on UNCERTAIN: the durable claim record blocking automatic trust. */
+  readonly uncertainOperation?: OperationClaimRecord;
+}
+
+/**
+ * Applies one `lead.offer.despatched` event against a BOOKING_READY case with no offer sent
+ * yet, through the IDENTICAL claim-then-invoke ordering `checkWaitIncident` already
+ * established for lr-t14/lr-t22's own notification: plan (pure `applyEvent`), claim
+ * (durable, exclusive), invoke the configured executor ONLY after the claim is won, confirm
+ * only on genuine success.
+ *
+ * This is the fix for the false-positive risk this pass exists to close.
+ * `handleOfferDespatched`'s own pure computation always includes `offerSentAt` in its plan —
+ * the same "EXECUTED is a plan, not an action" discipline documented on `checkWaitIncident`,
+ * above — but that plan is durably PERSISTED, and the offer-wait clock therefore actually
+ * starts, ONLY once this function reaches CONFIRMED. An UNCERTAIN outcome leaves the original
+ * record — still BOOKING_READY, still no `offerSentAt` — completely untouched: the incident
+ * is not silently treated as sent or unsent, a human sees `UNCERTAIN` and decides what to do,
+ * exactly the discipline `tests/lead-rescue-wait-resume-execution-boundary.test.ts` already
+ * proved for lr-t14/lr-t22's own notification.
+ *
+ * The claim identity reuses `operationClaimId` unchanged — the SAME `${idempotencyKey}@rev${revision}`
+ * scheme, not a second one invented for this newly-observable send. Two callers racing to
+ * despatch the SAME BOOKING_READY cycle compute the SAME idempotencyKey (see
+ * `handleOfferDespatched`'s own `bookingReadyAt`-keyed identity) against the SAME loaded
+ * `revision`, so they collide on the SAME claim — the "at most one observable invocation"
+ * guarantee, reusing the store rather than inventing a second locking mechanism. A caller
+ * that discovers the claim was ALREADY_CONFIRMED by a concurrent winner reports
+ * `ALREADY_DISPATCHED` and re-parks nothing itself, so the winner's own re-park is never
+ * raced or duplicated.
+ */
+export async function dispatchAuthorizedOffer(
+  store: WaitIncidentStore,
+  claimStore: OperationClaimStore,
+  incidentId: string,
+  expectedRevision: number,
+  event: CanonicalEvent,
+  deps: WaitResumeDeps,
+  runtimeId: string,
+): Promise<DispatchResult> {
+  const record = await store.load(incidentId);
+  if (record === undefined) return { incidentId, outcome: 'NOT_FOUND' };
+  if (record.revision !== expectedRevision) return { incidentId, outcome: 'STALE_REVISION', record };
+  if (record.engineState.lifecycleState !== 'BOOKING_READY') return { incidentId, outcome: 'NOT_READY', record };
+  if (record.engineState.facts['offerSentAt'] !== undefined) {
+    return { incidentId, outcome: 'ALREADY_DISPATCHED', record };
+  }
+
+  const result = applyEvent(record.engineState, event, {
+    system: deps.system,
+    profile: deps.profile,
+    handlers: deps.handlers,
+    judgments: new Map(),
+    internals: freshInternals(),
+  });
+
+  const executed = executedSideEffects(result.entries);
+  if (executed.length === 0) return { incidentId, outcome: 'REJECTED', record, entries: result.entries };
+
+  let entries = result.entries;
+  let blocking: OperationClaimRecord | undefined;
+
+  for (const effect of executed) {
+    const operationId = operationClaimId(effect, record);
+    const attempt: ClaimAttempt = await claimStore.claim(operationId, runtimeId, event.occurredAt);
+
+    if (attempt.decision === 'ALREADY_CONFIRMED') {
+      entries = downgradeEffect(
+        entries,
+        effect.idempotencyKey,
+        'SUPPRESSED_DUPLICATE',
+        `Idempotency key "${effect.idempotencyKey}" was already durably confirmed despatched by a concurrent caller (claimed by ${attempt.record.claimedBy} at ${attempt.record.claimedAt}). No second despatch occurred.`,
+      );
+      // The winner already re-parked the confirmed state; this caller must not also park,
+      // which would duplicate or race that re-park under a different revision.
+      return { incidentId, outcome: 'ALREADY_DISPATCHED', entries };
+    }
+
+    if (attempt.decision === 'CLAIMED') {
+      if (deps.executor === undefined) {
+        await claimStore.confirm(operationId, event.occurredAt);
+        continue;
+      }
+
+      // The one and only place this function invokes something observable — reachable only
+      // after the claim above already succeeded durably and exclusively.
+      const resolved = await resolveSend(deps.executor, {
+        attemptId: operationId,
+        idempotencyKey: effect.idempotencyKey,
+        provider: deps.executor.id,
+        description: effect.description,
+      });
+
+      if (resolved.status === 'OK' && resolved.result.kind === 'SUCCEEDED') {
+        await claimStore.confirm(operationId, event.occurredAt);
+        continue;
+      }
+
+      const detail =
+        resolved.status === 'OK'
+          ? `attemptSend on "${deps.executor.id}" returned ${resolved.result.kind}: ${'reason' in resolved.result ? resolved.result.reason : 'no further detail'}.`
+          : `attemptSend on "${deps.executor.id}" could not be resolved (${resolved.status}): ${resolved.reason}.`;
+      entries = downgradeEffect(
+        entries,
+        effect.idempotencyKey,
+        'OUTCOME_UNKNOWN',
+        `Idempotency key "${effect.idempotencyKey}" was durably claimed by this runtime but the observable executor did not confirm success. ${detail} Refusing to treat the offer as sent.`,
+      );
+      blocking = await claimStore.load(operationId);
+      continue;
+    }
+
+    // UNCERTAIN: a claim exists but was never confirmed — a concurrent claimant still
+    // mid-flight, or a crash between claiming and confirming. This caller must not despatch,
+    // must not durably record offerSentAt, and must say so plainly.
+    entries = downgradeEffect(
+      entries,
+      effect.idempotencyKey,
+      'OUTCOME_UNKNOWN',
+      `Idempotency key "${effect.idempotencyKey}" was claimed by ${attempt.record.claimedBy} at ${attempt.record.claimedAt} but never durably confirmed. Whether it despatched is genuinely unknown from here; refusing to treat the offer as sent.`,
+    );
+    blocking = attempt.record;
+  }
+
+  if (blocking !== undefined) {
+    return { incidentId, outcome: 'UNCERTAIN', entries, uncertainOperation: blocking };
+  }
+
+  // Only now — every proposed effect durably confirmed — is offerSentAt persisted as
+  // authoritative. A genuinely new wait cycle: a fresh revision, checkable by the completely
+  // unmodified checkWaitIncident/handleOfferWaitReevaluation machinery from here on.
+  const reparked = await store.park({
+    incidentId: record.incidentId,
+    systemId: record.systemId,
+    correlationId: record.correlationId,
+    engineState: toStoredEngineState(result.state),
+  });
+  return { incidentId, outcome: 'CONFIRMED', record: reparked, entries };
 }
