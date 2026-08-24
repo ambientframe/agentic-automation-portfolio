@@ -25,6 +25,22 @@ interface IncidentSummary {
   readonly attentionWindowHours: number | null;
   readonly attentionDeadlineAt: string | null;
   readonly attentionOverdue: boolean;
+  /** Present only for a case that genuinely entered through the n8n ingress seam. */
+  readonly provenance: { readonly source: string; readonly sourceEventId: string; readonly ingestionPath: string } | null;
+}
+
+/** A compact badge naming where a case genuinely came from — absent for every fixture demo case. */
+function ProvenanceBadge({ provenance }: { readonly provenance: IncidentSummary['provenance'] }) {
+  if (provenance === null) return null;
+  return (
+    <span
+      className="badge text-xs"
+      style={{ borderColor: 'var(--prov-evidence)', color: 'var(--prov-evidence)' }}
+      title={`Source: ${provenance.source} · Source event id: ${provenance.sourceEventId}`}
+    >
+      via {provenance.ingestionPath} · {provenance.source}
+    </span>
+  );
 }
 
 const KIND_LABEL: Record<'reply' | 'offer', string> = {
@@ -320,7 +336,10 @@ export default function LeadRescueWaitPage() {
             >
               <div className="flex flex-wrap items-baseline justify-between gap-2">
                 <span className="instrument font-medium">{incident.incidentId}</span>
-                <span className="badge" style={{ borderColor: 'var(--rule-strong)' }}>{incident.lifecycleState}</span>
+                <span className="flex items-center gap-2">
+                  <ProvenanceBadge provenance={incident.provenance} />
+                  <span className="badge" style={{ borderColor: 'var(--rule-strong)' }}>{incident.lifecycleState}</span>
+                </span>
               </div>
               {(incident.contactName ?? incident.company) !== null && (
                 <p className="instrument" style={{ color: 'var(--ink-muted)' }}>
@@ -413,7 +432,10 @@ export default function LeadRescueWaitPage() {
             >
               <div className="flex flex-wrap items-baseline justify-between gap-2">
                 <span className="instrument font-medium">{incident.incidentId}</span>
-                <span className="badge" style={{ borderColor: 'var(--rule-strong)' }}>BOOKING_READY · ready since {incident.bookingReadyAt}</span>
+                <span className="flex items-center gap-2">
+                  <ProvenanceBadge provenance={incident.provenance} />
+                  <span className="badge" style={{ borderColor: 'var(--rule-strong)' }}>BOOKING_READY · ready since {incident.bookingReadyAt}</span>
+                </span>
               </div>
               <AttentionTimeoutPanel
                 label="Dispatch attention"

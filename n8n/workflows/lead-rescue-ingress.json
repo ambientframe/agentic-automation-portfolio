@@ -1,0 +1,119 @@
+{
+  "name": "Lead Rescue — n8n Ingress",
+  "nodes": [
+    {
+      "id": "28754f9b-c5ac-48f1-847c-ee8d63ff201f",
+      "name": "Lead Event",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [240, 300],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "lead-rescue-ingress",
+        "responseMode": "responseNode",
+        "authentication": "none",
+        "options": {}
+      },
+      "webhookId": "728665e5-3767-48ed-bb1a-c13f6783c263"
+    },
+    {
+      "id": "3d8c18d8-aef1-4691-b911-8e60ff548022",
+      "name": "Validate / Envelope",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [540, 300],
+      "parameters": {
+        "mode": "manual",
+        "includeOtherFields": false,
+        "assignments": {
+          "assignments": [
+            { "id": "schema-version", "name": "schemaVersion", "value": "lead-rescue-ingress-1", "type": "string" },
+            { "id": "source", "name": "source", "value": "={{ $json.body?.source_system ?? \"unspecified-source\" }}", "type": "string" },
+            { "id": "source-event-id", "name": "sourceEventId", "value": "={{ $json.body?.event_id ?? $json.body?.id }}", "type": "string" },
+            { "id": "received-at", "name": "receivedAt", "value": "={{ $json.body?.submitted_at ?? $now.toISO() }}", "type": "string" },
+            {
+              "id": "lead",
+              "name": "lead",
+              "value": "={{ { \"contactName\": $json.body?.contact?.name, \"contactEmail\": $json.body?.contact?.email, \"company\": $json.body?.contact?.company, \"message\": $json.body?.message, \"channel\": $json.body?.channel ?? \"unspecified\" } }}",
+              "type": "object"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "76583a7b-ad2e-405e-9aa4-3dcf2e935bf1",
+      "name": "Invoke Lead Rescue",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [840, 300],
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:3000/api/lead-rescue/ingress",
+        "authentication": "none",
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={{ $json }}",
+        "options": {
+          "response": { "response": { "neverError": false, "fullResponse": true, "responseFormat": "json" } }
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "id": "f9050b44-0bfe-4689-9076-318ca0b4e2ca",
+      "name": "Return Outcome",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [1140, 200],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json.body }}",
+        "options": { "responseCode": "={{ $json.statusCode }}" }
+      }
+    },
+    {
+      "id": "1597849f-8731-486f-bd10-1fed0f8a0977",
+      "name": "Return Transport Error",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [1140, 420],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"error\": \"transport failure invoking Lead Rescue ingress\", \"detail\": $json.error?.message ?? $json.error ?? \"unreachable\" } }}",
+        "options": { "responseCode": 502 }
+      }
+    },
+    {
+      "id": "0983bc4a-7def-4b22-8ec7-0370866502ca",
+      "name": "Ingress Seam Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [100, 300],
+      "parameters": {
+        "content": "## Lead Rescue ingress seam\nn8n owns transport only: accept the trigger, map the external payload into the canonical envelope, call the application, and surface its structured result. Every business decision (classification, routing, idempotency) happens inside the Lead Rescue engine — never in this graph.\n\nSet 'Invoke Lead Rescue' -> URL to wherever the Lead Rescue app is actually reachable (e.g. http://host.docker.internal:<port>/api/lead-rescue/ingress for a local Docker n8n instance talking to a local Next.js dev server).",
+        "color": 4
+      }
+    }
+  ],
+  "connections": {
+    "Lead Event": {
+      "main": [[{ "node": "Validate / Envelope", "type": "main", "index": 0 }]]
+    },
+    "Validate / Envelope": {
+      "main": [[{ "node": "Invoke Lead Rescue", "type": "main", "index": 0 }]]
+    },
+    "Invoke Lead Rescue": {
+      "main": [
+        [{ "node": "Return Outcome", "type": "main", "index": 0 }],
+        [{ "node": "Return Transport Error", "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

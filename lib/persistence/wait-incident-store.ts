@@ -49,6 +49,24 @@ export const WaitIncidentRecordSchema = z.strictObject({
     missingInformation: z.array(z.string()),
   }),
   revision: z.number().int().positive(),
+  /**
+   * Where this incident genuinely entered the system — record-level metadata, deliberately
+   * NOT folded into `engineState.facts`. Business state is what the pure handler computes
+   * from event content; provenance is who/what delivered that event, a fact about the
+   * ORCHESTRATION boundary the reducer itself has no business knowing. Optional: every caller
+   * before the ingress adapter existed (scenario replay, the demo park routes) has no
+   * provenance to report, and none is invented for them. Set once, at genuine ingress, and
+   * carried forward unchanged by every later re-park (`applyHumanDecision`,
+   * `dispatchAuthorizedOffer`) — see `lib/engine/wait-resume.ts`.
+   */
+  provenance: z
+    .strictObject({
+      source: z.string().min(1),
+      sourceEventId: z.string().min(1),
+      /** Which orchestration runtime delivered this event to the canonical ingress, e.g. "n8n". */
+      ingestionPath: z.string().min(1),
+    })
+    .optional(),
 });
 
 export type WaitIncidentRecord = z.infer<typeof WaitIncidentRecordSchema>;

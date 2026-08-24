@@ -153,6 +153,10 @@ export async function GET(): Promise<NextResponse> {
         attentionWindowHours: stage === 'review' ? REVIEW_WINDOW_HOURS : stage === 'ready' ? DISPATCH_WINDOW_HOURS : null,
         attentionDeadlineAt: attention.deadlineAt,
         attentionOverdue: attention.overdue,
+        // Present only for a case that genuinely entered through the n8n ingress seam
+        // (`lib/engine/lead-ingress.ts`) — absent (null) for every scenario-fixture demo park,
+        // exactly reflecting `WaitIncidentRecord.provenance`'s own optionality.
+        provenance: record.provenance ?? null,
       };
     })
     .sort((a, b) => a.incidentId.localeCompare(b.incidentId));

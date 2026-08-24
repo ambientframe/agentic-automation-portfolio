@@ -503,6 +503,12 @@ export async function applyHumanDecision(
     systemId: record.systemId,
     correlationId: record.correlationId,
     engineState: toStoredEngineState(result.state),
+    // Provenance describes how this case genuinely entered the system, once — a re-park
+    // (this function reuses that word deliberately) is a continuation of the SAME case, not
+    // a new arrival, so this carries the original record's provenance forward unchanged
+    // rather than dropping it. `undefined` for every case that never had one (all of them,
+    // before the n8n ingress adapter existed) — never fabricated.
+    ...(record.provenance === undefined ? {} : { provenance: record.provenance }),
   });
   return { incidentId, outcome: 'ACCEPTED', record: reparked, entries: result.entries };
 }
@@ -655,6 +661,12 @@ export async function dispatchAuthorizedOffer(
     systemId: record.systemId,
     correlationId: record.correlationId,
     engineState: toStoredEngineState(result.state),
+    // Provenance describes how this case genuinely entered the system, once — a re-park
+    // (this function reuses that word deliberately) is a continuation of the SAME case, not
+    // a new arrival, so this carries the original record's provenance forward unchanged
+    // rather than dropping it. `undefined` for every case that never had one (all of them,
+    // before the n8n ingress adapter existed) — never fabricated.
+    ...(record.provenance === undefined ? {} : { provenance: record.provenance }),
   });
   return { incidentId, outcome: 'CONFIRMED', record: reparked, entries };
 }
