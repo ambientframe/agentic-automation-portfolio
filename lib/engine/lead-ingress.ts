@@ -3,7 +3,7 @@ import type { SystemDefinition } from '@/lib/model/system';
 import type { CanonicalEvent, ClassificationResult, TimelineEntry } from '@/lib/model/runtime';
 import type { WaitIncidentRecord, WaitIncidentStore } from '@/lib/persistence/wait-incident-store';
 import type { OperationClaimStore } from '@/lib/persistence/operation-claim-store';
-import { FixtureDecisionProvider, resolveJudgment, type ResolvedJudgment } from '@/lib/ports/decision-provider';
+import { FixtureDecisionProvider, resolveJudgment, type DecisionProvider, type ResolvedJudgment } from '@/lib/ports/decision-provider';
 import { extractJudgmentRequest } from './run';
 import { applyEvent } from './reducer';
 import { EventLedger, ExecutionLedger, SideEffectLedger } from './ledger';
@@ -35,14 +35,17 @@ import {
  * cross-process-exclusive by construction (`fs.open(path, 'wx')`) — the same reason it was
  * built for wait/resume applies unchanged here.
  *
- * **The bounded judgment.** This ingress path demonstrates ONE realistic, fully-authored lead
- * shape — not a live classifier. `FixtureDecisionProvider`, constructed fresh per call with
- * exactly one pre-authored judgment keyed to this ingress contract's own fixture, is the SAME
- * SIMULATED provider every scenario in this portfolio already uses; this is not "AI
- * classification expansion," it is the existing fixture-judgment pattern reached through a
- * live HTTP path instead of a scenario array. A message that does not match the authored
- * fixture's judgmentId resolves `UNAVAILABLE` and the handler's own existing "no judgment
- * resolved" rule correctly routes it to `NEEDS_HUMAN` — fails safe, never coerced.
+ * **The bounded judgment.** `deps.provider`, when supplied, is asked to classify whatever the
+ * request's own `judgment` payload names — see `lib/ports/claude-decision-provider.ts` for the
+ * live implementation `app/api/lead-rescue/ingress/route.ts` wires in when a model credential is
+ * configured. Absent (every caller before this pass, and every scenario/demo path), this
+ * function falls back to the ONE realistic, fully-authored lead shape it has always
+ * demonstrated: `FixtureDecisionProvider`, constructed fresh per call with exactly one
+ * pre-authored judgment keyed to this ingress contract's own fixture — the SAME SIMULATED
+ * provider every scenario in this portfolio already uses. A message that does not match the
+ * authored fixture's judgmentId resolves `UNAVAILABLE` and the handler's own existing "no
+ * judgment resolved" rule correctly routes it to `NEEDS_HUMAN` — fails safe, never coerced,
+ * true of the fixture path and the live path alike.
  */
 
 const INGRESS_REQUIRED_FIELDS = ['framework', 'target_audit_window', 'headcount'] as const;
@@ -137,6 +140,15 @@ export interface LeadIngressDeps {
   readonly system: SystemDefinition;
   readonly profile: BusinessProfile;
   readonly handlers: SystemHandlers;
+  /**
+   * Optional. Absent (every caller before this pass, and every existing test) falls back to
+   * the single-fixture `FixtureDecisionProvider` this file has always constructed inline — zero
+   * behavior change for any caller that doesn't pass one. A caller that DOES supply a provider
+   * (e.g. a live `ClaudeDecisionProvider`, wired in `app/api/lead-rescue/ingress/route.ts` when
+   * a model credential is configured) genuinely classifies whatever the request's own `judgment`
+   * payload names — this is the existing orchestration seam, not a parallel code path.
+   */
+  readonly provider?: DecisionProvider;
 }
 
 function buildIngressEvent(
@@ -226,7 +238,8 @@ export async function ingestExternalLead(
   const request = extractJudgmentRequest(event);
   const judgments = new Map<string, ResolvedJudgment>();
   if (request !== null) {
-    const provider = new FixtureDecisionProvider({ [INGRESS_FIXTURE_JUDGMENT_ID]: INGRESS_FIXTURE_JUDGMENT });
+    const provider =
+      deps.provider ?? new FixtureDecisionProvider({ [INGRESS_FIXTURE_JUDGMENT_ID]: INGRESS_FIXTURE_JUDGMENT });
     judgments.set(request.judgmentId, await resolveJudgment(provider, request));
   }
 

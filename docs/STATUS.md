@@ -1,6 +1,22 @@
 # Status
 
-**As of 2026-08-24 · Corrected: escalation owner resolution no longer breaks equal-authority
+**As of 2026-08-24 · Lead Rescue's bounded intake/reply classification can now be genuinely
+performed by a live model.** `ClaudeDecisionProvider` (`lib/ports/claude-decision-provider.ts`)
+is the second implementation of the `DecisionProvider` port — `claude-opus-5`, structured JSON
+output validated at runtime against the same contract `FixtureDecisionProvider` already
+enforces, closed to `request.permittedClassifications`, exactly one re-request on malformed
+output per `lr-fm-malformed-ai`'s own declared retry policy, and every provider/network failure
+routed to `UNAVAILABLE` — never a chance to authorize a side effect. Wired through the existing
+n8n ingress seam (`app/api/lead-rescue/ingress/route.ts`) as an injected, optional dependency:
+absent a configured `ANTHROPIC_API_KEY`, behavior is byte-for-byte unchanged from before this
+pass. No credential was available in this environment, so the live network path is honestly
+`UNVERIFIED_LIVE` — the adapter, its full falsifying test suite (structural, no network), and a
+9-case labelled evaluation corpus are all built and ready. Also fixes a real, pre-existing bug
+found while wiring provenance through: the handler hard-coded `providerId: 'fixture-decision-provider'`
+at both classification call sites regardless of which provider actually ran. See "Lead Rescue
+live classification seam," below. Maturity does not change: `INTERACTIVE_PROTOTYPE`, `NOT_LIVE`.
+
+**As of 2026-08-24 (prior pass, same day) · Corrected: escalation owner resolution no longer breaks equal-authority
 ties alphabetically.** The prior pass's own `resolveEscalationOwner` picked the
 alphabetically-first role (`Client Partner`) whenever two roles tied at the closest qualifying
 `authorityCeiling` — presented as a resolved name, with no signal that a real choice had been
@@ -44,7 +60,7 @@ a third declared transition pair in Call-to-Proposal.
 
 | # | System | Maturity | Runs? |
 | --- | --- | --- | --- |
-| 1 | Lead Rescue | `INTERACTIVE_PROTOTYPE` | Yes — 7 scenarios execute end to end, a live wait/resume demo covering both prospect-response waiting categories and both operator-attention timeout categories, a real n8n-driven ingress path for new leads, and a real n8n-driven scheduled sweep that wakes waiting incidents on its own |
+| 1 | Lead Rescue | `INTERACTIVE_PROTOTYPE` | Yes — 7 scenarios execute end to end, a live wait/resume demo covering both prospect-response waiting categories and both operator-attention timeout categories, a real n8n-driven ingress path for new leads, a real n8n-driven scheduled sweep that wakes waiting incidents on its own, and a genuine live-model classification seam (`claude-opus-5`, `UNVERIFIED_LIVE` in this environment — no credential configured) reachable through the same ingress path |
 | 2 | Dormant Pipeline Recovery | `SIMULATED` | Yes — 2 scenarios execute end to end |
 | 3 | Call-to-Proposal Revenue Agent | `SIMULATED` | Yes — 2 scenarios execute end to end |
 | 4 | Client Onboarding Operator | `SIMULATED` | Yes — 2 scenarios execute end to end |
@@ -1767,22 +1783,173 @@ referencing the live function rather than a literal string was the right call.
 `data/profiles/kestrel/profile.ts`, the reducer, the authority gate, `WaitIncidentStore`, or
 `OperationClaimStore`. `npm run docs` produced no diff.
 
+## Lead Rescue live classification seam — this pass
+
+**The gap named at the end of the prior pass.** Every bounded judgment in this portfolio has
+always been `FixtureDecisionProvider` replaying authored data — real policy (confidence floor,
+contract validation, missing/declined-to-infer discipline) around a simulated boundary. This
+pass adds the second `DecisionProvider` implementation the port's own docstring has said "there
+should be exactly one more later" of since the port was first declared.
+
+**Orientation before design, per instruction.** No vendor is mandated by canon — `docs/source/`
+references "Claude Code" only as the tool that authored this repository, never as a runtime
+dependency. This repository's own `claude-api` skill answers the question instead: use
+`claude-opus-5` unless a different model is explicitly named, structured JSON output validated
+at runtime, closed classification space. `ClassificationResultSchema`
+(`lib/model/runtime.ts`) already declares exactly the output contract needed —
+`judgmentId`/`classification`/`confidence`/`missingInformation`/`evidenceRefs`/`declinedToInfer`/
+`rationaleSummary` — no schema change was needed for the model's own output; `judgmentId` is
+deliberately never asked of the model and is injected from the request after validation.
+`lr-fm-malformed-ai`'s own declared `retryPolicy` ("At most one re-request; repeated violations
+disable the judgment path") is followed exactly, discovered by reading the failure-mode register
+rather than inventing a retry count. `EXECUTION_MODES` already declares `'LIVE'`, unused
+anywhere in this portfolio until now (`lib/model/runtime.ts:17`) — the correct value for this
+provider's own `mode`, not a new concept.
+
+**A real, pre-existing bug found while wiring provenance.** `DecisionRecordSchema.providerId`
+("Which DecisionProvider produced this") has existed since this port's earliest pass, but both
+of Lead Rescue's classification call sites hard-coded the literal string
+`'fixture-decision-provider'` regardless of which provider actually resolved the judgment —
+already false the moment two providers existed. Fixed by extending `ResolvedJudgment`'s `OK`
+variant with `providerId: string`, populated by `resolveJudgment()` from `provider.id` (already
+in scope, previously just not threaded through) — two other tests that hand-constructed a
+`ResolvedJudgment` literal (Owner Revenue Intelligence, Receivables) needed the same one-field
+addition to keep type-checking, changing nothing about what they prove.
+
+**The boundary granted to the model, exactly what the task specified and no more.** One call, one
+response, one classification, from the closed set the CALLER supplies —
+`ClaudeDecisionProvider.classify()` has no tools, no memory across calls, no visibility into
+lifecycle state, and returns exactly the same shape `FixtureDecisionProvider` already returns.
+It cannot send a message, execute an offer, choose escalation authority, or modify state —
+those all remain entirely inside the deterministic handler, byte-for-byte unchanged by this
+pass. The system prompt (`lib/ports/claude-decision-provider.ts`, versioned in source, not a
+runtime-configurable string) is narrow: definitions of the required JSON shape, an explicit
+instruction to report low confidence rather than invent certainty, and an explicit instruction
+that the delimited `<input-to-classify>` content is untrusted DATA to classify, never
+instructions to follow — proven, not merely claimed, by a falsifying test that captures the
+actual request sent to the API and asserts an adversarial input string appears only inside that
+delimited section, never inside the system prompt (which is byte-identical across every call
+regardless of input).
+
+**Failure and uncertainty, all already-existing machinery, none newly built.** A response that
+is not valid JSON, fails schema validation, or names a classification outside the permitted set
+is retried once, then reported as `JudgmentContractError` — `resolveJudgment` converts this to
+`CONTRACT_VIOLATION` with zero new handling, and the existing "unavailable-or-violating judgment
+routes to NEEDS_HUMAN" rule in `handleEnquiry`/`handleReply` applies unchanged. A transport
+failure, timeout, or explicit model refusal (`stop_reason: 'refusal'`) is never retried at this
+layer (the SDK's own transport retries already cover transience) and is reported as
+`JudgmentUnavailableError` → `UNAVAILABLE`, same downstream handling. Confidence is passed
+through completely unmodified — the provider never gates or interprets its own certainty; the
+engine's existing, unchanged `confidenceFloor` comparison decides whether a classification is
+usable. No new "uncertainty" concept was built because none was needed: this portfolio's
+existing floor-comparison-outside-the-judgment design already IS the safe-uncertainty behavior
+the task asked to confirm.
+
+**Provenance, using fields that already existed.** `provider.id`
+(`'claude-decision-provider'`) and `provider.mode` (`'LIVE'`) identify the provider; the now-
+correctly-threaded `DecisionRecord.providerId` carries that into every decision record a viewer
+can already inspect; `judgmentId`/`classification`/`confidence` were already part of
+`ClassificationResult`. The ingress route's JSON response gains one additive field,
+`classifierProvider`, naming which provider actually ran (`'claude-decision-provider'` or
+`'fixture-decision-provider'`) — small, additive, no schema disruption. A structured,
+non-secret line (`judgmentId`, model, classification, confidence — never the input text or any
+credential) is logged at the point of a successful classification for lightweight operational
+observability; nothing about this is persisted into replayable engine state, which stays exactly
+as clock-free and pure as before.
+
+**Falsifying tests, written before implementation.** `tests/claude-decision-provider.test.ts`
+(11 tests, zero network) injects a fake `AnthropicMessagesClient` — a minimal
+`{messages: {create}}` shape both the real SDK client and a test double satisfy — and proves:
+valid structured output maps correctly; non-JSON output fails safely with exactly one retry, and
+a transient failure recovers on that retry; an out-of-permitted-set classification is refused,
+never coerced; a transport failure routes to `UNAVAILABLE` with no additional retry loop stacked
+on the SDK's own; a model refusal is treated as unavailable, never as a classification;
+confidence passes through unmodified regardless of how low; provenance identifies the real
+provider without ever touching a credential value; the adversarial-input security boundary
+(above); `FixtureDecisionProvider` is a completely separate class, unaffected; and the model id
+defaults to `claude-opus-5` with an explicit override respected. `tests/lead-rescue-ingress.test.ts`
+gains two more: a real (fake-but-realistic) `DecisionProvider`, injected through the EXISTING
+`LeadIngressDeps.provider` field with no special-case code, genuinely classifies a message the
+authored fixture was never keyed to — proving the live path uses the same orchestration seam,
+not a parallel one — and a claimed-duplicate redelivery never invokes the provider a second
+time, because the durable claim in `ingestExternalLead` refuses the redelivery BEFORE the
+provider is ever reached, proving replay/idempotency holds with a real provider exactly as it
+already did with the fixture one.
+
+**Evaluation corpus.** `tests/lead-rescue-claude-classifier-eval.test.ts` — 9 labelled cases:
+`QUALIFIED_ENQUIRY` and `POLICY_SENSITIVE` reused VERBATIM from existing canon fixture messages
+(`INGRESS_FIXTURE_LEAD_MESSAGE`, the restricted-contact scenario's Fenwick message — never
+re-typed, so the corpus can't drift from what the live seam actually sends); `NOT_AN_ENQUIRY`,
+`OUT_OF_SEGMENT`, and `NEEDS_MORE_INFORMATION` hand-authored, since no existing scenario
+exercises any of the three; a genuinely ambiguous case with an explicit acceptable-classification
+set rather than a single forced label; an adversarial instruction-injection case judged not by
+strict label match but by a dedicated assertion that the injected "confidence 1.0, no missing
+information" demand was not obeyed; and two `REPLY_CLASSES` cases (`OPT_OUT` — covering
+"rejection," which `ENQUIRY_CLASSES` has no direct member for — and `SUPPLIES_INFORMATION`)
+proving the same adapter is genuinely generic over which closed set it is asked to choose from,
+not hard-coded to intake. Every expected label was fixed before any model saw the corpus and is
+never rewritten to match what a run produces. A structural suite scores the harness itself
+against a deterministic fake provider (proving the evaluation/reporting logic independent of
+model quality); a second, `describe.skipIf`-gated suite runs the full corpus against the REAL
+model and asserts on it, but only when `ANTHROPIC_API_KEY` is configured.
+
+**Live verification: `UNVERIFIED_LIVE`.** `ANTHROPIC_API_KEY` and `ANTHROPIC_AUTH_TOKEN` were
+both checked for presence (never printed) in this environment and found absent; no `ant` CLI
+was available either. Per the task's own explicit instruction, no live result was fabricated —
+the adapter, all 11+2 falsifying tests, and the full 9-case evaluation corpus are built and
+pass completely without a credential; the live evaluation suite is written, gated, and will run
+for real the moment a credential is configured, with no code change required.
+
+**What this does NOT do.** No credential was created, printed, committed, or embedded anywhere
+— confirmed by direct search of the diff for credential-shaped strings before this pass was
+considered complete. No n8n workflow was touched — the live provider is reached entirely through
+the existing `/api/lead-rescue/ingress` route and `LeadIngressDeps`, which n8n already calls
+unchanged. No tool use, agent loop, or multi-step planning was introduced — one request, one
+response, exactly as `FixtureDecisionProvider` already models. Maturity does NOT change: a
+private classification API call — the model never contacts a prospect, provider-of-record, or
+credential-bearing customer system — does not clear `PARTIALLY_LIVE`'s own bar (a real-world,
+outside-the-portfolio consequence), the same reasoning the prior pass's own "next fidelity gap"
+section already argued in advance of doing this work.
+
+**Files changed.** `lib/ports/claude-decision-provider.ts` (new — the adapter).
+`lib/ports/decision-provider.ts` (`ResolvedJudgment.OK` gains `providerId`; `resolveJudgment`
+populates it; module docstring updated). `lib/engine/handlers/lead-rescue.ts` (both hard-coded
+`providerId` literals replaced with `resolved.providerId`). `lib/engine/lead-ingress.ts`
+(`LeadIngressDeps` gains optional `provider`; falls back to the existing single-fixture behavior
+when absent — zero change for every existing caller). `app/api/lead-rescue/ingress/route.ts`
+(constructs `ClaudeDecisionProvider` only when `ANTHROPIC_API_KEY` is present; adds
+`classifierProvider` to the response). `tests/claude-decision-provider.test.ts` (new, 11 tests).
+`tests/lead-rescue-claude-classifier-eval.test.ts` (new, corpus + harness). `tests/lead-rescue-ingress.test.ts`
+(+2). `tests/owner-revenue-intelligence.test.ts`, `tests/receivables-recovery.test.ts` (one field
+added to a hand-constructed test fixture each, to satisfy the extended `ResolvedJudgment` type —
+no behavior change). `package.json`/`package-lock.json` (`@anthropic-ai/sdk`, the only new
+dependency). Zero changes to `data/systems/lead-rescue.ts`, `data/profiles/kestrel/profile.ts`,
+the reducer, the authority gate, `WaitIncidentStore`, `OperationClaimStore`, or any n8n workflow.
+
 ## Verification
 
 ```
-npm run verify     # typecheck + lint + 494 tests
+npm run verify     # typecheck + lint + 511 tests (+1 live-eval test skipped without a credential)
 npm run build      # 29 pages prerender; 5 dynamic (ƒ) API routes; the engine executes at build/request time
 npm run docs       # regenerate canon from the model — no diff this pass
 ```
 
-All passing as of this pass. `tests/profile.test.ts`'s resolver tests were rewritten (one net
-new: the two-unresolved-reasons test) and `tests/lead-rescue-escalation-owner.test.ts`'s three
+All passing as of this pass, including the one intentionally-`skipIf`'d live evaluation suite
+(no `ANTHROPIC_API_KEY` in this environment — see "Lead Rescue live classification seam,"
+above, for the honest `UNVERIFIED_LIVE` accounting). `tests/claude-decision-provider.test.ts`
+(new, 11 tests) and `tests/lead-rescue-claude-classifier-eval.test.ts` (new, corpus + harness)
+prove the adapter; `tests/lead-rescue-ingress.test.ts` (+2) proves the live seam and its
+idempotency through the real orchestration path. `npm run build` still reports 5 dynamic (`ƒ`)
+routes and 29 prerendered pages, unchanged — this pass added no new route, only a provider
+choice inside the existing ingress route. `npm run docs` produced zero diff — no `data/` or
+profile change.
+
+Prior pass, same day: `tests/profile.test.ts`'s resolver tests were rewritten (one net new: the
+two-unresolved-reasons test) and `tests/lead-rescue-escalation-owner.test.ts`'s three
 standard-tier assertions were corrected to expect honest ambiguity — see "Escalation owner
 resolution — semantic-integrity correction," above, for what each now proves.
 `tests/lead-rescue-offer-wait.test.ts` needed no changes (its two assertions call the live
-function rather than a hardcoded string). `npm run build` still reports 5 dynamic (`ƒ`) routes
-and 29 prerendered pages, unchanged — this correction touched no route, no `data/`, and no
-profile, confirmed by `npm run docs` producing zero diff.
+function rather than a hardcoded string).
 
 Prior pass, same day: `tests/profile.test.ts` (+5) and `tests/lead-rescue-escalation-owner.test.ts`
 (new, 7 tests) proved `resolveEscalationOwner` and its application at every Lead Rescue call
@@ -1923,51 +2090,32 @@ effects, matching the "ordinary variation is left alone" claim exactly.
 
 ## Single recommended next fidelity gap
 
-**Unchanged by this pass's correction.** This pass was a narrow semantic-integrity fix scoped
-entirely to how escalation ties resolve; it touched nothing relevant to classification,
-outbound execution, or n8n. The recommendation below, made the prior pass, still stands on its
-own merits.
+**Bounded real AI classification, recommended two passes ago, is now built this pass** — see
+"Lead Rescue live classification seam," above. Its own live-network leg remains
+`UNVERIFIED_LIVE` (no `ANTHROPIC_API_KEY` configured in this environment); everything else
+about it is complete and green. That leaves two candidates from the portfolio's own prior
+assessment:
 
-**Bounded real AI classification — replace `FixtureDecisionProvider` with a genuine bounded
-model call for Lead Rescue's intake and reply-interpretation judgments, behind the exact
-`DecisionProvider` contract already built and tested.** With the scheduler (two passes ago) and
-the authority-chain gap (prior pass, refined this pass) both closed, the two candidates the
-portfolio's own prior assessment named for after the scheduler are the live ones remaining:
-bounded real AI classification, and real outbound provider execution (a live messaging send). A
-third — extending n8n ingress to `prospect.replied` — remains open (item 15) but is explicitly
-the same proven pattern applied a third time, not new evidence of capability.
+**Real outbound provider execution — wiring a live messaging send behind the existing
+`SideEffectExecutor` port, the same "swap the fixture for a real implementation" shape this
+pass just proved for `DecisionProvider`.** This is the highest-fidelity gain remaining in Lead
+Rescue — the claim-then-invoke reliability machinery (`OperationClaimStore`, the execution
+boundary `checkWaitIncident`/`dispatchAuthorizedOffer` already gate) has been fully proven
+against a SIMULATED executor across every prior pass; what's missing is not more logic, but a
+real provider behind logic that already works. Deliberately NOT picked as this pass's own work,
+per this pass's explicit non-goals ("no live outbound customer messaging") and because it is a
+materially higher-stakes external boundary than classification: the moment it is wired for
+real, an actual message can reach an actual inbox, even a test one. This document does not
+decide in advance whether that risk is worth taking next — only names it as the evidence-based
+candidate.
 
-**Why AI classification outranks the live send right now.** Both cross this portfolio's one
-remaining hard boundary — nothing has ever left the process — but they cross it in materially
-different ways. A live outbound send necessarily risks contacting a real human (even a test
-address) the moment it is wired for real, and this codebase's own scope discipline
-(`CLAUDE.md`: "no live integrations, credentials, outbound communication... until a real
-limitation... creates the need") treats that as the highest-stakes external boundary in the
-whole portfolio. A bounded AI classification call risks nothing external-to-the-portfolio at
-all — it is a private API call to a model provider, never a message a prospect receives — and it
-deepens the ONE stage this portfolio's own fidelity assessment has called out repeatedly as
-"simulated, with real policy around it": the confidence-floor comparison, contract validation,
-and forbidden-action enforcement already run for real on every call; only the judgment itself is
-still replayed from an authored fixture.
+**A second n8n ingress surface for `prospect.replied`** remains open (item 15) but is explicitly
+the same proven pattern (a webhook → `ingestExternalLead`-shaped seam) applied to a third event
+type — evidence of generalisation, not of a new capability, and now also directly benefits from
+this pass's own live classifier once wired, since reply interpretation uses the identical
+`DecisionProvider` contract.
 
-**What already exists and needs no change.** `lib/ports/decision-provider.ts`'s `DecisionProvider`
-port, the confidence-floor comparison, the missing-field intersection, and the
-declined-inference-never-leaks guarantee (`tests/lead-rescue.test.ts`) are all already real and
-independently tested — a live provider is a second IMPLEMENTATION of an interface this codebase
-already exercises in both directions, not a new contract.
-
-**What this would require, named honestly in advance.** A real model-provider credential (a new
-kind of secret this portfolio has never held); a decision about whether that credential lives in
-environment configuration or a lighter mechanism appropriate to a prototype's scale; explicit
-handling for a genuinely non-deterministic response (the reducer's own "no clock, no randomness"
-guarantee already isolates this correctly, but a live call's LATENCY and FAILURE MODES are new);
-and — the one decision this document does not make in advance — whether exercising it changes
-Lead Rescue's maturity label at all, given `PARTIALLY_LIVE`'s own bar is a real-world,
-outside-the-portfolio consequence, and a private model API call arguably still does not clear it
-(no prospect, provider-of-record, or credential-bearing customer system is contacted). That
-argument needs to be made and verified when the pass happens, not assumed here.
-
-**Do not begin closing this gap from this document.** Recorded here as the evidence-based next
-candidate, the same discipline every prior pass's "next fidelity gap" section applied — not as
+**Do not begin closing either gap from this document.** Recorded here as the evidence-based next
+candidates, the same discipline every prior pass's "next fidelity gap" section applied — not as
 a plan to execute without its own re-verification, and not a decision to add a live credential
-without the user's own explicit go-ahead.
+or contact a real message provider without the user's own explicit go-ahead.

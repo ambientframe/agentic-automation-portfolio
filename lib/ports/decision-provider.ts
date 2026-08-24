@@ -7,9 +7,10 @@ import {
 /**
  * THE BOUNDED-JUDGMENT PORT.
  *
- * This is a contract, not a framework. There is exactly one implementation today
- * (`FixtureDecisionProvider`) and there should be exactly one more later (a real
- * model-backed provider). Resist adding a third.
+ * This is a contract, not a framework. Two implementations exist: `FixtureDecisionProvider`
+ * (below — SIMULATED, replays authored judgments) and `ClaudeDecisionProvider`
+ * (`lib/ports/claude-decision-provider.ts` — LIVE, a real bounded model call). Resist adding
+ * a third.
  *
  * `classify` is async because a real provider will be. Keeping the signature honest
  * now is the whole point of declaring the port early — a synchronous contract would
@@ -55,7 +56,7 @@ export interface DecisionProvider {
  * the failure-mode register.
  */
 export type ResolvedJudgment =
-  | { readonly status: 'OK'; readonly result: ClassificationResult }
+  | { readonly status: 'OK'; readonly result: ClassificationResult; readonly providerId: string }
   | { readonly status: 'CONTRACT_VIOLATION'; readonly judgmentId: string; readonly reason: string }
   | { readonly status: 'UNAVAILABLE'; readonly judgmentId: string; readonly reason: string };
 
@@ -132,7 +133,7 @@ export async function resolveJudgment(
 ): Promise<ResolvedJudgment> {
   try {
     const result = await provider.classify(request);
-    return { status: 'OK', result };
+    return { status: 'OK', result, providerId: provider.id };
   } catch (error) {
     if (error instanceof JudgmentContractError) {
       return { status: 'CONTRACT_VIOLATION', judgmentId: request.judgmentId, reason: error.message };

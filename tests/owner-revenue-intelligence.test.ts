@@ -272,6 +272,7 @@ describe('Owner Revenue Intelligence — direct behavioural tests', () => {
             declinedToInfer: [],
             rationaleSummary: 'Ambiguous — low confidence.',
           },
+          providerId: 'fixture-decision-provider',
         },
       ],
     ]);

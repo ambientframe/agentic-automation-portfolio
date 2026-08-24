@@ -8,6 +8,7 @@ import { LEAD_RESCUE_HANDLERS } from '@/lib/engine/handlers/lead-rescue';
 import { InMemoryWaitIncidentStore, FileWaitIncidentStore, type WaitIncidentStore } from '@/lib/persistence/wait-incident-store';
 import { InMemoryOperationClaimStore, FileOperationClaimStore, type OperationClaimStore } from '@/lib/persistence/operation-claim-store';
 import { ingestExternalLead, ingressEntityId, INGRESS_FIXTURE_LEAD_MESSAGE, type LeadIngressDeps } from '@/lib/engine/lead-ingress';
+import type { DecisionProvider } from '@/lib/ports/decision-provider';
 import { LEAD_RESCUE_INGRESS_SCHEMA_VERSION, LeadRescueIngressEnvelopeSchema, type LeadRescueIngressEnvelope } from '@/lib/ingress/lead-rescue-ingress-contract';
 
 /**
@@ -216,5 +217,75 @@ describe('Lead Rescue n8n ingress — orchestration', () => {
       engineState: { lifecycleState: 'NEEDS_HUMAN', facts: {}, suppressed: false, awaitingHuman: 'x', missingInformation: [] },
     });
     expect(parked.provenance).toBeUndefined();
+  });
+
+  it('11. a real DecisionProvider, injected through the existing LeadIngressDeps seam (no special-case code), genuinely classifies a message the fixture was never authored for', async () => {
+    const store = new InMemoryWaitIncidentStore();
+    const claimStore = freshClaimStore();
+    let classifyCalls = 0;
+    const realProvider: DecisionProvider = {
+      id: 'claude-decision-provider',
+      mode: 'LIVE',
+      description: 'fake stand-in for a real provider, injected exactly as production wiring would',
+      classify: async (req) => {
+        classifyCalls += 1;
+        return {
+          judgmentId: req.judgmentId,
+          classification: 'QUALIFIED_ENQUIRY',
+          confidence: 0.81,
+          missingInformation: [],
+          evidenceRefs: ['"ISO 27001", "60 employees"'],
+          declinedToInfer: [],
+          rationaleSummary: 'Framework and headcount are both stated.',
+        };
+      },
+    };
+
+    const envelope = realisticEnvelope({
+      sourceEventId: 'form-sub-real-provider',
+      lead: { message: 'We need ISO 27001 certification for about 60 employees, targeting next year.', channel: 'web-form' },
+    });
+
+    const result = await ingestExternalLead(store, claimStore, envelope, { ...DEPS, provider: realProvider }, '2026-08-24T10:00:05-04:00', 'runtime-a');
+
+    // The fixture provider would have resolved this UNAVAILABLE (unmatched content hash) and
+    // routed to NEEDS_HUMAN. The injected real provider genuinely classified it instead —
+    // proof the seam, not a special case, is what changed.
+    expect(result.outcome).toBe('ACCEPTED');
+    expect(result.record?.engineState.lifecycleState).toBe('BOOKING_READY');
+    expect(classifyCalls).toBe(1);
+  });
+
+  it('12. idempotency holds with a real provider too: a claimed duplicate never invokes the provider a second time', async () => {
+    const store = new InMemoryWaitIncidentStore();
+    const claimStore = freshClaimStore();
+    let classifyCalls = 0;
+    const countingProvider: DecisionProvider = {
+      id: 'claude-decision-provider',
+      mode: 'LIVE',
+      description: 'counts invocations',
+      classify: async (req) => {
+        classifyCalls += 1;
+        return {
+          judgmentId: req.judgmentId,
+          classification: 'QUALIFIED_ENQUIRY',
+          confidence: 0.81,
+          missingInformation: [],
+          evidenceRefs: [],
+          declinedToInfer: [],
+          rationaleSummary: 'x',
+        };
+      },
+    };
+    const envelope = realisticEnvelope({ sourceEventId: 'form-sub-real-provider-dup' });
+
+    const first = await ingestExternalLead(store, claimStore, envelope, { ...DEPS, provider: countingProvider }, '2026-08-24T10:00:05-04:00', 'runtime-a');
+    const second = await ingestExternalLead(store, claimStore, envelope, { ...DEPS, provider: countingProvider }, '2026-08-24T10:05:00-04:00', 'runtime-a');
+
+    expect(first.outcome).toBe('ACCEPTED');
+    expect(second.outcome).toBe('DUPLICATE');
+    // The durable claim refuses the redelivery BEFORE the provider is ever reached — the
+    // real model is never called a second time for an event already durably resolved.
+    expect(classifyCalls).toBe(1);
   });
 });

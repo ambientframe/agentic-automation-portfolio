@@ -339,6 +339,7 @@ describe('Receivables Recovery — direct behavioural tests', () => {
         {
           status: 'OK' as const,
           result: { judgmentId: 'jud-direct-promise', classification: 'PROMISE_TO_PAY' as const, confidence: 0.9, missingInformation: [], evidenceRefs: ['reply-01'], declinedToInfer: [], rationaleSummary: 'Clear promise.' },
+          providerId: 'fixture-decision-provider',
         },
       ],
     ]);

@@ -4,6 +4,19 @@ import { LeadRescueIngressEnvelopeSchema } from '@/lib/ingress/lead-rescue-ingre
 import { leadRescueWaitStore, leadRescueClaimStore, LEAD_RESCUE_WAIT_DEPS, LEAD_RESCUE_WAIT_RUNTIME_ID } from '@/lib/engine/lead-rescue-wait-runtime';
 import { MalformedWaitRecordError } from '@/lib/persistence/wait-incident-store';
 import { MalformedOperationClaimError } from '@/lib/persistence/operation-claim-store';
+import { ClaudeDecisionProvider } from '@/lib/ports/claude-decision-provider';
+
+/**
+ * The one place this route decides fixture vs. live classification — a composition-root
+ * concern, deliberately kept out of `lib/engine/lead-ingress.ts` (which only ever accepts an
+ * already-constructed `DecisionProvider`, never reads the environment itself). Presence of
+ * `ANTHROPIC_API_KEY` is checked, never its value: absent, `ingestExternalLead` falls back to
+ * its own existing single-fixture behavior unchanged; present, every inbound message is
+ * genuinely classified by `claude-opus-5` instead of matching against the one authored fixture.
+ */
+function resolveIngressDecisionProvider(): ClaudeDecisionProvider | undefined {
+  return process.env['ANTHROPIC_API_KEY'] ? new ClaudeDecisionProvider() : undefined;
+}
 
 /**
  * THE CANONICAL LEAD RESCUE INGRESS ENDPOINT — the seam n8n's "Invoke Lead Rescue" node
@@ -39,13 +52,16 @@ export async function POST(request: Request): Promise<NextResponse> {
   }
 
   const nowIso = new Date().toISOString();
+  const provider = resolveIngressDecisionProvider();
+  // Non-secret provenance only — the provider's own id, never a credential value.
+  const classifierProvider = provider?.id ?? 'fixture-decision-provider';
 
   try {
     const result = await ingestExternalLead(
       leadRescueWaitStore,
       leadRescueClaimStore,
       parsed.data,
-      LEAD_RESCUE_WAIT_DEPS,
+      { ...LEAD_RESCUE_WAIT_DEPS, provider },
       nowIso,
       LEAD_RESCUE_WAIT_RUNTIME_ID,
     );
@@ -61,6 +77,7 @@ export async function POST(request: Request): Promise<NextResponse> {
           source: result.source,
           sourceEventId: result.sourceEventId,
           ingestionPath: 'n8n',
+          classifierProvider,
           detail: 'A prior delivery of this source event is claimed but not yet durably confirmed. Refusing to guess; retry later.',
         },
         { status: 409 },
@@ -75,6 +92,7 @@ export async function POST(request: Request): Promise<NextResponse> {
       correlationId: result.correlationId,
       source: result.source,
       sourceEventId: result.sourceEventId,
+      classifierProvider,
       ingestionPath: 'n8n',
       lifecycleState: result.record?.engineState.lifecycleState ?? null,
       revision: result.record?.revision ?? null,
