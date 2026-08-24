@@ -65,13 +65,31 @@ export async function POST(request: Request): Promise<NextResponse> {
   }
 }
 
+/**
+ * Which waiting category a persisted record belongs to is read off whichever start-of-wait
+ * fact is actually present — the same authoritative discriminant
+ * `handleWaitReevaluation` itself dispatches on, never a separately tracked label this route
+ * could drift out of sync with. Two categories today (lr-t14's `waitStartedAt`, lr-t22's
+ * `bookingReadyAt`); adding a third here would mean adding one more entry, not restructuring
+ * this function.
+ */
+const WAIT_START_FACTS = [
+  { fact: 'waitStartedAt', windowParam: 'replyWaitWindowHours' },
+  { fact: 'bookingReadyAt', windowParam: 'bookingOfferWindowHours' },
+] as const;
+
 async function resolveNow(incidentId: string, advancePastDeadline: boolean): Promise<string> {
   if (!advancePastDeadline) return new Date().toISOString();
 
   const record = await leadRescueWaitStore.load(incidentId);
-  const waitStartedAt = record?.engineState.facts['waitStartedAt'];
-  if (waitStartedAt === undefined) return new Date().toISOString();
+  if (record === undefined) return new Date().toISOString();
 
-  const windowHours = numberParam(KESTREL, 'replyWaitWindowHours');
-  return new Date(Date.parse(waitStartedAt) + (windowHours + 1) * 3_600_000).toISOString();
+  for (const { fact, windowParam } of WAIT_START_FACTS) {
+    const waitStartedAt = record.engineState.facts[fact];
+    if (waitStartedAt === undefined) continue;
+    const windowHours = numberParam(KESTREL, windowParam);
+    return new Date(Date.parse(waitStartedAt) + (windowHours + 1) * 3_600_000).toISOString();
+  }
+
+  return new Date().toISOString();
 }

@@ -379,6 +379,7 @@ engine actually compares against is linked to the policy it implements.
 | Routing target, business hours | 30 | minutes | `kestrel-routing-window` |
 | Maximum clarifying questions before human review | 2 | questions | `kestrel-routing-window` |
 | Reply wait window before escalation | 24 | hours | `kestrel-reply-wait-window` |
+| Booking offer wait window before escalation | 48 | hours | `kestrel-booking-offer-window` |
 | Maximum reactivation attempts | 3 | attempts | `kestrel-outreach-cadence` |
 | Reactivation sequence window | 21 | days | `kestrel-outreach-cadence` |
 | Cooling-off before re-entry | 90 | days | `kestrel-outreach-cadence` |

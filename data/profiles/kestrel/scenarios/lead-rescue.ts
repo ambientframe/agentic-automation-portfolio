@@ -692,6 +692,110 @@ const WAIT_ELAPSED = {
 } satisfies Parameters<typeof ScenarioSchema.parse>[0];
 
 // ===========================================================================
+// Scenario 7 — Booking offer goes unanswered (lr-t22)
+// ===========================================================================
+
+const OFFER_WAIT_ELAPSED = {
+  id: 'lr-scenario-offer-elapsed',
+  slug: 'offer-window-elapses',
+  systemId: 'lead-rescue',
+  title: 'Booking offer elapses without a response',
+  summary:
+    'A qualified enquiry arrives complete — every required field is already in the text, so the system reaches BOOKING_READY immediately and notifies the named owner that a next commercial step can be offered. A re-check twenty hours later finds the booking-offer window still open and takes no action. A second re-check, this time fifty hours after the case became booking-ready, finds the window has genuinely elapsed and escalates to a person — lr-t22, the sibling of lr-t14 on a different waiting state, driven by the same durable wait/resume mechanism rather than a second, separately invented one.',
+  demonstrates: [
+    'BOOKING_READY is reached directly (lr-t10) when a qualified enquiry already supplies every required field — no missing-information detour',
+    'A re-check before the configured booking-offer window elapses leaves BOOKING_READY untouched and proposes no side effect',
+    'A re-check after the window elapses fires lr-t22 (BOOKING_READY -> NEEDS_HUMAN) for real, computed from occurredAt against bookingReadyAt — a distinct fact from lr-t14’s waitStartedAt, so the two waiting categories cannot cross-trigger each other even though both currently escalate to the same NEEDS_HUMAN destination',
+    'The elapsed check reuses the same deterministic-rule/decision-record shape as lr-t14 and every other transition in this handler, citing its own policy (kestrel-booking-offer-window) rather than reply-wait’s',
+    'Escalation still reaches a named owner via the ordinary NOTIFICATION side effect, gated by the same policy, authority, and durable-claim checks as any other effect',
+  ],
+  expectedFinalState: 'NEEDS_HUMAN',
+
+  judgments: {
+    'jd-northgate-intake': {
+      judgmentId: 'jd-northgate-intake',
+      classification: 'QUALIFIED_ENQUIRY',
+      confidence: 0.93,
+      missingInformation: [],
+      evidenceRefs: [
+        '"we need SOC 2 Type II before our enterprise renewal in March"',
+        '"we\'re 60 people, all engineering and support"',
+        '"first audit window we\'re targeting is Q1"',
+      ],
+      declinedToInfer: [
+        'Whether a prior SOC 1 or ISO engagement exists',
+        'Which specific enterprise customer is driving the renewal deadline',
+      ],
+      rationaleSummary:
+        'Names framework, headcount, and target audit window explicitly. Every policy-required field is established by the text — nothing to ask for.',
+    },
+  },
+
+  events: [
+    {
+      eventId: 'evt-northgate-001',
+      correlationId: 'inc-lr-northgate',
+      entityId: 'lead-northgate',
+      type: 'inbound.enquiry.received',
+      source: 'website-form',
+      sourceEventId: 'wf-2026-08-12-4410',
+      occurredAt: '2026-08-12T13:00:00-04:00',
+      receivedAt: '2026-08-12T13:00:00-04:00',
+      schemaVersion: SCHEMA_VERSION,
+      actor: 'EXTERNAL_PARTY',
+      executionMode: 'SIMULATED',
+      payload: {
+        contactName: 'Priya Nathan',
+        contactEmail: 'p.nathan@northgateanalytics.example',
+        company: 'Northgate Analytics',
+        channel: 'website-form',
+        consentState: 'PERMITTED',
+        requiredFields: ['framework', 'target_audit_window', 'headcount'],
+        message:
+          "Hi — we need SOC 2 Type II before our enterprise renewal in March. We're 60 people, all engineering and support, and the first audit window we're targeting is Q1. What would readiness support look like?",
+        judgment: {
+          judgmentId: 'jd-northgate-intake',
+          objective:
+            'Classify an inbound enquiry into the permitted set and report which policy-required facts the text does not establish.',
+          input:
+            "Hi — we need SOC 2 Type II before our enterprise renewal in March. We're 60 people, all engineering and support, and the first audit window we're targeting is Q1. What would readiness support look like?",
+          permittedClassifications: [...ENQUIRY_CLASSES],
+          requiredFields: ['framework', 'target_audit_window', 'headcount'],
+        },
+      },
+    },
+    {
+      eventId: 'evt-northgate-002',
+      correlationId: 'inc-lr-northgate',
+      entityId: 'lead-northgate',
+      type: 'lead.wait.reevaluated',
+      source: 'wait-scheduler',
+      sourceEventId: 'wait-check-2026-08-13-0900',
+      occurredAt: '2026-08-13T09:00:00-04:00',
+      receivedAt: '2026-08-13T09:00:00-04:00',
+      schemaVersion: SCHEMA_VERSION,
+      actor: 'SYSTEM',
+      executionMode: 'SIMULATED',
+      payload: {},
+    },
+    {
+      eventId: 'evt-northgate-003',
+      correlationId: 'inc-lr-northgate',
+      entityId: 'lead-northgate',
+      type: 'lead.wait.reevaluated',
+      source: 'wait-scheduler',
+      sourceEventId: 'wait-check-2026-08-14-1500',
+      occurredAt: '2026-08-14T15:00:00-04:00',
+      receivedAt: '2026-08-14T15:00:00-04:00',
+      schemaVersion: SCHEMA_VERSION,
+      actor: 'SYSTEM',
+      executionMode: 'SIMULATED',
+      payload: {},
+    },
+  ],
+} satisfies Parameters<typeof ScenarioSchema.parse>[0];
+
+// ===========================================================================
 
 export const LEAD_RESCUE_SCENARIOS: readonly Scenario[] = [
   ScenarioSchema.parse(AFTER_HOURS),
@@ -700,6 +804,7 @@ export const LEAD_RESCUE_SCENARIOS: readonly Scenario[] = [
   ScenarioSchema.parse(RESTRICTED_CONTACT),
   ScenarioSchema.parse(UNCERTAIN_OUTCOME),
   ScenarioSchema.parse(WAIT_ELAPSED),
+  ScenarioSchema.parse(OFFER_WAIT_ELAPSED),
 ];
 
 /**

@@ -488,6 +488,16 @@ const RAW = {
         'Lead Rescue wait/resume: the window WAITING_FOR_REPLY is held open before lr-t14 (wait elapsed) becomes eligible. One business day, chosen because a genuinely interested prospect who has gone quiet this long is better served by a person than by a system that keeps waiting.',
     },
     {
+      id: 'kestrel-booking-offer-window',
+      statement:
+        'A next-step offer that goes unanswered for 48 hours is escalated to a named person rather than left waiting indefinitely.',
+      provenance: 'CLIENT_POLICY',
+      verification: 'NOT_APPLICABLE',
+      sourceIds: [],
+      appliesTo:
+        'Lead Rescue wait/resume: the window BOOKING_READY is held open before lr-t22 (offer unanswered) becomes eligible. Canon (data/systems/lead-rescue.ts) declares lr-t22\'s guard as "beyond the configured window" without a number — the same open shape kestrel-reply-wait-window originally filled for lr-t14 — so this is a newly introduced client-policy value, not one derived from any prior source. Two business days, longer than the one-day reply-wait window: confirming a proposed next step plausibly requires checking a calendar, which a simple missing-information answer does not.',
+    },
+    {
       id: 'kestrel-collection-cadence',
       statement:
         'Payment reminders issue 3 days before due date and again on days 1, 8, 15 and 30 past due, with escalation to the founder at day 45.',
@@ -571,6 +581,7 @@ const RAW = {
     { key: 'routingTargetMinutes', label: 'Routing target, business hours', value: 30, unit: 'minutes', policyId: 'kestrel-routing-window' },
     { key: 'maxInformationQuestions', label: 'Maximum clarifying questions before human review', value: 2, unit: 'questions', policyId: 'kestrel-routing-window' },
     { key: 'replyWaitWindowHours', label: 'Reply wait window before escalation', value: 24, unit: 'hours', policyId: 'kestrel-reply-wait-window' },
+    { key: 'bookingOfferWindowHours', label: 'Booking offer wait window before escalation', value: 48, unit: 'hours', policyId: 'kestrel-booking-offer-window' },
     { key: 'dormantMaxAttempts', label: 'Maximum reactivation attempts', value: 3, unit: 'attempts', policyId: 'kestrel-outreach-cadence' },
     { key: 'dormantWindowDays', label: 'Reactivation sequence window', value: 21, unit: 'days', policyId: 'kestrel-outreach-cadence' },
     { key: 'dormantCoolingOffDays', label: 'Cooling-off before re-entry', value: 90, unit: 'days', policyId: 'kestrel-outreach-cadence' },

@@ -7,22 +7,29 @@ interface IncidentSummary {
   readonly incidentId: string;
   readonly correlationId: string;
   readonly lifecycleState: string;
+  readonly kind: 'reply' | 'offer' | null;
   readonly waitStartedAt: string | null;
+  readonly windowHours: number | null;
   readonly deadlineAt: string | null;
   readonly revision: number;
 }
 
+const KIND_LABEL: Record<'reply' | 'offer', string> = {
+  reply: 'reply (lr-t14)',
+  offer: 'offer (lr-t22)',
+};
+
 export default function LeadRescueWaitPage() {
   const [incidents, setIncidents] = useState<readonly IncidentSummary[]>([]);
-  const [windowHours, setWindowHours] = useState<number | null>(null);
+  const [windows, setWindows] = useState<{ reply: number; offer: number } | null>(null);
   const [lastResult, setLastResult] = useState<unknown>(null);
   const [busy, setBusy] = useState(false);
 
   const refresh = useCallback(async () => {
     const res = await fetch('/api/lead-rescue/wait-incidents');
-    const data: { incidents: readonly IncidentSummary[]; windowHours: number } = await res.json();
+    const data: { incidents: readonly IncidentSummary[]; windows: { reply: number; offer: number } } = await res.json();
     setIncidents(data.incidents);
-    setWindowHours(data.windowHours);
+    setWindows(data.windows);
   }, []);
 
   useEffect(() => {
@@ -33,15 +40,22 @@ export default function LeadRescueWaitPage() {
     refresh();
   }, [refresh]);
 
-  const parkDemoIncident = useCallback(async () => {
-    setBusy(true);
-    try {
-      await fetch('/api/lead-rescue/wait-incidents', { method: 'POST' });
-      await refresh();
-    } finally {
-      setBusy(false);
-    }
-  }, [refresh]);
+  const parkDemoIncident = useCallback(
+    async (kind: 'reply' | 'offer') => {
+      setBusy(true);
+      try {
+        await fetch('/api/lead-rescue/wait-incidents', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ kind }),
+        });
+        await refresh();
+      } finally {
+        setBusy(false);
+      }
+    },
+    [refresh],
+  );
 
   const checkNow = useCallback(
     async (incidentId?: string, advancePastDeadline = false) => {
@@ -77,26 +91,39 @@ export default function LeadRescueWaitPage() {
           Every scenario in the simulator replays a deterministic run from authored fixture
           events. This page does not: parking an incident here writes a real record to a JSON
           file on disk, and checking it reads the real server clock, loads that record back off
-          disk, and applies the same deterministic rule (lr-t14) through the same engine —
-          independently of whatever process parked it.
+          disk, and applies the same deterministic rule through the same engine —
+          independently of whatever process parked it. Two waiting categories share this one
+          durable runtime: a reply wait (lr-t14, WAITING_FOR_REPLY) and a booking-offer wait
+          (lr-t22, BOOKING_READY) — the same <code>WaitIncidentStore</code>,{' '}
+          <code>checkWaitIncident</code>, and durable claim, never a second mechanism built to
+          match.
         </p>
       </header>
 
       <section className="border rule rounded-sm p-4 space-y-4" style={{ background: 'var(--panel)' }}>
         <div className="flex flex-wrap items-center gap-3">
           <button
-            onClick={parkDemoIncident}
+            onClick={() => parkDemoIncident('reply')}
             disabled={busy}
             className="badge"
             style={{ borderColor: 'var(--accent)', color: 'var(--accent)' }}
           >
-            Park a demo incident
+            Park a demo incident (reply, lr-t14)
+          </button>
+          <button
+            onClick={() => parkDemoIncident('offer')}
+            disabled={busy}
+            className="badge"
+            style={{ borderColor: 'var(--accent)', color: 'var(--accent)' }}
+          >
+            Park a demo incident (offer, lr-t22)
           </button>
           <button onClick={() => checkNow()} disabled={busy} className="badge" style={{ borderColor: 'var(--rule-strong)' }}>
             Check all now (real clock)
           </button>
           <span className="instrument" style={{ color: 'var(--ink-faint)' }}>
-            Configured window: {windowHours ?? '…'}h (client policy kestrel-reply-wait-window)
+            Configured windows: reply {windows?.reply ?? '…'}h (kestrel-reply-wait-window) · offer{' '}
+            {windows?.offer ?? '…'}h (kestrel-booking-offer-window)
           </span>
         </div>
 
@@ -105,6 +132,7 @@ export default function LeadRescueWaitPage() {
             <thead>
               <tr style={{ color: 'var(--ink-muted)' }}>
                 <th className="text-left font-normal pb-2">Incident</th>
+                <th className="text-left font-normal pb-2">Kind</th>
                 <th className="text-left font-normal pb-2">Waiting since</th>
                 <th className="text-left font-normal pb-2">Deadline</th>
                 <th className="text-left font-normal pb-2">Rev</th>
@@ -114,7 +142,7 @@ export default function LeadRescueWaitPage() {
             <tbody>
               {incidents.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="py-3" style={{ color: 'var(--ink-faint)' }}>
+                  <td colSpan={6} className="py-3" style={{ color: 'var(--ink-faint)' }}>
                     No incidents currently waiting.
                   </td>
                 </tr>
@@ -122,6 +150,7 @@ export default function LeadRescueWaitPage() {
               {incidents.map((incident) => (
                 <tr key={incident.incidentId} className="border-t rule">
                   <td className="py-2 pr-2">{incident.incidentId}</td>
+                  <td className="pr-2">{incident.kind === null ? '—' : KIND_LABEL[incident.kind]}</td>
                   <td className="pr-2">{incident.waitStartedAt}</td>
                   <td className="pr-2">{incident.deadlineAt}</td>
                   <td className="pr-2">{incident.revision}</td>
@@ -162,10 +191,10 @@ export default function LeadRescueWaitPage() {
               Genuinely executing
             </p>
             <ul className="instrument space-y-1" style={{ color: 'var(--ink-muted)' }}>
-              <li>· &ldquo;Park a demo incident&rdquo; runs the real engine — the same handler and reducer the simulator uses — to reach WAITING_FOR_REPLY, then writes the resulting state to a real file.</li>
-              <li>· &ldquo;Check&rdquo; reads the real server clock once and applies exactly one lead.wait.reevaluated event against the record loaded back off disk.</li>
+              <li>· Either &ldquo;Park a demo incident&rdquo; button runs the real engine — the same handler and reducer the simulator uses — to reach WAITING_FOR_REPLY or BOOKING_READY, then writes the resulting state to a real file.</li>
+              <li>· &ldquo;Check&rdquo; reads the real server clock once and applies exactly one lead.wait.reevaluated event against the record loaded back off disk — the SAME event type for both kinds; which rule (lr-t14 or lr-t22) applies is read off the incident&apos;s own current lifecycle state, not a label this page supplies.</li>
               <li>· A check before the deadline is a genuine no-op: no transition, no side effect, the record untouched.</li>
-              <li>· A check after the deadline fires lr-t14 through the ordinary authority and idempotency gates, same as any other transition.</li>
+              <li>· A check after the deadline fires the matching rule through the ordinary authority and idempotency gates, same as any other transition.</li>
               <li>· Restarting the dev server does not lose a waiting incident — the file on disk is the only place this state lives.</li>
               <li>· The notification itself is durably claimed before it is trusted: two overlapping checks on the same incident can never both report it EXECUTED. A claim that is recorded but never confirmed (e.g. a crash mid-check) surfaces as an <code>UNCERTAIN</code> result rather than being silently retried — visible in the raw result below as <code>outcome: &quot;UNCERTAIN&quot;</code>.</li>
             </ul>

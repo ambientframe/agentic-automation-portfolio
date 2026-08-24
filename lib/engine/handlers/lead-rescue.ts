@@ -618,7 +618,13 @@ function handleEnquiry(ctx: HandlerContext): HandlerOutcome {
     summary: target.summary,
     ...(target.state === 'NEEDS_HUMAN'
       ? { statePatch: { awaitingHuman: target.summary } }
-      : {}),
+      : target.state === 'BOOKING_READY'
+        // bookingReadyAt is the event's own occurredAt, never a clock read — the lr-t22
+        // sibling of waitStartedAt above. A later, genuinely separate `lead.wait.reevaluated`
+        // event compares itself against this, never against waitStartedAt, even if a stray
+        // waitStartedAt fact happened to be present — see handleOfferWaitReevaluation below.
+        ? { statePatch: { facts: { bookingReadyAt: event.occurredAt } } }
+        : {}),
     decisions: [
       decision({
         id: id('d-disposition'),
@@ -1013,6 +1019,10 @@ function handleReply(ctx: HandlerContext): HandlerOutcome {
       missingInformation: remaining,
       ...(outcome.state === 'DO_NOT_CONTACT' ? { suppressed: true } : {}),
       ...(outcome.state === 'NEEDS_HUMAN' ? { awaitingHuman: outcome.summary } : {}),
+      // Same bookingReadyAt fact the classification-time disposition step writes — this is
+      // the OTHER legitimate path into BOOKING_READY (lr-t16, a reply that completes a
+      // previously-incomplete enquiry), and needs the identical wait-start evidence.
+      ...(outcome.state === 'BOOKING_READY' ? { facts: { bookingReadyAt: event.occurredAt } } : {}),
     },
     decisions: [
       decision({
@@ -1091,17 +1101,72 @@ function replyDisposition(
 // ---------------------------------------------------------------------------
 
 /**
- * The deterministic rule behind lr-t14. Genuinely separate from `handleReply`: this event
- * carries no reply content at all, only `occurredAt` — the one place a real clock reading
- * is permitted to enter the system, and only as an ordinary event field the caller
- * supplies, exactly like every other event's `occurredAt`. This function itself remains
- * synchronous, total, and free of clocks, same as every other handler in this file.
+ * `lead.wait.reevaluated` is genuinely separate from `handleReply`: this event carries no
+ * reply content at all, only `occurredAt` — the one place a real clock reading is permitted
+ * to enter the system, and only as an ordinary event field the caller supplies, exactly like
+ * every other event's `occurredAt`. Every function in this section remains synchronous,
+ * total, and free of clocks, same as every other handler in this file.
  *
  * Who calls this, and when, is a persistence-layer question answered in
- * `lib/engine/wait-resume.ts`, not here. This handler only ever answers one question:
- * given a wait start and a check time, has the configured window elapsed?
+ * `lib/engine/wait-resume.ts`, not here.
+ *
+ * TWO Lead Rescue lifecycle states currently wait on an external response with no other
+ * driving event: `WAITING_FOR_REPLY` (lr-t14, "wait elapsed") and `BOOKING_READY` (lr-t22,
+ * "offer unanswered"). Both raise the SAME event type — a third, materially different
+ * waiting condition would be the first real signal that a shared event type stops being the
+ * right shape; two is not that signal, and inventing a second event type now would be
+ * exactly the kind of speculative generalisation this pass exists to avoid. Instead, this
+ * top-level handler dispatches on `state.lifecycleState` — already the authoritative,
+ * engine-tracked discriminant, needing no new field — to exactly one of the two rules below.
+ * A lifecycle state neither rule recognises (BOOKED, DO_NOT_CONTACT, CLOSED_BAD_FIT, or any
+ * other state a case may have genuinely moved on to since it was parked) is a safe no-op,
+ * never a guess: nothing here re-derives whether SOME OTHER wait might apply, and nothing
+ * escalates without an evidenced, matching lifecycle state.
  */
 function handleWaitReevaluation(ctx: HandlerContext): HandlerOutcome {
+  if (ctx.state.lifecycleState === 'WAITING_FOR_REPLY') return handleReplyWaitReevaluation(ctx);
+  if (ctx.state.lifecycleState === 'BOOKING_READY') return handleOfferWaitReevaluation(ctx);
+
+  const { event, state } = ctx;
+  const id = (suffix: string) => `${event.eventId}:${suffix}`;
+  return {
+    steps: [
+      {
+        id: id('wait-check-not-waiting'),
+        label: 'Wait re-evaluation',
+        atOffsetSeconds: 0,
+        summary: `Current lifecycle state (${state.lifecycleState}) has no declared wait-elapsed rule. No action taken.`,
+        decisions: [
+          decision({
+            id: id('d-wait-check-not-waiting'),
+            eventId: event.eventId,
+            mechanism: 'DETERMINISTIC_RULE',
+            objective: 'Determine whether this entity is currently in a lifecycle state a wait-elapsed rule applies to.',
+            relevantState: state.lifecycleState,
+            evidenceRefs: ['state.lifecycleState'],
+            deterministicFacts: [{ label: 'Lifecycle state', value: state.lifecycleState }],
+            missingInformation: [],
+            permittedActions: ['record_unresolvable_check'],
+            forbiddenActions: ['guess_wait_category', 'escalate_without_evidence'],
+            selectedAction: 'record_unresolvable_check',
+            applicablePolicy: [
+              'A wait re-evaluation only applies to a lifecycle state that declares a wait-elapsed rule (WAITING_FOR_REPLY for lr-t14, BOOKING_READY for lr-t22). Any other state means the case has already moved on, and this is a safe no-op.',
+            ],
+            authority: 0,
+          }),
+        ],
+        effects: [],
+        verifications: [],
+      },
+    ],
+  };
+}
+
+/**
+ * The deterministic rule behind lr-t14. This handler only ever answers one question: given a
+ * wait start and a check time, has the configured window elapsed?
+ */
+function handleReplyWaitReevaluation(ctx: HandlerContext): HandlerOutcome {
   const { event, state, profile } = ctx;
   const id = (suffix: string) => `${event.eventId}:${suffix}`;
   const windowHours = numberParam(profile, 'replyWaitWindowHours');
@@ -1224,6 +1289,154 @@ function handleWaitReevaluation(ctx: HandlerContext): HandlerOutcome {
             description: 'Notify the named owner that the reply window elapsed without a response.',
             target: 'Named owner',
             idempotencyKey: `notify:${event.entityId}:wait-elapsed`,
+            authority: 3,
+            policyPermits: true,
+            verification: {
+              check: 'Confirm the notification reached a named owner rather than a shared queue.',
+              expect: 'Notification addressed to a named owner.',
+            },
+          },
+        ],
+        verifications: [],
+      },
+    ],
+  };
+}
+
+/**
+ * The deterministic rule behind lr-t22 — the sibling of `handleReplyWaitReevaluation` on a
+ * different waiting state. Same shape deliberately: given a wait start (`bookingReadyAt`,
+ * never `waitStartedAt` — the two must never cross-read one another's fact) and a check
+ * time, has the configured booking-offer window elapsed? Nothing here is copied from
+ * `handleReplyWaitReevaluation` by reference — the duplication between the two functions IS
+ * the architecture: two small, independently readable rules rather than one parameterised
+ * over which fact/policy/idempotency-suffix to use, which would obscure exactly the
+ * distinction (a different policy, a different fact, a different notification identity) that
+ * matters here.
+ */
+function handleOfferWaitReevaluation(ctx: HandlerContext): HandlerOutcome {
+  const { event, state, profile } = ctx;
+  const id = (suffix: string) => `${event.eventId}:${suffix}`;
+  const windowHours = numberParam(profile, 'bookingOfferWindowHours');
+  const bookingReadyAt = state.facts['bookingReadyAt'];
+
+  if (bookingReadyAt === undefined) {
+    return {
+      steps: [
+        {
+          id: id('offer-check-invalid'),
+          label: 'Offer re-evaluation',
+          atOffsetSeconds: 0,
+          summary: 'No recorded booking-ready timestamp on this entity. No action taken.',
+          decisions: [
+            decision({
+              id: id('d-offer-check-invalid'),
+              eventId: event.eventId,
+              mechanism: 'DETERMINISTIC_RULE',
+              objective: 'Determine whether the configured booking-offer wait window has elapsed.',
+              relevantState: state.lifecycleState,
+              evidenceRefs: ['state.facts.bookingReadyAt'],
+              deterministicFacts: [{ label: 'Booking ready at', value: 'not recorded' }],
+              missingInformation: [],
+              permittedActions: ['record_unresolvable_check'],
+              forbiddenActions: ['guess_offer_start', 'escalate_without_evidence'],
+              selectedAction: 'record_unresolvable_check',
+              applicablePolicy: ['An offer re-evaluation with no recorded booking-ready timestamp cannot conclude anything and takes no action.'],
+              authority: 0,
+            }),
+          ],
+          effects: [],
+          verifications: [],
+        },
+      ],
+    };
+  }
+
+  const elapsedMs = Date.parse(event.occurredAt) - Date.parse(bookingReadyAt);
+  const windowMs = windowHours * 60 * 60 * 1000;
+  const elapsed = elapsedMs >= windowMs;
+  const elapsedHours = Math.round((elapsedMs / (60 * 60 * 1000)) * 10) / 10;
+
+  if (!elapsed) {
+    return {
+      steps: [
+        {
+          id: id('offer-check'),
+          label: 'Offer re-evaluation',
+          atOffsetSeconds: 0,
+          summary: `Checked ${elapsedHours}h into a ${windowHours}h window. Still within the configured booking-offer wait — no action taken.`,
+          decisions: [
+            decision({
+              id: id('d-offer-check'),
+              eventId: event.eventId,
+              mechanism: 'DETERMINISTIC_RULE',
+              objective: 'Determine whether the configured booking-offer wait window has elapsed.',
+              relevantState: 'BOOKING_READY',
+              evidenceRefs: ['state.facts.bookingReadyAt', 'event.occurredAt'],
+              deterministicFacts: [
+                { label: 'Booking ready at', value: bookingReadyAt },
+                { label: 'Checked at', value: event.occurredAt },
+                { label: 'Elapsed', value: `${elapsedHours} hours` },
+                { label: 'Configured window', value: `${windowHours} hours` },
+              ],
+              missingInformation: [...state.missingInformation],
+              permittedActions: ['remain_waiting'],
+              forbiddenActions: ['escalate_before_window_elapses', 'assume_offer_declined'],
+              selectedAction: 'remain_waiting',
+              applicablePolicy: [
+                'CLIENT_POLICY kestrel-booking-offer-window: escalation is eligible only once the configured booking-offer wait window has genuinely elapsed.',
+              ],
+              authority: 3,
+            }),
+          ],
+          effects: [],
+          verifications: [],
+        },
+      ],
+    };
+  }
+
+  return {
+    steps: [
+      {
+        id: id('offer-elapsed'),
+        label: 'Offer elapsed',
+        atOffsetSeconds: 0,
+        transitionTo: 'NEEDS_HUMAN',
+        summary: `No response to the offered next step within the configured ${windowHours}-hour window (checked at ${elapsedHours}h). Escalated to a person.`,
+        statePatch: { awaitingHuman: 'Booking-offer window elapsed without a response' },
+        decisions: [
+          decision({
+            id: id('d-offer-elapsed'),
+            eventId: event.eventId,
+            mechanism: 'DETERMINISTIC_RULE',
+            objective: 'Determine whether the configured booking-offer wait window has elapsed.',
+            relevantState: 'BOOKING_READY',
+            evidenceRefs: ['state.facts.bookingReadyAt', 'event.occurredAt'],
+            deterministicFacts: [
+              { label: 'Booking ready at', value: bookingReadyAt },
+              { label: 'Checked at', value: event.occurredAt },
+              { label: 'Elapsed', value: `${elapsedHours} hours` },
+              { label: 'Configured window', value: `${windowHours} hours` },
+            ],
+            missingInformation: [...state.missingInformation],
+            permittedActions: ['escalate_to_human'],
+            forbiddenActions: ['assume_offer_declined', 'rebook_without_confirmation', 'close_case'],
+            selectedAction: 'escalate_to_human',
+            applicablePolicy: [
+              'CLIENT_POLICY kestrel-booking-offer-window: an offered next step unanswered past the configured window is escalated to a named person.',
+            ],
+            escalationReason: `No response to the offered next step within ${windowHours} hours of the case becoming booking-ready.`,
+            authority: 2,
+          }),
+        ],
+        effects: [
+          {
+            id: id('effect:notify-offer-unanswered'),
+            kind: 'NOTIFICATION',
+            description: 'Notify the named owner that the offered next step went unanswered.',
+            target: 'Named owner',
+            idempotencyKey: `notify:${event.entityId}:offer-unanswered`,
             authority: 3,
             policyPermits: true,
             verification: {
