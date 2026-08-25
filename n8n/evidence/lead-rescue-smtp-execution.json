@@ -1,0 +1,89 @@
+{
+  "schemaVersion": "lead-rescue-smtp-execution-evidence-1",
+  "capturedAt": "2026-08-25T23:45:14.299Z",
+  "gitHead": "d2216b465d3097bfc6226cd504ae14d56481b35f",
+  "smtpServer": {
+    "product": "Mailpit",
+    "version": "v1.31.0",
+    "kind": "local capture/sandbox server (stores messages, never relays)",
+    "host": "127.0.0.1",
+    "port": 1025,
+    "relayConfigured": false,
+    "relayEvidence": "Container started as bare `/mailpit` with no --smtp-relay-config flag and no MP_SMTP_RELAY_* environment variable (docker inspect Config.Cmd = null, Config.Env = PATH only). Both ports bound to 127.0.0.1 only, so the server is unreachable from outside this machine and structurally cannot forward mail onward.",
+    "messagesBeforeProof": 0
+  },
+  "executionPath": {
+    "productionEntry": "checkWaitIncident(leadRescueWaitStore, leadRescueClaimStore, …, LEAD_RESCUE_WAIT_DEPS, LEAD_RESCUE_WAIT_RUNTIME_ID)",
+    "note": "The identical function app/api/lead-rescue/wait-incidents/check/route.ts calls on its incidentId branch, using the real module-level store and claim singletons and the real composition-root-resolved executor. The HTTP hop into that route is NOT part of this artifact — it is separately evidenced in n8n/evidence/lead-rescue-runtime-execution.json.",
+    "executorSelection": "SMTP",
+    "executorId": "lead-rescue-local-smtp-executor"
+  },
+  "precondition": {
+    "capturedFacts": {
+      "incidentId": "lead-smtp-proof-dispatch-timeout-1",
+      "revision": 1,
+      "lifecycleState": "BOOKING_READY",
+      "bookingReadyAt": "2026-08-25T14:45:12.814Z"
+    },
+    "derivedAssertions": {
+      "constructionMethod": "WaitIncidentStore.park() — the same production persistence method ingestExternalLead/applyHumanDecision/dispatchAuthorizedOffer call. bookingReadyAt backdated 9h against the real 8h kestrel-dispatch-timeout-window."
+    }
+  },
+  "authorizedSend": {
+    "capturedFacts": {
+      "checkOutcome": "ATTENTION_OVERDUE",
+      "operationClaimId": "notify:lead-smtp-proof-dispatch-timeout-1:dispatch-overdue@rev1",
+      "operationClaimStatus": "CONFIRMED",
+      "operationClaimConfirmedAt": "2026-08-25T23:45:12.817Z",
+      "sideEffectStatus": "EXECUTED",
+      "applicationSendOutcome": {
+        "kind": "SUCCEEDED",
+        "externalId": "e104ded2-82dd-9739-830b-6171ebadb821@example.invalid"
+      },
+      "captureServerReceipt": {
+        "messageId": "e104ded2-82dd-9739-830b-6171ebadb821@example.invalid",
+        "captureServerId": "5UmkyZq2njXxXnt0wnwfGJ",
+        "to": [
+          "lead-rescue-proof@example.invalid"
+        ],
+        "from": "lead-rescue-proof@example.invalid",
+        "subjectSha256": "390efb39c429eef3ced4605145c7afae852568a7706336c9f4dc23fd4611e91a",
+        "bodySha256": "8f92a75435c96d70714b670e3a2b386568bc2e05dbaf5ca87d1c733d3d68a4a5",
+        "receivedAt": "2026-08-25T23:45:12Z",
+        "source": "Mailpit HTTP API GET /api/v1/message/{ID} — read back out of the capture server itself, not reported by the application."
+      }
+    },
+    "derivedAssertions": {
+      "crossedRealSocket": true,
+      "executorMode": "LIVE",
+      "note": "The application's own SendOutcome.externalId and the capture server's independently recorded MessageID are the same value, obtained from two different systems."
+    }
+  },
+  "duplicateReplay": {
+    "capturedFacts": {
+      "secondCheckOutcome": "ATTENTION_OVERDUE",
+      "secondAttemptSideEffectStatus": "SUPPRESSED_DUPLICATE",
+      "captureServerMessageCountForOperation": 1,
+      "captureServerIdAfterReplay": "5UmkyZq2njXxXnt0wnwfGJ",
+      "captureServerTotalAfterReplay": 1
+    },
+    "derivedAssertions": {
+      "secondDeliverySuppressed": true,
+      "mechanism": "OperationClaimStore.claim() returned ALREADY_CONFIRMED on the replay, so checkWaitIncident downgraded the proposed effect to SUPPRESSED_DUPLICATE and never reached the SMTP adapter. Unchanged pre-existing machinery — this package added no new idempotency policy."
+    }
+  },
+  "transportFailure": {
+    "capturedFacts": {
+      "port": 59733,
+      "applicationSendOutcome": {
+        "kind": "FAILED_BEFORE_EFFECT",
+        "reason": "SMTP transport failed before the message was accepted (ESOCKET): connect ECONNREFUSED 127.0.0.1:59733"
+      }
+    },
+    "derivedAssertions": {
+      "falseExecutedAvoided": true,
+      "note": "A genuine ECONNREFUSED against a port nothing is listening on, surfaced as typed FAILED_BEFORE_EFFECT data rather than an uncaught throw or a false SUCCEEDED."
+    }
+  },
+  "scopeStatement": "This evidence proves that an authorized Lead Rescue notification genuinely left the application over SMTP across a real local network socket and was accepted by a separate local capture server (Mailpit), and that replaying the same protected operation produced no second captured message. The recipient was synthetic and non-routable (a reserved .invalid domain); nothing was delivered to a real person, real mailbox, or real recipient, and the capture server has no relay configuration and is bound to loopback only. This is NOT production email delivery, NOT a client deployment, and NOT proof of exactly-once delivery across arbitrary provider or crash failure modes. No Anthropic API call was involved at any point — classification is not on this path."
+}

@@ -6,6 +6,7 @@ import { FileWaitIncidentStore } from '@/lib/persistence/wait-incident-store';
 import { FileOperationClaimStore } from '@/lib/persistence/operation-claim-store';
 import type { SendRequest, VerifyRequest, SideEffectExecutor } from '@/lib/ports/side-effect-executor';
 import type { ExecutionMode, SendOutcome, VerifyOutcome } from '@/lib/model/runtime';
+import { resolveLeadRescueSideEffectExecutor } from '@/lib/config/side-effect-executor-config';
 import type { WaitResumeDeps } from './wait-resume';
 
 /**
@@ -71,12 +72,30 @@ export const LEAD_RESCUE_CLAIM_STORE_DIR = path.join(process.cwd(), '.data', 'le
 
 export const leadRescueClaimStore = new FileOperationClaimStore(LEAD_RESCUE_CLAIM_STORE_DIR);
 
+/**
+ * The default safe executor. Still the one every ordinary run gets — see
+ * `lib/config/side-effect-executor-config.ts` for why real SMTP requires an explicit,
+ * separate opt-in and never activates on configuration presence alone.
+ */
+const SIMULATED_EXECUTOR = new AlwaysSucceedsSimulatedExecutor();
+
+/**
+ * Resolved ONCE at module load, exactly like the stores above, and for the same reason: the
+ * route handlers are stateless functions and there is no per-request decision to make here.
+ * The resolution is inspectable (`LEAD_RESCUE_EXECUTOR_SELECTION`) so a runtime can report
+ * truthfully which execution mode it is actually in rather than assuming the default.
+ */
+const executorResolution = resolveLeadRescueSideEffectExecutor(process.env, SIMULATED_EXECUTOR);
+
+export const LEAD_RESCUE_EXECUTOR_ID = executorResolution.executorId;
+export const LEAD_RESCUE_EXECUTOR_SELECTION = executorResolution.selectionKind;
+
 export const LEAD_RESCUE_WAIT_DEPS: WaitResumeDeps = {
   system: LEAD_RESCUE,
   profile: KESTREL,
   handlers: LEAD_RESCUE_HANDLERS,
   reevaluationEventType: 'lead.wait.reevaluated',
-  executor: new AlwaysSucceedsSimulatedExecutor(),
+  executor: executorResolution.executor,
 };
 
 /**
