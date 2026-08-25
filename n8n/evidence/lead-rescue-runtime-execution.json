@@ -1,0 +1,115 @@
+{
+  "schemaVersion": "n8n-lead-rescue-runtime-evidence-1",
+  "capturedAt": "2026-08-25T21:22:30Z",
+  "n8n": {
+    "version": "2.35.7",
+    "instance": "local-docker",
+    "image": "docker.n8n.io/n8nio/n8n:latest",
+    "containerName": "lead-rescue-n8n",
+    "note": "A second, real local n8n instance stood up for this capture (Docker Desktop, named container + named persistent volume, both reversible). Imported via `n8n import:workflow`, activated via `n8n publish:workflow`, exercised while the real Lead Rescue app ran via `npm run dev` on localhost:3000, reachable from the container as host.docker.internal:3000."
+  },
+  "executions": [
+    {
+      "workflow": {
+        "repositoryPath": "n8n/workflows/lead-rescue-ingress.json",
+        "name": "Lead Rescue — n8n Ingress",
+        "n8nWorkflowId": "8037d4a2-c95d-4fdd-a64e-5886a7f0d531"
+      },
+      "n8nExecution": {
+        "id": "4",
+        "status": "success",
+        "startedAt": "2026-08-25T21:21:59.039Z",
+        "stoppedAt": "2026-08-25T21:21:59.281Z",
+        "mode": "webhook",
+        "source": "n8n execution_entity row id=4, read directly from the local n8n instance's own SQLite database (database.sqlite, execution_entity + execution_data tables) after the run — not inferred from the HTTP response."
+      },
+      "httpRequest": {
+        "method": "POST",
+        "targetRoute": "/api/lead-rescue/ingress",
+        "source": "website-intake-form",
+        "sourceEventId": "n8n-runtime-evidence-ingress-1",
+        "note": "The external trigger payload (POSTed to n8n's real webhook at http://localhost:5678/webhook/lead-rescue-ingress) was mapped into this canonical envelope by n8n's own 'Validate / Envelope' node — the sourceEventId and source values above are n8n's real, recorded output for that node, read from execution_data, not authored into this file directly."
+      },
+      "httpResponse": {
+        "statusCode": 200,
+        "outcome": "ACCEPTED",
+        "duplicate": false,
+        "entityId": "lead-website-intake-form-n8n-runtime-evidence-ingress-1",
+        "correlationId": "inc-lead-website-intake-form-n8n-runtime-evidence-ingress-1",
+        "classifierProvider": "fixture-decision-provider",
+        "ingestionPath": "n8n",
+        "lifecycleState": "BOOKING_READY",
+        "revision": 1,
+        "decisionRuleId": "lr-t10",
+        "executionMode": "SIMULATED",
+        "schemaVersionObserved": "lead-rescue-ingress-1"
+      },
+      "durableApplicationState": {
+        "source": "read directly from .data/lead-rescue-wait-incidents.json (the real FileWaitIncidentStore-backed persistence layer) after the execution, not copied from the HTTP response body.",
+        "incidentId": "lead-website-intake-form-n8n-runtime-evidence-ingress-1",
+        "systemId": "lead-rescue",
+        "correlationId": "inc-lead-website-intake-form-n8n-runtime-evidence-ingress-1",
+        "engineState": {
+          "lifecycleState": "BOOKING_READY",
+          "facts": {
+            "channel": "web-form",
+            "company": "Northgate Analytics",
+            "contactName": "Dana Whitfield",
+            "bookingReadyAt": "2026-08-25T21:21:59Z"
+          },
+          "suppressed": false,
+          "awaitingHuman": null,
+          "missingInformation": []
+        },
+        "provenance": {
+          "source": "website-intake-form",
+          "sourceEventId": "n8n-runtime-evidence-ingress-1",
+          "ingestionPath": "n8n"
+        },
+        "revision": 1
+      }
+    },
+    {
+      "workflow": {
+        "repositoryPath": "n8n/workflows/lead-rescue-wait-sweep.json",
+        "name": "Lead Rescue — Wait Sweep",
+        "n8nWorkflowId": "657f20d9-24a5-4f58-9237-e6027e06d99a"
+      },
+      "n8nExecution": {
+        "id": "3",
+        "status": "success",
+        "startedAt": "2026-08-25T21:21:38.021Z",
+        "stoppedAt": "2026-08-25T21:21:38.043Z",
+        "mode": "trigger",
+        "source": "n8n execution_entity row id=3, read directly from the local n8n instance's own SQLite database after the run. mode='trigger' (not 'manual' or 'webhook') is n8n's own record that its Schedule Trigger fired this execution on its own clock — no curl, click, or CLI invocation from this pass caused it.",
+        "additionalAutonomousExecutionsObservedThisCapture": ["1", "2"],
+        "additionalExecutionsNote": "Three genuine schedule-fired executions (ids 1, 2, 3) were recorded in the ~3 minutes the activated workflow ran unattended before this capture, one per minute, matching the workflow's configured 1-minute interval. Only id=3 is detailed above as the representative sample; ids 1-2 are structurally identical (same target route, same 200/empty-results outcome, since no incident was yet past a timeout deadline)."
+      },
+      "httpRequest": {
+        "method": "POST",
+        "targetRoute": "/api/lead-rescue/wait-incidents/check",
+        "sendBody": false,
+        "note": "The wait-sweep workflow deliberately sends no body and no incidentId — see the workflow's own sticky note. It asks only 'has anything become due', never a specific business question, so there is no per-request sourceEventId for this workflow by design."
+      },
+      "httpResponse": {
+        "statusCode": 200,
+        "now": "2026-08-25T21:21:38.042Z",
+        "resultsCount": 0
+      },
+      "durableApplicationState": {
+        "checkedCount": 0,
+        "changedCount": 0,
+        "note": "No waiting incident was past its configured timeout deadline at the moment this real, n8n-triggered sweep ran, so checkAllWaitingIncidents genuinely found nothing to act on — an honest negative result, not a fabricated one. The sweep's real HTTP round trip into the app and its real, empty 'results' array are the durable proof; no record needed to change for the sweep itself to be genuinely exercised through n8n."
+      }
+    }
+  ],
+  "providerMode": {
+    "decisionProvider": "fixture",
+    "note": "LEAD_RESCUE_DECISION_PROVIDER was not set to 'claude' for this capture, so app/api/lead-rescue/ingress/route.ts's resolveIngressDecisionProvider() selected FixtureDecisionProvider — confirmed above by httpResponse.classifierProvider === 'fixture-decision-provider' on the real ingress response, not merely asserted here."
+  },
+  "sideEffectMode": {
+    "executor": "simulated",
+    "note": "executionMode: 'SIMULATED' on the real ingress response confirms no real third-party side effect was attempted for this case. No offer-dispatch or notification side effect fired during this capture window (the created case reached BOOKING_READY only); every existing SideEffectExecutor in this codebase (AlwaysSucceedsSimulatedExecutor and its test variants) remains simulated regardless."
+  },
+  "scopeStatement": "This evidence proves that a real local n8n runtime (v2.35.7, Docker) genuinely executed both committed Lead Rescue workflows (n8n/workflows/lead-rescue-ingress.json via a real webhook delivery, n8n/workflows/lead-rescue-wait-sweep.json via its own Schedule Trigger firing unattended) and crossed the real Lead Rescue application HTTP boundary, producing durable application state through the real file-backed persistence layer. It does NOT prove real Anthropic classification — the decision provider was fixture-backed for this capture, never the live ClaudeDecisionProvider. It does NOT prove real outbound third-party message delivery — no email, SMS, or CRM provider was contacted; every side effect this capture touched remains simulated, and no production credential, endpoint, or deployment exists anywhere in this path."
+}
