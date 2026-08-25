@@ -101,6 +101,157 @@
         "changedCount": 0,
         "note": "No waiting incident was past its configured timeout deadline at the moment this real, n8n-triggered sweep ran, so checkAllWaitingIncidents genuinely found nothing to act on — an honest negative result, not a fabricated one. The sweep's real HTTP round trip into the app and its real, empty 'results' array are the durable proof; no record needed to change for the sweep itself to be genuinely exercised through n8n."
       }
+    },
+    {
+      "proofFocus": "due-incident-state-mutation",
+      "capturedAt": "2026-08-25T22:27:00Z",
+      "note": "Extends the wait-sweep proof above: that capture showed real n8n orchestration returning an empty, honest negative result. This entry proves the missing half — a real n8n-triggered sweep that discovers a genuinely due incident and drives the application's real deterministic attention-timeout policy to a real, persisted result, then survives a real replay without double-executing.",
+      "workflow": {
+        "repositoryPath": "n8n/workflows/lead-rescue-wait-sweep.json",
+        "name": "Lead Rescue — Wait Sweep",
+        "n8nWorkflowId": "657f20d9-24a5-4f58-9237-e6027e06d99a"
+      },
+      "n8nExecution": {
+        "id": "11",
+        "status": "success",
+        "startedAt": "2026-08-25T22:25:38.018Z",
+        "stoppedAt": "2026-08-25T22:25:38.264Z",
+        "mode": "trigger",
+        "source": "n8n execution_entity row id=11, read directly from the local n8n instance's own SQLite database after the run. mode='trigger' confirms the Schedule Trigger fired this execution on its own clock, one minute after the previous tick — no curl, click, or CLI invocation from this pass caused it."
+      },
+      "httpRequest": {
+        "method": "POST",
+        "targetRoute": "/api/lead-rescue/wait-incidents/check",
+        "sendBody": false
+      },
+      "httpResponse": {
+        "statusCode": 200,
+        "now": "2026-08-25T22:25:38.255Z",
+        "resultsCount": 2,
+        "capturedFacts": {
+          "incidentId": "lead-evidence-harness-dispatch-timeout-1",
+          "outcome": "ATTENTION_OVERDUE"
+        },
+        "note": "The real response held 2 results: the still-current n8n-ingressed case from the prior evidence entry (STILL_WAITING, only 1.1h into its own 8h dispatch window) and this package's seeded due case (ATTENTION_OVERDUE). Both, with full decision/effect entries, were read directly out of n8n's own execution_data for execution id=11 — not re-derived or summarized from the app's HTTP response alone."
+      },
+      "precondition": {
+        "capturedFacts": {
+          "incidentId": "lead-evidence-harness-dispatch-timeout-1",
+          "systemId": "lead-rescue",
+          "correlationId": "inc-lead-evidence-harness-dispatch-timeout-1",
+          "revision": 1,
+          "engineState": {
+            "lifecycleState": "BOOKING_READY",
+            "facts": {
+              "channel": "web-form",
+              "company": "Fenwright Data Services",
+              "contactName": "Priya Anand",
+              "bookingReadyAt": "2026-08-25T13:25:17.868Z"
+            },
+            "suppressed": false,
+            "awaitingHuman": null,
+            "missingInformation": []
+          },
+          "provenance": null
+        },
+        "derivedAssertions": {
+          "constructionMethod": "scripts/seed-due-wait-incident.ts calls WaitIncidentStore.park() — the exact same production persistence method ingestExternalLead/applyHumanDecision/dispatchAuthorizedOffer already call (lib/engine/lead-ingress.ts, lib/engine/wait-resume.ts) — with bookingReadyAt backdated 9 hours (1 hour past the real 8-hour dispatchTimeoutHours window). No JSON file was hand-edited; no outcome was written by this script; the transition below was computed entirely by the real, unmodified checkAllWaitingIncidents -> checkWaitIncident -> handleDispatchAttentionTimeout chain reading the genuine wall clock when n8n's real sweep ran.",
+          "note": "provenance is null — this record never arrived through n8n ingress, the same honest convention tests/lead-rescue-ingress.test.ts case 10 already establishes for any non-ingress park."
+        }
+      },
+      "dueConditionEvaluation": {
+        "capturedFacts": {
+          "decision": {
+            "id": "lead-evidence-harness-dispatch-timeout-1:wait-check:2026-08-25T22:25:38.255Z:d-dispatch-overdue",
+            "mechanism": "DETERMINISTIC_RULE",
+            "objective": "Determine whether the configured dispatch attention window has elapsed.",
+            "deterministicFacts": [
+              { "label": "Booking ready at", "value": "2026-08-25T13:25:17.868Z" },
+              { "label": "Checked at", "value": "2026-08-25T22:25:38.255Z" },
+              { "label": "Elapsed", "value": "9 hours" },
+              { "label": "Configured window", "value": "8 hours" }
+            ],
+            "selectedAction": "escalate_attention_to_next_owner",
+            "applicablePolicy": ["CLIENT_POLICY kestrel-dispatch-timeout-window: a case ready for a next commercial step but not despatched past the configured window is escalated as an attention condition. The offer is never auto-sent."]
+          },
+          "source": "Copied verbatim from entries[0].decisions[0] in n8n execution id=11's real captured HTTP response body — not re-derived."
+        },
+        "derivedAssertions": {
+          "rule": "handleDispatchAttentionTimeout (lib/engine/handlers/lead-rescue.ts) — the ready-but-undespatched half of lr-fm-approval-timeout",
+          "policyId": "kestrel-dispatch-timeout-window",
+          "configuredWindowHours": 8,
+          "eligible": true
+        }
+      },
+      "postSweepState": {
+        "capturedFacts": {
+          "incidentId": "lead-evidence-harness-dispatch-timeout-1",
+          "revisionAfter": 1,
+          "engineStateAfter": {
+            "lifecycleState": "BOOKING_READY",
+            "facts": {
+              "channel": "web-form",
+              "company": "Fenwright Data Services",
+              "contactName": "Priya Anand",
+              "bookingReadyAt": "2026-08-25T13:25:17.868Z"
+            },
+            "suppressed": false,
+            "awaitingHuman": null,
+            "missingInformation": []
+          },
+          "engineStateAfterSource": "read directly from .data/lead-rescue-wait-incidents.json after the sweep, not copied from the HTTP response.",
+          "operationClaim": {
+            "operationId": "notify:lead-evidence-harness-dispatch-timeout-1:dispatch-overdue@rev1",
+            "status": "CONFIRMED",
+            "claimedBy": "route:52317",
+            "claimedAt": "2026-08-25T22:25:38.255Z",
+            "confirmedAt": "2026-08-25T22:25:38.255Z",
+            "source": "read directly from .data/lead-rescue-operation-claims/notify%3Alead-evidence-harness-dispatch-timeout-1%3Adispatch-overdue%40rev1.json — this file did not exist before n8n execution id=11 ran; its creation IS the real, persisted mutation this transition produced."
+          },
+          "escalationEffect": {
+            "kind": "NOTIFICATION",
+            "description": "Notify the next owner in the authority chain that a ready case has not had its offer despatched within the configured window.",
+            "target": "Managing Principal (founder)",
+            "idempotencyKey": "notify:lead-evidence-harness-dispatch-timeout-1:dispatch-overdue",
+            "status": "EXECUTED",
+            "executionMode": "SIMULATED"
+          }
+        },
+        "derivedAssertions": {
+          "lifecycleStateChanged": false,
+          "revisionChanged": false,
+          "reason": "handleDispatchAttentionTimeout never sets transitionTo by design (lib/engine/handlers/lead-rescue.ts) — an attention timeout escalates the fact that nobody has acted; it does not decide the case on their behalf. The real persisted mutation this transition produces is the newly created, CONFIRMED operation claim plus its EXECUTED escalation notification — not a WaitIncidentRecord change."
+        }
+      },
+      "replay": {
+        "n8nExecution": {
+          "id": "12",
+          "status": "success",
+          "startedAt": "2026-08-25T22:26:38.018Z",
+          "stoppedAt": "2026-08-25T22:26:38.053Z",
+          "mode": "trigger"
+        },
+        "httpRequest": { "method": "POST", "targetRoute": "/api/lead-rescue/wait-incidents/check" },
+        "httpResponse": {
+          "statusCode": 200,
+          "now": "2026-08-25T22:26:38.049Z",
+          "capturedFacts": { "outcome": "ATTENTION_OVERDUE" }
+        },
+        "capturedFacts": {
+          "sideEffectStatus": "SUPPRESSED_DUPLICATE",
+          "sideEffectDetail": "Idempotency key \"notify:lead-evidence-harness-dispatch-timeout-1:dispatch-overdue\" was already durably confirmed executed by a prior claim (claimed by route:52317 at 2026-08-25T22:25:38.255Z). No second execution occurred.",
+          "operationClaimAfterReplay": {
+            "operationId": "notify:lead-evidence-harness-dispatch-timeout-1:dispatch-overdue@rev1",
+            "confirmedAt": "2026-08-25T22:25:38.255Z",
+            "source": "re-read from the same .data/lead-rescue-operation-claims/ file after the replay execution — byte-identical confirmedAt, proving no second claim was created or confirmed."
+          }
+        },
+        "derivedAssertions": {
+          "duplicateSuppressed": true,
+          "mechanism": "OperationClaimStore.claim() returned ALREADY_CONFIRMED on this second sweep, downgrading the proposed NOTIFICATION effect from EXECUTED to SUPPRESSED_DUPLICATE (lib/engine/wait-resume.ts checkWaitIncident). No second claim file was created; the existing claim's confirmedAt is unchanged from the first sweep.",
+          "revisionUnchangedAcrossReplay": true
+        }
+      }
     }
   ],
   "providerMode": {
