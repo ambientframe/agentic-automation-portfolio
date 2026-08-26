@@ -286,9 +286,12 @@ export default function LeadRescueWaitPage() {
 
   return (
     <div className="mx-auto max-w-4xl px-6 py-12 space-y-8">
-      <nav className="instrument">
+      <nav className="instrument flex flex-wrap gap-x-5 gap-y-2">
+        <Link href="/lead-rescue" style={{ color: 'var(--ink-muted)' }} className="hover:opacity-70">
+          ← Interactive proof
+        </Link>
         <Link href="/systems/lead-rescue" style={{ color: 'var(--ink-muted)' }} className="hover:opacity-70">
-          ← Lead Rescue dossier
+          Technical dossier
         </Link>
       </nav>
 

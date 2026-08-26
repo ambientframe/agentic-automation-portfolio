@@ -51,18 +51,23 @@ export default async function SystemDossier({ params }: PageProps<'/systems/[slu
           className="border rule rounded-sm p-4 flex flex-wrap items-center justify-between gap-3"
           style={{ background: 'var(--panel)' }}
         >
-          <div>
-            <p className="label" style={{ color: 'var(--waiting)' }}>
-              Live, not a replay
+          <div className="space-y-1 min-w-0">
+            <p className="label" style={{ color: 'var(--accent)' }}>
+              Interactive proof
             </p>
-            <p className="instrument" style={{ color: 'var(--ink-muted)' }}>
-              Park a waiting incident against a real persisted store, then check it — too early
-              does nothing, past the configured window it escalates for real.
+            <p className="instrument leading-relaxed prose-measure" style={{ color: 'var(--ink-muted)' }}>
+              Follow one enquiry through trigger, decision, action, guardrail, and outcome. Then
+              drive a case yourself and inspect which parts of it are real.
             </p>
           </div>
-          <Link href="/lead-rescue/wait" className="badge" style={{ color: 'var(--waiting)', borderColor: 'var(--waiting)' }}>
-            Open wait/resume demo →
-          </Link>
+          <div className="flex flex-wrap items-center gap-2">
+            <Link href="/lead-rescue" className="badge" style={{ color: 'var(--accent)', borderColor: 'var(--accent)' }}>
+              Open the proof →
+            </Link>
+            <Link href="/lead-rescue/wait" className="badge" style={{ color: 'var(--ink-muted)', borderColor: 'var(--rule-strong)' }}>
+              Raw operator console
+            </Link>
+          </div>
         </section>
       )}
 

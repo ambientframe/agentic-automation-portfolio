@@ -10,7 +10,9 @@ import {
 } from '@/lib/proof/fidelity-ledger';
 import {
   evidenceProvesOrchestration,
+  readEvaluationEvidence,
   readRuntimeEvidence,
+  type EvaluationEvidence,
   type RuntimeEvidence,
 } from '@/lib/proof/n8n-evidence';
 
@@ -48,16 +50,32 @@ const PROVEN: RuntimeEvidence = {
   ],
 };
 
+const NO_EVAL: EvaluationEvidence = { kind: 'ABSENT', detail: 'no capture in this build' };
+const EVALUATED: Extract<EvaluationEvidence, { kind: 'PRESENT' }> = {
+  kind: 'PRESENT',
+  model: 'claude-opus-5',
+  capturedAt: '2026-01-01T00:00:00.000Z',
+  gitHead: 'abcdef1234567890',
+  completedCaseCount: 9,
+  correctCount: 6,
+  overallPassed: false,
+  unsafeMisclassifiedCount: 0,
+  safetyReading: 'every miss routed to a person',
+  scopeStatement: 'local capture of a synthetic corpus',
+  doesNotProve: ['NOT production traffic', 'NOT a production deployment'],
+  unrecognisedShape: false,
+};
+
 describe('the ledger reports configuration, and never improves on it', () => {
   it('reads a fixture provider as fixture-backed, not as real', () => {
-    const ledger = deriveFidelityLedger({ evidence: ABSENT, env: {} });
+    const ledger = deriveFidelityLedger({ evidence: ABSENT, evaluation: NO_EVAL, env: {} });
     const row = ledger.rows.find((entry) => entry.id === 'ai-classification');
     expect(row?.status).toBe('FIXTURE_BACKED');
     expect(row?.whatIsTrue).toContain('authored');
   });
 
   it('reads a simulated executor as simulated, and says nothing leaves the process', () => {
-    const ledger = deriveFidelityLedger({ evidence: ABSENT, env: {} });
+    const ledger = deriveFidelityLedger({ evidence: ABSENT, evaluation: NO_EVAL, env: {} });
     const row = ledger.rows.find((entry) => entry.id === 'outbound-execution');
     expect(row?.status).toBe('SIMULATED');
     expect(row?.whatIsTrue).toContain('Nothing leaves this process');
@@ -65,7 +83,7 @@ describe('the ledger reports configuration, and never improves on it', () => {
 
   it('follows the resolved configuration when a live provider and transport are set', () => {
     const ledger = deriveFidelityLedger({
-      evidence: ABSENT,
+      evidence: ABSENT, evaluation: NO_EVAL,
       env: {
         LEAD_RESCUE_DECISION_PROVIDER: 'claude',
         ANTHROPIC_API_KEY: 'test-key',
@@ -87,7 +105,7 @@ describe('the ledger reports configuration, and never improves on it', () => {
    */
   it('reports an explicitly requested but unusable implementation as unverified, not as the stand-in', () => {
     const ledger = deriveFidelityLedger({
-      evidence: ABSENT,
+      evidence: ABSENT, evaluation: NO_EVAL,
       env: {
         LEAD_RESCUE_DECISION_PROVIDER: 'claude',
         LEAD_RESCUE_SIDE_EFFECT_EXECUTOR: 'smtp',
@@ -106,7 +124,7 @@ describe('the ledger reports configuration, and never improves on it', () => {
 
   it('refuses a routable SMTP recipient rather than reporting a real send', () => {
     const ledger = deriveFidelityLedger({
-      evidence: ABSENT,
+      evidence: ABSENT, evaluation: NO_EVAL,
       env: {
         LEAD_RESCUE_SIDE_EFFECT_EXECUTOR: 'smtp',
         LEAD_RESCUE_SMTP_HOST: '127.0.0.1',
@@ -118,23 +136,23 @@ describe('the ledger reports configuration, and never improves on it', () => {
     expect(ledger.rows.find((entry) => entry.id === 'outbound-execution')?.status).toBe('UNVERIFIED');
   });
 
-  it('opens the evaluation row only when the gate and a credential are both present', () => {
-    expect(
-      deriveFidelityLedger({ evidence: ABSENT, env: { ANTHROPIC_API_KEY: 'k' } }).rows.find(
+  /**
+   * An open gate used to be enough to call this row REAL. It is not: a gate that is open
+   * means the evaluation COULD run, which is a statement about configuration, not about
+   * judgment quality. The row now turns on a retained result, so the ability to measure
+   * can no longer be reported as having measured.
+   */
+  it('does not treat an openable gate as an evaluation that happened', () => {
+    for (const env of [
+      { ANTHROPIC_API_KEY: 'k' },
+      { RUN_LIVE_AI_EVAL: '1' },
+      { RUN_LIVE_AI_EVAL: '1', ANTHROPIC_API_KEY: 'k' },
+    ]) {
+      const row = deriveFidelityLedger({ evidence: ABSENT, evaluation: NO_EVAL, env }).rows.find(
         (entry) => entry.id === 'evaluation',
-      )?.status,
-    ).toBe('UNVERIFIED');
-    expect(
-      deriveFidelityLedger({ evidence: ABSENT, env: { RUN_LIVE_AI_EVAL: '1' } }).rows.find(
-        (entry) => entry.id === 'evaluation',
-      )?.status,
-    ).toBe('UNVERIFIED');
-    expect(
-      deriveFidelityLedger({
-        evidence: ABSENT,
-        env: { RUN_LIVE_AI_EVAL: '1', ANTHROPIC_API_KEY: 'k' },
-      }).rows.find((entry) => entry.id === 'evaluation')?.status,
-    ).toBe('REAL');
+      );
+      expect(row?.status).toBe('UNVERIFIED');
+    }
   });
 
   /**
@@ -144,21 +162,21 @@ describe('the ledger reports configuration, and never improves on it', () => {
    * a runtime that currently answers every operator action with a 503.
    */
   it('reports operator authentication from the resolved signing mode, and fails closed on a bad key', () => {
-    const ephemeral = deriveFidelityLedger({ evidence: ABSENT, env: {} }).rows.find(
+    const ephemeral = deriveFidelityLedger({ evidence: ABSENT, evaluation: NO_EVAL, env: {} }).rows.find(
       (entry) => entry.id === 'operator-authentication',
     );
     expect(ephemeral?.status).toBe('REAL');
     expect(ephemeral?.whatIsTrue).toContain('never written to disk');
 
     const configured = deriveFidelityLedger({
-      evidence: ABSENT,
+      evidence: ABSENT, evaluation: NO_EVAL,
       env: { LEAD_RESCUE_OPERATOR_SIGNING_KEY: 'k'.repeat(48) },
     }).rows.find((entry) => entry.id === 'operator-authentication');
     expect(configured?.status).toBe('REAL');
     expect(configured?.whatIsTrue).toContain('survives a restart');
 
     const broken = deriveFidelityLedger({
-      evidence: ABSENT,
+      evidence: ABSENT, evaluation: NO_EVAL,
       env: { LEAD_RESCUE_OPERATOR_SIGNING_KEY: 'too-short' },
     }).rows.find((entry) => entry.id === 'operator-authentication');
     expect(broken?.status).toBe('UNVERIFIED');
@@ -172,7 +190,7 @@ describe('the ledger reports configuration, and never improves on it', () => {
    * under-claim, because a sceptic who checked it would find the opposite of what it said.
    */
   it('no longer claims the operator routes are unauthenticated or the role caller-supplied', () => {
-    const ledger = deriveFidelityLedger({ evidence: ABSENT, env: {} });
+    const ledger = deriveFidelityLedger({ evidence: ABSENT, evaluation: NO_EVAL, env: {} });
     const authority = ledger.rows.find((entry) => entry.id === 'authority-gate');
     const httpPath = ledger.rows.find((entry) => entry.id === 'http-operator-path');
 
@@ -187,24 +205,24 @@ describe('the ledger reports configuration, and never improves on it', () => {
   });
 
   it('holds orchestration at unverified until a capture is actually readable', () => {
-    const absent = deriveFidelityLedger({ evidence: ABSENT, env: {} });
+    const absent = deriveFidelityLedger({ evidence: ABSENT, evaluation: NO_EVAL, env: {} });
     expect(absent.rows.find((entry) => entry.id === 'n8n-orchestration')?.status).toBe('UNVERIFIED');
     expect(absent.rows.find((entry) => entry.id === 'n8n-orchestration')?.basis).toContain('definitions only');
 
-    const proven = deriveFidelityLedger({ evidence: PROVEN, env: {} });
+    const proven = deriveFidelityLedger({ evidence: PROVEN, evaluation: NO_EVAL, env: {} });
     expect(proven.rows.find((entry) => entry.id === 'n8n-orchestration')?.status).toBe('REAL');
   });
 
   it('never promotes customer deployment, whatever the configuration', () => {
     for (const env of [{}, { LEAD_RESCUE_DECISION_PROVIDER: 'claude', ANTHROPIC_API_KEY: 'k' }]) {
-      const ledger = deriveFidelityLedger({ evidence: PROVEN, env });
+      const ledger = deriveFidelityLedger({ evidence: PROVEN, evaluation: NO_EVAL, env });
       expect(ledger.rows.find((entry) => entry.id === 'customer-deployment')?.status).toBe('UNVERIFIED');
     }
   });
 
   it('passes the declared maturity through without recomputing it', () => {
     const ledger = deriveFidelityLedger({
-      evidence: PROVEN,
+      evidence: PROVEN, evaluation: NO_EVAL,
       env: { LEAD_RESCUE_DECISION_PROVIDER: 'claude', ANTHROPIC_API_KEY: 'k' },
     });
     expect(ledger.declaredMaturity).toBe(LEAD_RESCUE.maturity);
@@ -213,7 +231,7 @@ describe('the ledger reports configuration, and never improves on it', () => {
 });
 
 describe('every ledger row stays falsifiable', () => {
-  const ledger = deriveFidelityLedger({ evidence: ABSENT, env: {} });
+  const ledger = deriveFidelityLedger({ evidence: ABSENT, evaluation: NO_EVAL, env: {} });
 
   it('covers each capability the brief asks about', () => {
     for (const id of [
@@ -245,6 +263,13 @@ describe('every ledger row stays falsifiable', () => {
     for (const row of ledger.rows) {
       expect(row.limit.length, row.id).toBeGreaterThan(20);
       expect(row.whatIsTrue.length, row.id).toBeGreaterThan(20);
+    }
+  });
+
+  it('does not hang a measurement verdict on any row except the evaluation', () => {
+    for (const row of ledger.rows) {
+      if (row.id === 'evaluation') continue;
+      expect(row.verdict, row.id).toBeUndefined();
     }
   });
 
@@ -290,7 +315,7 @@ describe('the runtime-evidence adapter degrades instead of failing', () => {
   it('treats a parsed capture with no recognisable execution as unproven, not as proof', () => {
     const stale: RuntimeEvidence = { ...PROVEN, executions: [], unrecognisedShape: true };
     expect(evidenceProvesOrchestration(stale)).toBe(false);
-    expect(deriveFidelityLedger({ evidence: stale, env: {} }).rows.find((row) => row.id === 'n8n-orchestration')?.status).toBe(
+    expect(deriveFidelityLedger({ evidence: stale, evaluation: NO_EVAL, env: {} }).rows.find((row) => row.id === 'n8n-orchestration')?.status).toBe(
       'UNVERIFIED',
     );
   });
@@ -299,6 +324,110 @@ describe('the runtime-evidence adapter degrades instead of failing', () => {
     expect(evidenceProvesOrchestration({ kind: 'UNREADABLE', detail: 'not json' })).toBe(false);
     expect(evidenceProvesOrchestration(ABSENT)).toBe(false);
     expect(evidenceProvesOrchestration(PROVEN)).toBe(true);
+  });
+});
+
+/**
+ * The judgment-quality row is the one place where honest reporting makes the page look
+ * worse, so it gets the strictest tests: it must be capable of saying "failed", it must
+ * not say "unverified" when a real failing result exists, and it must not reassure anyone
+ * on a figure the artefact did not record.
+ */
+describe('the ledger reports a measured classifier even when the measurement failed', () => {
+  const evaluationRow = (evaluation: EvaluationEvidence, env: Record<string, string> = {}) =>
+    deriveFidelityLedger({ evidence: ABSENT, evaluation, env }).rows.find(
+      (row) => row.id === 'evaluation',
+    );
+
+  it('claims no accuracy at all when no capture is readable', () => {
+    for (const evaluation of [
+      NO_EVAL,
+      { kind: 'UNREADABLE', detail: 'not json' } as const,
+    ] satisfies EvaluationEvidence[]) {
+      const row = evaluationRow(evaluation);
+      expect(row?.status).toBe('UNVERIFIED');
+      expect(row?.whatIsTrue).toContain('no accuracy figure is claimed');
+      expect(row?.whatIsTrue).not.toMatch(/\d+ of \d+/);
+      expect(row?.verdict).toBeUndefined();
+    }
+  });
+
+  it('still claims nothing when the gate is open but nothing has been retained', () => {
+    const row = evaluationRow(NO_EVAL, { RUN_LIVE_AI_EVAL: '1' });
+    expect(row?.status).toBe('UNVERIFIED');
+    expect(row?.whatIsTrue).toContain('No retained result is readable');
+  });
+
+  it('reports a retained failure as a performed evaluation, not as an absence', () => {
+    const row = evaluationRow(EVALUATED);
+    // The uncomfortable direction: better evidence, worse sentence, higher status.
+    expect(row?.status).toBe('REAL');
+    expect(row?.whatIsTrue).toContain('FAILED');
+    expect(row?.whatIsTrue).toContain('6 of 9');
+    expect(row?.whatIsTrue).toContain('claude-opus-5');
+    expect(row?.basis).toContain('n8n/evidence/lead-rescue-live-classification.json');
+    expect(row?.limit).toContain('abcdef1');
+    // A green "Real" badge alone would read as a passing classifier. The verdict is the
+    // word a skimming reader must not be allowed to miss.
+    expect(row?.verdict?.tone).toBe('NEGATIVE');
+    expect(row?.verdict?.label).toMatch(/failed/i);
+  });
+
+  it('counts from the cases rather than repeating a summary the artefact supplied', () => {
+    const row = evaluationRow({ ...EVALUATED, correctCount: 2, completedCaseCount: 4 });
+    expect(row?.whatIsTrue).toContain('2 of 4');
+    expect(row?.whatIsTrue).not.toContain('6 of 9');
+  });
+
+  it('does not print a pass as a failure when a later run succeeds', () => {
+    const row = evaluationRow({ ...EVALUATED, overallPassed: true, correctCount: 9 });
+    expect(row?.status).toBe('REAL');
+    expect(row?.whatIsTrue).toContain('met its predeclared thresholds');
+    expect(row?.whatIsTrue).not.toContain('FAILED');
+    expect(row?.verdict?.tone).toBe('AFFIRMATIVE');
+  });
+
+  it('fails closed on a capture whose verdict or case counts it cannot read', () => {
+    for (const broken of [
+      { ...EVALUATED, overallPassed: null, unrecognisedShape: true },
+      { ...EVALUATED, correctCount: null, unrecognisedShape: true },
+    ] satisfies EvaluationEvidence[]) {
+      expect(evaluationRow(broken)?.status).toBe('UNVERIFIED');
+    }
+  });
+
+  it('offers no safety reassurance the capture did not record', () => {
+    expect(evaluationRow(EVALUATED)?.whatIsTrue).toContain('no unsafe misclassification');
+
+    const silent = evaluationRow({ ...EVALUATED, unsafeMisclassifiedCount: null });
+    expect(silent?.whatIsTrue).not.toContain('unsafe');
+
+    const unsafe = evaluationRow({ ...EVALUATED, unsafeMisclassifiedCount: 2 });
+    expect(unsafe?.whatIsTrue).toContain('2 unsafe misclassification');
+    expect(unsafe?.whatIsTrue).not.toContain('no unsafe misclassification');
+  });
+
+  it('reads the artefact this repository actually ships, and reports its real verdict', async () => {
+    const evaluation = await readEvaluationEvidence();
+    expect(['ABSENT', 'UNREADABLE', 'PRESENT']).toContain(evaluation.kind);
+    if (evaluation.kind !== 'PRESENT' || evaluation.unrecognisedShape) return;
+
+    // The committed capture is a retained negative result. If someone re-runs it green,
+    // this asserts the row follows the artefact rather than a sentence written here.
+    const row = evaluationRow(evaluation);
+    expect(row?.status).toBe('REAL');
+    expect(row?.whatIsTrue).toContain(
+      `${evaluation.correctCount} of ${evaluation.completedCaseCount}`,
+    );
+    expect(row?.whatIsTrue).toContain(evaluation.overallPassed ? 'met its' : 'FAILED');
+    expect(row?.verdict?.tone).toBe(evaluation.overallPassed ? 'AFFIRMATIVE' : 'NEGATIVE');
+
+    // The adapter must not invent a scope or a "does not prove" list. If the artefact
+    // carries them, they are passed through; if it does not, they stay empty/null.
+    expect(evaluation.doesNotProve.every((item) => item.length > 0)).toBe(true);
+    if (evaluation.scopeStatement !== null) {
+      expect(evaluation.scopeStatement.length).toBeGreaterThan(20);
+    }
   });
 });
 

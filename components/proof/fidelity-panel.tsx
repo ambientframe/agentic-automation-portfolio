@@ -6,8 +6,9 @@ import {
   type FailureRegisterEntry,
   type FidelityLedger,
   type FidelityStatus,
+  type FidelityVerdict,
 } from '@/lib/proof/fidelity-ledger';
-import type { RuntimeEvidence } from '@/lib/proof/n8n-evidence';
+import type { EvaluationEvidence, RuntimeEvidence } from '@/lib/proof/n8n-evidence';
 
 /**
  * LAYER D — the fidelity panel.
@@ -36,12 +37,27 @@ export function FidelityStatusBadge({ status }: { readonly status: FidelityStatu
   );
 }
 
+const VERDICT_STYLE: Record<FidelityVerdict['tone'], CSSProperties> = {
+  NEGATIVE: { color: 'var(--blocked)', borderColor: 'var(--blocked)' },
+  AFFIRMATIVE: { color: 'var(--ok)', borderColor: 'var(--ok)' },
+};
+
+function VerdictBadge({ verdict }: { readonly verdict: FidelityVerdict }) {
+  return (
+    <span className="badge" style={VERDICT_STYLE[verdict.tone]}>
+      {verdict.label}
+    </span>
+  );
+}
+
 export function FidelityPanel({
   ledger,
   evidence,
+  evaluation,
 }: {
   readonly ledger: FidelityLedger;
   readonly evidence: RuntimeEvidence;
+  readonly evaluation: EvaluationEvidence;
 }) {
   return (
     <div className="space-y-8">
@@ -68,6 +84,7 @@ export function FidelityPanel({
           <li key={row.id} className="border-b rule last:border-b-0 p-4 space-y-2.5">
             <div className="flex flex-wrap items-baseline gap-x-3 gap-y-2">
               <FidelityStatusBadge status={row.status} />
+              {row.verdict !== undefined && <VerdictBadge verdict={row.verdict} />}
               <h4 className="text-[0.9375rem] font-medium min-w-0">{row.capability}</h4>
             </div>
 
@@ -107,6 +124,9 @@ export function FidelityPanel({
 
       {/* --- Orchestration evidence slot ---------------------------------- */}
       <OrchestrationSlot evidence={evidence} />
+
+      {/* --- Evaluation evidence slot ------------------------------------- */}
+      <EvaluationSlot evidence={evaluation} />
     </div>
   );
 }
@@ -218,6 +238,126 @@ function Pair({ label, value }: { readonly label: string; readonly value: string
       <dd className="min-w-0" style={{ overflowWrap: 'anywhere' }}>
         {value}
       </dd>
+    </div>
+  );
+}
+
+/**
+ * The judgment-quality slot. Same quarantine as the orchestration slot: reads only through
+ * the adapter, degrades to a labelled negative rather than inventing a score, and never
+ * treats a missing file as a passing result. A retained FAILURE is shown as a performed
+ * evaluation — hiding it behind "unverified" is the more flattering and therefore worse
+ * reading, which is the one thing this panel exists not to do.
+ */
+function EvaluationSlot({ evidence }: { readonly evidence: EvaluationEvidence }) {
+  if (evidence.kind !== 'PRESENT') {
+    return (
+      <div className="border rule rounded-sm p-4 space-y-2" style={{ background: 'var(--paper-raised)' }}>
+        <div className="flex flex-wrap items-center gap-2">
+          <FidelityStatusBadge status="UNVERIFIED" />
+          <h4 className="text-[0.9375rem] font-medium">Judgment-quality evidence</h4>
+        </div>
+        <p className="instrument leading-relaxed prose-measure" style={{ color: 'var(--ink-muted)' }}>
+          {evidence.detail}
+        </p>
+      </div>
+    );
+  }
+
+  if (evidence.unrecognisedShape) {
+    return (
+      <div className="border rule rounded-sm p-4 space-y-2" style={{ background: 'var(--paper-raised)' }}>
+        <div className="flex flex-wrap items-center gap-2">
+          <FidelityStatusBadge status="UNVERIFIED" />
+          <h4 className="text-[0.9375rem] font-medium">Judgment-quality evidence</h4>
+        </div>
+        <p className="instrument leading-relaxed prose-measure" style={{ color: 'var(--ink-muted)' }}>
+          A capture was found and parsed, but it did not carry a checkable verdict. Reported as
+          unverified rather than partially interpreted — the reader for this artefact needs
+          updating, not the claim.
+        </p>
+      </div>
+    );
+  }
+
+  const failed = evidence.overallPassed === false;
+  const score =
+    evidence.correctCount !== null && evidence.completedCaseCount !== null
+      ? `${evidence.correctCount} of ${evidence.completedCaseCount}`
+      : null;
+
+  return (
+    <div className="border rule rounded-sm overflow-hidden" style={{ background: 'var(--paper-raised)' }}>
+      <div className="px-4 py-2.5 border-b rule flex flex-wrap items-center gap-2">
+        <FidelityStatusBadge status="REAL" />
+        <VerdictBadge
+          verdict={
+            failed
+              ? { label: 'Failed its own thresholds', tone: 'NEGATIVE' }
+              : { label: 'Met its own thresholds', tone: 'AFFIRMATIVE' }
+          }
+        />
+        <h4 className="text-[0.9375rem] font-medium">Judgment-quality evidence</h4>
+      </div>
+
+      <div className="p-4 space-y-4">
+        <p className="text-[0.9375rem] leading-relaxed prose-measure">
+          {failed
+            ? 'A labelled corpus was run against a genuine model and did not meet the thresholds declared before the run. The failing result is retained rather than re-run, re-labelled, or removed.'
+            : 'A labelled corpus was run against a genuine model and met the thresholds declared before the run. The result is retained as an artefact rather than asserted here.'}
+        </p>
+
+        <dl className="instrument grid gap-x-6 gap-y-0.5 sm:grid-cols-2" style={{ color: 'var(--ink-muted)' }}>
+          {evidence.model !== null && <Pair label="Model" value={evidence.model} />}
+          {score !== null && <Pair label="Score" value={score} />}
+          {evidence.unsafeMisclassifiedCount !== null && (
+            <Pair label="Unsafe misclassifications" value={String(evidence.unsafeMisclassifiedCount)} />
+          )}
+          {evidence.gitHead !== null && <Pair label="Against commit" value={evidence.gitHead.slice(0, 7)} />}
+          {evidence.capturedAt !== null && <Pair label="Captured" value={evidence.capturedAt} />}
+        </dl>
+
+        {evidence.safetyReading !== null && (
+          <p className="instrument leading-relaxed prose-measure" style={{ color: 'var(--ink-muted)' }}>
+            <span className="label">Safety reading</span> {evidence.safetyReading}
+          </p>
+        )}
+
+        {evidence.scopeStatement !== null && (
+          <p
+            className="instrument leading-relaxed border-l-2 pl-3 py-1"
+            style={{ color: 'var(--warn)', borderColor: 'var(--warn)' }}
+          >
+            <span className="label" style={{ color: 'var(--warn)' }}>
+              Scope of this capture
+            </span>{' '}
+            {evidence.scopeStatement}
+          </p>
+        )}
+
+        {evidence.doesNotProve.length > 0 && (
+          <details>
+            <summary className="label cursor-pointer hover:opacity-70">
+              What the capture itself says it does not prove
+            </summary>
+            <ul className="mt-2 space-y-1.5">
+              {evidence.doesNotProve.map((item) => (
+                <li key={item} className="instrument leading-relaxed pl-4 relative" style={{ color: 'var(--ink-muted)' }}>
+                  <span className="absolute left-0" aria-hidden="true">
+                    ·
+                  </span>
+                  {item}
+                </li>
+              ))}
+            </ul>
+          </details>
+        )}
+
+        <p className="instrument" style={{ color: 'var(--ink-faint)' }}>
+          Read from a committed artefact, not from a live re-run of the model. A later capture
+          moves this panel; a deleted one returns it to claiming nothing.
+        </p>
+      </div>
     </div>
   );
 }

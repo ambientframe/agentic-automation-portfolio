@@ -12,7 +12,13 @@ import {
   type SideEffectExecutorSelection,
 } from '@/lib/config/side-effect-executor-config';
 import { resolveOperatorAuth, type OperatorAuthResolution } from '@/lib/config/operator-auth-config';
-import { evidenceProvesOrchestration, type RuntimeEvidence } from './n8n-evidence';
+import {
+  evidenceProvesOrchestration,
+  evidenceRecordsEvaluation,
+  LIVE_CLASSIFICATION_EVIDENCE_RELATIVE_PATH,
+  type EvaluationEvidence,
+  type RuntimeEvidence,
+} from './n8n-evidence';
 
 /**
  * THE FIDELITY LEDGER — the answer to "which parts of this are actually real?", asked
@@ -59,6 +65,16 @@ export const FIDELITY_STATUS_MEANING: Record<FidelityStatus, string> = {
   UNVERIFIED: 'Not demonstrated here. Either nothing exercises it yet, or the evidence needed to claim it has not been produced.',
 };
 
+/**
+ * A retained measurement's own verdict, distinct from `status`. `REAL` on the evaluation
+ * row means the measurement happened, never that it passed. Without this field a green
+ * "Real" badge is the only thing a skimming reader would take from a failed capture.
+ */
+export interface FidelityVerdict {
+  readonly label: string;
+  readonly tone: 'NEGATIVE' | 'AFFIRMATIVE';
+}
+
 export interface FidelityRow {
   readonly id: string;
   readonly capability: string;
@@ -69,6 +85,7 @@ export interface FidelityRow {
   readonly basis: string;
   /** What this row does NOT establish. Never omitted. */
   readonly limit: string;
+  readonly verdict?: FidelityVerdict;
 }
 
 export interface FidelityLedger {
@@ -165,13 +182,82 @@ function operatorAuthenticationRow(auth: OperatorAuthResolution): Pick<FidelityR
   }
 }
 
+/**
+ * The judgment-quality row, and the one place on this page where better evidence produces
+ * a worse-sounding sentence.
+ *
+ * A retained capture that FAILED still moves this row to REAL, because the capability being
+ * reported is "has the judgment actually been measured", not "did it score well". Reporting
+ * a measured-and-failing classifier as UNVERIFIED would hide a negative result behind a word
+ * that reads like an absence, which is the more flattering and therefore worse answer.
+ *
+ * Every figure is read from the artefact and recomputed from the case counts rather than
+ * taken from its summary line, so a capture whose own arithmetic disagreed with its cases
+ * could not state a number here that its cases do not support.
+ */
+function evaluationRow(
+  evidence: EvaluationEvidence,
+  gateOpen: boolean,
+): Pick<FidelityRow, 'status' | 'whatIsTrue' | 'basis' | 'limit' | 'verdict'> {
+  const harnessBasis =
+    'tests/lead-rescue-claude-classifier-eval.test.ts · lib/config/decision-provider-config.ts';
+
+  if (!evidenceRecordsEvaluation(evidence)) {
+    return {
+      status: 'UNVERIFIED',
+      whatIsTrue: gateOpen
+        ? 'The live evaluation gate is open in this process, so the classifier can be scored against its labelled cases on demand. No retained result is readable from this build, so no accuracy figure is claimed.'
+        : 'An evaluation harness exists but is gated off by default and is not running in this process. No retained result is readable from this build, so no accuracy figure is claimed anywhere on this page.',
+      basis: harnessBasis,
+      limit:
+        'Even when open, the evaluation covers a small authored set. It would not support a stated accuracy rate for a client\u2019s own traffic.',
+    };
+  }
+
+  const { correctCount, completedCaseCount, unsafeMisclassifiedCount } = evidence;
+  const score = `${correctCount} of ${completedCaseCount}`;
+  const model = evidence.model ?? 'the configured model';
+
+  /**
+   * The safety sentence is only added when the artefact recorded the count that licenses it.
+   * "No unsafe misclassification" is the most reassuring claim on this row and the one least
+   * entitled to a default, so an artefact that omits the count gets silence, not reassurance.
+   */
+  const safety =
+    unsafeMisclassifiedCount === 0
+      ? ' Every incorrect case still routed to a person rather than to an action: the capture records no unsafe misclassification.'
+      : unsafeMisclassifiedCount !== null && unsafeMisclassifiedCount > 0
+        ? ` The capture records ${unsafeMisclassifiedCount} unsafe misclassification(s).`
+        : '';
+
+  return {
+    status: 'REAL',
+    whatIsTrue: evidence.overallPassed
+      ? `The labelled corpus has been run against a genuine ${model} and met its predeclared thresholds, scoring ${score}. The result is retained as an artefact rather than asserted here.${safety}`
+      : `The labelled corpus has been run against a genuine ${model} and FAILED its own predeclared thresholds, scoring ${score}. The failing result is retained rather than re-run, re-labelled, or removed, and is reported here for the same reason.${safety}`,
+    basis: `${LIVE_CLASSIFICATION_EVIDENCE_RELATIVE_PATH} · tests/live-classification-evidence.test.ts · ${harnessBasis}`,
+    limit: `A point-in-time capture of a small authored set${
+      evidence.gitHead === null ? '' : ` against commit ${evidence.gitHead.slice(0, 7)}`
+    }, not a continuously enforced gate. It does not support a stated accuracy rate for a client\u2019s own traffic, and this build reports the artefact rather than re-running it.`,
+    verdict: evidence.overallPassed
+      ? { label: 'Met its own thresholds', tone: 'AFFIRMATIVE' }
+      : { label: 'Failed its own thresholds', tone: 'NEGATIVE' },
+  };
+}
+
 export interface LedgerInputs {
   readonly evidence: RuntimeEvidence;
+  /** The retained evaluation capture, read through the same quarantined adapter. */
+  readonly evaluation: EvaluationEvidence;
   /** Defaults to `process.env`. Injectable so tests can assert both configured states. */
   readonly env?: Env;
 }
 
-export function deriveFidelityLedger({ evidence, env = process.env }: LedgerInputs): FidelityLedger {
+export function deriveFidelityLedger({
+  evidence,
+  evaluation,
+  env = process.env,
+}: LedgerInputs): FidelityLedger {
   const provider = resolveDecisionProviderSelection(env);
   const executor = resolveSideEffectExecutorSelection(env);
   const evalGate = resolveLiveEvalGate(env);
@@ -296,14 +382,7 @@ export function deriveFidelityLedger({ evidence, env = process.env }: LedgerInpu
     {
       id: 'evaluation',
       capability: 'Judgment-quality evaluation',
-      status: evalGate.kind === 'READY' ? 'REAL' : 'UNVERIFIED',
-      whatIsTrue:
-        evalGate.kind === 'READY'
-          ? 'The live evaluation gate is open in this process, so the classifier can be scored against its labelled cases on demand.'
-          : 'An evaluation harness exists but is gated off by default and is not running in this process. No accuracy figure is claimed anywhere on this page.',
-      basis: 'tests/lead-rescue-claude-classifier-eval.test.ts · lib/config/decision-provider-config.ts',
-      limit:
-        'Even when open, the evaluation covers a small authored set. It would not support a stated accuracy rate for a client\u2019s own traffic.',
+      ...evaluationRow(evaluation, evalGate.kind === 'READY'),
     },
     {
       id: 'customer-deployment',

@@ -167,3 +167,118 @@ export async function readRuntimeEvidence(): Promise<RuntimeEvidence> {
 export function evidenceProvesOrchestration(evidence: RuntimeEvidence): boolean {
   return evidence.kind === 'PRESENT' && evidence.executions.length > 0;
 }
+
+// --- The evaluation capture ------------------------------------------------
+/**
+ * A second artefact in the same directory, owned by the same upstream work, quarantined
+ * behind the same three rules. It is kept in this file rather than a sibling so that
+ * "when an evidence schema moves, this file is the whole blast radius" stays true.
+ *
+ * The reason the proof surface needs to read it at all: without it, the judgment-quality
+ * row can only say the evaluation harness is gated off, which invites a reader to conclude
+ * the classifier has never been measured. It has been, and it failed. A page that reports
+ * a capability as merely unmeasured when a retained negative result exists is flattering
+ * itself by omission, which is the failure mode this whole panel is built to prevent.
+ *
+ * Every figure below is read from the artefact. None is written here, so a corrected or
+ * re-run capture moves the page and a deleted one silently returns it to claiming nothing.
+ */
+
+export const LIVE_CLASSIFICATION_EVIDENCE_RELATIVE_PATH =
+  'n8n/evidence/lead-rescue-live-classification.json';
+
+export type EvaluationEvidence =
+  | { readonly kind: 'ABSENT'; readonly detail: string }
+  | { readonly kind: 'UNREADABLE'; readonly detail: string }
+  | {
+      readonly kind: 'PRESENT';
+      readonly model: string | null;
+      readonly capturedAt: string | null;
+      /** The commit the capture names as the code under test. */
+      readonly gitHead: string | null;
+      readonly completedCaseCount: number | null;
+      readonly correctCount: number | null;
+      /** The artefact's own verdict against its predeclared thresholds. */
+      readonly overallPassed: boolean | null;
+      readonly unsafeMisclassifiedCount: number | null;
+      readonly safetyReading: string | null;
+      /** The artefact's own bound on what the capture proves. Null if the field was absent. */
+      readonly scopeStatement: string | null;
+      /** The artefact's own "does not prove" list. Empty if the field was absent or unreadable. */
+      readonly doesNotProve: readonly string[];
+      /**
+       * Parsed, but the aggregate a reader needs was not recognisable. As with
+       * `unrecognisedShape` above, this is the signal that the adapter is stale.
+       */
+      readonly unrecognisedShape: boolean;
+    };
+
+function bool(source: unknown, key: string): boolean | null {
+  if (!isRecord(source)) return null;
+  const value = source[key];
+  return typeof value === 'boolean' ? value : null;
+}
+
+function strings(source: unknown, key: string): readonly string[] {
+  if (!isRecord(source)) return [];
+  const value = source[key];
+  if (!Array.isArray(value)) return [];
+  return value.filter((item): item is string => typeof item === 'string' && item.trim() !== '');
+}
+
+export async function readEvaluationEvidence(): Promise<EvaluationEvidence> {
+  const file = path.join(process.cwd(), ...LIVE_CLASSIFICATION_EVIDENCE_RELATIVE_PATH.split('/'));
+
+  let text: string;
+  try {
+    text = await readFile(file, 'utf8');
+  } catch {
+    return {
+      kind: 'ABSENT',
+      detail: `No capture found at ${LIVE_CLASSIFICATION_EVIDENCE_RELATIVE_PATH}. No evaluation result is claimed.`,
+    };
+  }
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(text);
+  } catch {
+    return {
+      kind: 'UNREADABLE',
+      detail: `${LIVE_CLASSIFICATION_EVIDENCE_RELATIVE_PATH} exists but is not valid JSON. No evaluation result is claimed.`,
+    };
+  }
+
+  const half = child(parsed, 'evaluationHalf');
+  const aggregate = child(half, 'aggregate');
+
+  const completedCaseCount = num(aggregate, 'completedCaseCount');
+  const correctCount = num(aggregate, 'correctCount');
+  const overallPassed = bool(half, 'overallPassed');
+
+  return {
+    kind: 'PRESENT',
+    model: str(child(parsed, 'provider'), 'model'),
+    capturedAt: str(parsed, 'capturedAt'),
+    gitHead: str(parsed, 'gitHead'),
+    completedCaseCount,
+    correctCount,
+    overallPassed,
+    unsafeMisclassifiedCount: num(aggregate, 'unsafeMisclassifiedCount'),
+    safetyReading: str(half, 'safetyReading'),
+    scopeStatement: str(parsed, 'scopeStatement'),
+    doesNotProve: strings(parsed, 'doesNotProve'),
+    // A verdict with no case counts behind it is not a result a reader can check.
+    unrecognisedShape: overallPassed === null || completedCaseCount === null || correctCount === null,
+  };
+}
+
+/**
+ * The single question the ledger asks. A capture only counts as a performed evaluation
+ * when it parsed AND carries a checkable verdict — never merely because the file exists.
+ */
+export function evidenceRecordsEvaluation(
+  evidence: EvaluationEvidence,
+): evidence is Extract<EvaluationEvidence, { kind: 'PRESENT' }> {
+  return evidence.kind === 'PRESENT' && !evidence.unrecognisedShape;
+}

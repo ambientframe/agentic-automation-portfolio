@@ -17,7 +17,7 @@ import {
   type ScenarioIndexEntry,
 } from '@/lib/proof/commercial-grammar';
 import { deriveFailureRegister, deriveFidelityLedger } from '@/lib/proof/fidelity-ledger';
-import { readRuntimeEvidence } from '@/lib/proof/n8n-evidence';
+import { readEvaluationEvidence, readRuntimeEvidence } from '@/lib/proof/n8n-evidence';
 import { JourneyConsole } from '@/components/proof/journey-console';
 import { OperatorConsole } from '@/components/proof/operator-console';
 import { FailureRegister, FidelityPanel } from '@/components/proof/fidelity-panel';
@@ -82,8 +82,8 @@ export default async function LeadRescueProofPage() {
     index.push(toScenarioIndexEntry(journey));
   }
 
-  const evidence = await readRuntimeEvidence();
-  const ledger = deriveFidelityLedger({ evidence });
+  const [evidence, evaluation] = await Promise.all([readRuntimeEvidence(), readEvaluationEvidence()]);
+  const ledger = deriveFidelityLedger({ evidence, evaluation });
   const failures = deriveFailureRegister();
 
   /**
@@ -299,7 +299,7 @@ export default async function LeadRescueProofPage() {
           title="Which parts of this are real"
           body="One label per capability, so nothing borrows credibility from anything next to it. Read the last row first if you are deciding whether to trust the rest."
         />
-        <FidelityPanel ledger={ledger} evidence={evidence} />
+        <FidelityPanel ledger={ledger} evidence={evidence} evaluation={evaluation} />
       </section>
 
       <footer className="border-t rule pt-8 space-y-3">

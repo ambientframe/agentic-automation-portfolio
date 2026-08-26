@@ -39,6 +39,9 @@ yarn-error.log*
 # Lead Rescue wait/resume demo store — runtime state, not a fixture
 /.data/
 
+# Local visual-inspection captures for the commercial-proof surface. Not evidence.
+/.proof-screens/
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts
