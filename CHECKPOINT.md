@@ -3,7 +3,27 @@
 > One per accepted package (Constitution §14). Repository truth is authoritative; this file
 > is an index, not a source. Append the new checkpoint above the previous one.
 
-## Current — Governance reconciliation · 2026-08-26
+## Current — Aggregate operational observability · 2026-08-26
+
+**Verified state.** `main` clean. `npm run verify`: 51 files, 777 passed / 1 skipped.
+`npm run build`: 30/30 pages, exit 0. Falsification suite was RED before implementation.
+
+**Proof claim earned.** Lead Rescue produces an inspectable multi-execution view from its own
+retained journal — 13 leads, 41 observations, delivery counted by lead and never by attempt,
+intervals measured only from recorded timestamps with 3 leads explicitly unmeasurable, failure
+classes and operator intervention tallied, every total traceable to its records.
+
+**Maturity.** Retained runtime evidence, local prototype. Proof `INTERACTIVE_PROTOTYPE`,
+operational `NOT_LIVE` — unchanged. No provider crossed, $0 spent.
+
+**Pattern earned.** Deterministic aggregate projection over an append-only journal.
+
+**Current bottleneck.** Observability stays **2**, not 3: dropped observations are unmeasured,
+nothing alerts, and the capture never exercised a failed or unknown dispatch.
+
+**Next package.** NOT SELECTED — PM sequences from the §6 scorecard.
+
+## Previous — Governance reconciliation · 2026-08-26
 
 **Verified state.** `main` @ `343e8e0`, clean, no remote. `npm run verify`: 50 files,
 759 passed / 1 skipped. `npm run build`: 30/30 pages. `rescue/local-proof-surface-wip`

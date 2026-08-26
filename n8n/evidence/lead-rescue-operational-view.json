@@ -1,0 +1,739 @@
+{
+  "schemaVersion": "lead-rescue-operational-view-evidence-1",
+  "capturedAt": "2026-08-26T20:05:49.882Z",
+  "gitHead": "35fd775581a2180a80f39cab81c18ede6b7d1d92",
+  "environment": {
+    "runtime": "Next.js dev server (npm run dev) on 127.0.0.1:3000",
+    "executionPath": "Real HTTP routes: POST /api/lead-rescue/ingress, POST /api/lead-rescue/wait-incidents/dispatch, POST /api/lead-rescue/wait-incidents/decide, GET /api/lead-rescue/operations.",
+    "httpHopExercised": true,
+    "aggregateComputedBy": "the Next.js server process, from records it had already written to disk",
+    "aggregateReadBackBy": "this script — a separate OS process that never writes a journal record",
+    "anthropicCalled": false,
+    "smtpUsed": false,
+    "n8nParticipated": false,
+    "syntheticData": true,
+    "scope": "The view covers every case retained in this machine’s journal, not only the cases this run created."
+  },
+  "casesCreatedByThisRun": {
+    "caseOne": "lead-website-intake-form-operations-proof-1787774749358-case-1",
+    "caseTwo": "lead-website-intake-form-operations-proof-1787774749358-case-2",
+    "caseThreeSingleObservation": "lead-website-intake-form-operations-proof-1787774749358-case-3"
+  },
+  "steps": [
+    {
+      "step": "case 1 · ingress (first delivery)",
+      "request": "POST /api/lead-rescue/ingress",
+      "httpStatus": 200,
+      "observableOutcome": "ACCEPTED"
+    },
+    {
+      "step": "case 1 · ingress (redelivery of the same source event)",
+      "request": "POST /api/lead-rescue/ingress",
+      "httpStatus": 200,
+      "observableOutcome": "DUPLICATE"
+    },
+    {
+      "step": "case 1 · despatch (authorized)",
+      "request": "POST /api/lead-rescue/wait-incidents/dispatch",
+      "httpStatus": 200,
+      "observableOutcome": "CONFIRMED"
+    },
+    {
+      "step": "case 2 · ingress",
+      "request": "POST /api/lead-rescue/ingress",
+      "httpStatus": 200,
+      "observableOutcome": "ACCEPTED"
+    },
+    {
+      "step": "case 2 · despatch with no operator credential (refused)",
+      "request": "POST /api/lead-rescue/wait-incidents/dispatch",
+      "httpStatus": 401,
+      "observableOutcome": "MISSING_CREDENTIAL"
+    },
+    {
+      "step": "case 2 · human decision against a case not under review (refused)",
+      "request": "POST /api/lead-rescue/wait-incidents/decide",
+      "httpStatus": 200,
+      "observableOutcome": "NOT_UNDER_REVIEW"
+    },
+    {
+      "step": "case 3 · ingress only (no further boundary)",
+      "request": "POST /api/lead-rescue/ingress",
+      "httpStatus": 200,
+      "observableOutcome": "ACCEPTED"
+    }
+  ],
+  "view": {
+    "schemaVersion": "lead-rescue-operational-view-1",
+    "observationCount": 41,
+    "incidentCount": 13,
+    "correlationCount": 13,
+    "incidents": [
+      {
+        "incidentId": "demo-lead-1787729281389-f11neu",
+        "correlationIds": [
+          "inc-demo-lead-1787729281389-f11neu"
+        ],
+        "eventCount": 5,
+        "firstObservedAt": "2026-08-26T07:28:01.472Z",
+        "lastObservedAt": "2026-08-26T07:28:01.544Z",
+        "observedIntervalMs": {
+          "kind": "AVAILABLE",
+          "value": 72
+        },
+        "outcomes": [
+          "REFUSED",
+          "ACCEPTED"
+        ],
+        "stages": [
+          "AUTHORITY"
+        ],
+        "hadConfirmedDelivery": false,
+        "hadUnresolvedDelivery": false,
+        "hadOperatorIntervention": true,
+        "failureClasses": [
+          "POLICY_VIOLATION",
+          "STATE_TRANSITION_CONFLICT"
+        ],
+        "journalEventIds": [
+          "demo-lead-1787729281389-f11neu:OPERATOR_AUTHENTICATION:REFUSED:MISSING_CREDENTIAL:2026-08-26T07:28:01.472Z",
+          "demo-lead-1787729281389-f11neu:OPERATOR_AUTHENTICATION:REFUSED:INVALID_SIGNATURE:2026-08-26T07:28:01.496Z",
+          "demo-lead-1787729281389-f11neu:HUMAN_DECISION_RECORDED:REFUSED:decide:demo-lead-1787729281389-f11neu:op-tobias-lindqvist:2026-08-26T07:28:01.522Z",
+          "demo-lead-1787729281389-f11neu:HUMAN_DECISION_RECORDED:REFUSED:decide:demo-lead-1787729281389-f11neu:op-marisol-adeyemi:2026-08-26T07:28:01.533Z",
+          "demo-lead-1787729281389-f11neu:HUMAN_DECISION_RECORDED:ACCEPTED:decide:demo-lead-1787729281389-f11neu:op-marisol-adeyemi:2026-08-26T07:28:01.544Z"
+        ]
+      },
+      {
+        "incidentId": "demo-lead-1787729411578-61z89i",
+        "correlationIds": [
+          "inc-demo-lead-1787729411578-61z89i"
+        ],
+        "eventCount": 5,
+        "firstObservedAt": "2026-08-26T07:30:11.587Z",
+        "lastObservedAt": "2026-08-26T07:30:11.651Z",
+        "observedIntervalMs": {
+          "kind": "AVAILABLE",
+          "value": 64
+        },
+        "outcomes": [
+          "REFUSED",
+          "ACCEPTED"
+        ],
+        "stages": [
+          "AUTHORITY"
+        ],
+        "hadConfirmedDelivery": false,
+        "hadUnresolvedDelivery": false,
+        "hadOperatorIntervention": true,
+        "failureClasses": [
+          "POLICY_VIOLATION",
+          "STATE_TRANSITION_CONFLICT"
+        ],
+        "journalEventIds": [
+          "demo-lead-1787729411578-61z89i:OPERATOR_AUTHENTICATION:REFUSED:MISSING_CREDENTIAL:2026-08-26T07:30:11.587Z",
+          "demo-lead-1787729411578-61z89i:OPERATOR_AUTHENTICATION:REFUSED:INVALID_SIGNATURE:2026-08-26T07:30:11.603Z",
+          "demo-lead-1787729411578-61z89i:HUMAN_DECISION_RECORDED:REFUSED:decide:demo-lead-1787729411578-61z89i:op-tobias-lindqvist:2026-08-26T07:30:11.630Z",
+          "demo-lead-1787729411578-61z89i:HUMAN_DECISION_RECORDED:REFUSED:decide:demo-lead-1787729411578-61z89i:op-marisol-adeyemi:2026-08-26T07:30:11.641Z",
+          "demo-lead-1787729411578-61z89i:HUMAN_DECISION_RECORDED:ACCEPTED:decide:demo-lead-1787729411578-61z89i:op-marisol-adeyemi:2026-08-26T07:30:11.651Z"
+        ]
+      },
+      {
+        "incidentId": "demo-lead-1787729464444-qrcb0w",
+        "correlationIds": [
+          "inc-demo-lead-1787729464444-qrcb0w"
+        ],
+        "eventCount": 2,
+        "firstObservedAt": "2026-08-26T07:31:17.184Z",
+        "lastObservedAt": "2026-08-26T07:31:19.546Z",
+        "observedIntervalMs": {
+          "kind": "AVAILABLE",
+          "value": 2362
+        },
+        "outcomes": [
+          "REFUSED",
+          "ACCEPTED"
+        ],
+        "stages": [
+          "AUTHORITY"
+        ],
+        "hadConfirmedDelivery": false,
+        "hadUnresolvedDelivery": false,
+        "hadOperatorIntervention": true,
+        "failureClasses": [
+          "POLICY_VIOLATION"
+        ],
+        "journalEventIds": [
+          "demo-lead-1787729464444-qrcb0w:HUMAN_DECISION_RECORDED:REFUSED:decide:demo-lead-1787729464444-qrcb0w:op-tobias-lindqvist:2026-08-26T07:31:17.184Z",
+          "demo-lead-1787729464444-qrcb0w:HUMAN_DECISION_RECORDED:ACCEPTED:decide:demo-lead-1787729464444-qrcb0w:op-marisol-adeyemi:2026-08-26T07:31:19.546Z"
+        ]
+      },
+      {
+        "incidentId": "lead-website-intake-form-journal-proof-1787726557910",
+        "correlationIds": [
+          "inc-lead-website-intake-form-journal-proof-1787726557910"
+        ],
+        "eventCount": 5,
+        "firstObservedAt": "2026-08-26T06:42:38.135Z",
+        "lastObservedAt": "2026-08-26T06:42:38.318Z",
+        "observedIntervalMs": {
+          "kind": "AVAILABLE",
+          "value": 183
+        },
+        "outcomes": [
+          "ACCEPTED",
+          "SUPPRESSED_DUPLICATE",
+          "REFUSED",
+          "EXECUTED"
+        ],
+        "stages": [
+          "TRIGGER",
+          "AUTHORITY",
+          "ACTION"
+        ],
+        "hadConfirmedDelivery": true,
+        "hadUnresolvedDelivery": false,
+        "hadOperatorIntervention": true,
+        "failureClasses": [
+          "STATE_TRANSITION_CONFLICT"
+        ],
+        "journalEventIds": [
+          "lead-website-intake-form-journal-proof-1787726557910:INGRESS_RECEIVED:accepted",
+          "lead-website-intake-form-journal-proof-1787726557910:INGRESS_RECEIVED:duplicate:2026-08-26T06:42:38.150Z",
+          "lead-website-intake-form-journal-proof-1787726557910:HUMAN_DECISION_RECORDED:REFUSED:decide:lead-website-intake-form-journal-proof-1787726557910:2026-08-26T06:42:38.237Z",
+          "lead-website-intake-form-journal-proof-1787726557910:DISPATCH_ATTEMPTED:REFUSED:despatch:lead-website-intake-form-journal-proof-1787726557910:2026-08-26T06:42:38.311Z",
+          "lead-website-intake-form-journal-proof-1787726557910:DISPATCH_ATTEMPTED:EXECUTED:offer:lead-website-intake-form-journal-proof-1787726557910:2026-08-26T06:42:38.135Z@rev1"
+        ]
+      },
+      {
+        "incidentId": "lead-website-intake-form-journal-proof-1787726661296",
+        "correlationIds": [
+          "inc-lead-website-intake-form-journal-proof-1787726661296"
+        ],
+        "eventCount": 5,
+        "firstObservedAt": "2026-08-26T06:44:21.315Z",
+        "lastObservedAt": "2026-08-26T06:44:21.347Z",
+        "observedIntervalMs": {
+          "kind": "AVAILABLE",
+          "value": 32
+        },
+        "outcomes": [
+          "ACCEPTED",
+          "SUPPRESSED_DUPLICATE",
+          "REFUSED",
+          "EXECUTED"
+        ],
+        "stages": [
+          "TRIGGER",
+          "AUTHORITY",
+          "ACTION"
+        ],
+        "hadConfirmedDelivery": true,
+        "hadUnresolvedDelivery": false,
+        "hadOperatorIntervention": true,
+        "failureClasses": [
+          "STATE_TRANSITION_CONFLICT"
+        ],
+        "journalEventIds": [
+          "lead-website-intake-form-journal-proof-1787726661296:INGRESS_RECEIVED:accepted",
+          "lead-website-intake-form-journal-proof-1787726661296:INGRESS_RECEIVED:duplicate:2026-08-26T06:44:21.328Z",
+          "lead-website-intake-form-journal-proof-1787726661296:HUMAN_DECISION_RECORDED:REFUSED:decide:lead-website-intake-form-journal-proof-1787726661296:2026-08-26T06:44:21.335Z",
+          "lead-website-intake-form-journal-proof-1787726661296:DISPATCH_ATTEMPTED:REFUSED:despatch:lead-website-intake-form-journal-proof-1787726661296:2026-08-26T06:44:21.341Z",
+          "lead-website-intake-form-journal-proof-1787726661296:DISPATCH_ATTEMPTED:EXECUTED:offer:lead-website-intake-form-journal-proof-1787726661296:2026-08-26T06:44:21.315Z@rev1"
+        ]
+      },
+      {
+        "incidentId": "lead-website-intake-form-journal-proof-1787729410913",
+        "correlationIds": [
+          "inc-lead-website-intake-form-journal-proof-1787729410913"
+        ],
+        "eventCount": 6,
+        "firstObservedAt": "2026-08-26T07:30:11.107Z",
+        "lastObservedAt": "2026-08-26T07:30:11.225Z",
+        "observedIntervalMs": {
+          "kind": "AVAILABLE",
+          "value": 118
+        },
+        "outcomes": [
+          "ACCEPTED",
+          "SUPPRESSED_DUPLICATE",
+          "REFUSED",
+          "EXECUTED"
+        ],
+        "stages": [
+          "TRIGGER",
+          "AUTHORITY",
+          "ACTION"
+        ],
+        "hadConfirmedDelivery": true,
+        "hadUnresolvedDelivery": false,
+        "hadOperatorIntervention": true,
+        "failureClasses": [
+          "STATE_TRANSITION_CONFLICT",
+          "POLICY_VIOLATION"
+        ],
+        "journalEventIds": [
+          "lead-website-intake-form-journal-proof-1787729410913:INGRESS_RECEIVED:accepted",
+          "lead-website-intake-form-journal-proof-1787729410913:INGRESS_RECEIVED:duplicate:2026-08-26T07:30:11.122Z",
+          "lead-website-intake-form-journal-proof-1787729410913:HUMAN_DECISION_RECORDED:REFUSED:decide:lead-website-intake-form-journal-proof-1787729410913:op-tobias-lindqvist:2026-08-26T07:30:11.140Z",
+          "lead-website-intake-form-journal-proof-1787729410913:DISPATCH_ATTEMPTED:REFUSED:despatch:lead-website-intake-form-journal-proof-1787729410913:op-marisol-adeyemi:2026-08-26T07:30:11.213Z",
+          "lead-website-intake-form-journal-proof-1787729410913:OPERATOR_AUTHENTICATION:REFUSED:MISSING_CREDENTIAL:2026-08-26T07:30:11.219Z",
+          "lead-website-intake-form-journal-proof-1787729410913:DISPATCH_ATTEMPTED:EXECUTED:offer:lead-website-intake-form-journal-proof-1787729410913:2026-08-26T07:30:11.107Z@rev1"
+        ]
+      },
+      {
+        "incidentId": "lead-website-intake-form-journal-ui-1787726804",
+        "correlationIds": [
+          "inc-lead-website-intake-form-journal-ui-1787726804"
+        ],
+        "eventCount": 2,
+        "firstObservedAt": "2026-08-26T06:46:44.371Z",
+        "lastObservedAt": "2026-08-26T06:46:44.392Z",
+        "observedIntervalMs": {
+          "kind": "AVAILABLE",
+          "value": 21
+        },
+        "outcomes": [
+          "ACCEPTED",
+          "SUPPRESSED_DUPLICATE"
+        ],
+        "stages": [
+          "TRIGGER"
+        ],
+        "hadConfirmedDelivery": false,
+        "hadUnresolvedDelivery": false,
+        "hadOperatorIntervention": false,
+        "failureClasses": [],
+        "journalEventIds": [
+          "lead-website-intake-form-journal-ui-1787726804:INGRESS_RECEIVED:accepted",
+          "lead-website-intake-form-journal-ui-1787726804:INGRESS_RECEIVED:duplicate:2026-08-26T06:46:44.392Z"
+        ]
+      },
+      {
+        "incidentId": "lead-website-intake-form-live-classifier-proof-1",
+        "correlationIds": [
+          "inc-lead-website-intake-form-live-classifier-proof-1"
+        ],
+        "eventCount": 1,
+        "firstObservedAt": "2026-08-26T15:56:26.093Z",
+        "lastObservedAt": "2026-08-26T15:56:26.093Z",
+        "observedIntervalMs": {
+          "kind": "UNAVAILABLE",
+          "reason": "a single observation has no interval to measure"
+        },
+        "outcomes": [
+          "ACCEPTED"
+        ],
+        "stages": [
+          "TRIGGER"
+        ],
+        "hadConfirmedDelivery": false,
+        "hadUnresolvedDelivery": false,
+        "hadOperatorIntervention": false,
+        "failureClasses": [],
+        "journalEventIds": [
+          "lead-website-intake-form-live-classifier-proof-1:INGRESS_RECEIVED:accepted"
+        ]
+      },
+      {
+        "incidentId": "lead-website-intake-form-live-classifier-proof-2",
+        "correlationIds": [
+          "inc-lead-website-intake-form-live-classifier-proof-2"
+        ],
+        "eventCount": 1,
+        "firstObservedAt": "2026-08-26T16:14:29.265Z",
+        "lastObservedAt": "2026-08-26T16:14:29.265Z",
+        "observedIntervalMs": {
+          "kind": "UNAVAILABLE",
+          "reason": "a single observation has no interval to measure"
+        },
+        "outcomes": [
+          "ACCEPTED"
+        ],
+        "stages": [
+          "TRIGGER"
+        ],
+        "hadConfirmedDelivery": false,
+        "hadUnresolvedDelivery": false,
+        "hadOperatorIntervention": false,
+        "failureClasses": [],
+        "journalEventIds": [
+          "lead-website-intake-form-live-classifier-proof-2:INGRESS_RECEIVED:accepted"
+        ]
+      },
+      {
+        "incidentId": "lead-website-intake-form-n8n-runtime-evidence-ingress-1",
+        "correlationIds": [
+          "inc-lead-website-intake-form-n8n-runtime-evidence-ingress-1"
+        ],
+        "eventCount": 2,
+        "firstObservedAt": "2026-08-26T15:56:15.280Z",
+        "lastObservedAt": "2026-08-26T16:14:20.600Z",
+        "observedIntervalMs": {
+          "kind": "AVAILABLE",
+          "value": 1085320
+        },
+        "outcomes": [
+          "SUPPRESSED_DUPLICATE"
+        ],
+        "stages": [
+          "TRIGGER"
+        ],
+        "hadConfirmedDelivery": false,
+        "hadUnresolvedDelivery": false,
+        "hadOperatorIntervention": false,
+        "failureClasses": [],
+        "journalEventIds": [
+          "lead-website-intake-form-n8n-runtime-evidence-ingress-1:INGRESS_RECEIVED:duplicate:2026-08-26T15:56:15.280Z",
+          "lead-website-intake-form-n8n-runtime-evidence-ingress-1:INGRESS_RECEIVED:duplicate:2026-08-26T16:14:20.600Z"
+        ]
+      },
+      {
+        "incidentId": "lead-website-intake-form-operations-proof-1787774749358-case-1",
+        "correlationIds": [
+          "inc-lead-website-intake-form-operations-proof-1787774749358-case-1"
+        ],
+        "eventCount": 3,
+        "firstObservedAt": "2026-08-26T20:05:49.536Z",
+        "lastObservedAt": "2026-08-26T20:05:49.668Z",
+        "observedIntervalMs": {
+          "kind": "AVAILABLE",
+          "value": 132
+        },
+        "outcomes": [
+          "ACCEPTED",
+          "SUPPRESSED_DUPLICATE",
+          "EXECUTED"
+        ],
+        "stages": [
+          "TRIGGER",
+          "ACTION"
+        ],
+        "hadConfirmedDelivery": true,
+        "hadUnresolvedDelivery": false,
+        "hadOperatorIntervention": false,
+        "failureClasses": [],
+        "journalEventIds": [
+          "lead-website-intake-form-operations-proof-1787774749358-case-1:INGRESS_RECEIVED:accepted",
+          "lead-website-intake-form-operations-proof-1787774749358-case-1:INGRESS_RECEIVED:duplicate:2026-08-26T20:05:49.552Z",
+          "lead-website-intake-form-operations-proof-1787774749358-case-1:DISPATCH_ATTEMPTED:EXECUTED:offer:lead-website-intake-form-operations-proof-1787774749358-case-1:2026-08-26T20:05:49.536Z@rev1"
+        ]
+      },
+      {
+        "incidentId": "lead-website-intake-form-operations-proof-1787774749358-case-2",
+        "correlationIds": [
+          "inc-lead-website-intake-form-operations-proof-1787774749358-case-2"
+        ],
+        "eventCount": 3,
+        "firstObservedAt": "2026-08-26T20:05:49.698Z",
+        "lastObservedAt": "2026-08-26T20:05:49.785Z",
+        "observedIntervalMs": {
+          "kind": "AVAILABLE",
+          "value": 87
+        },
+        "outcomes": [
+          "ACCEPTED",
+          "REFUSED"
+        ],
+        "stages": [
+          "TRIGGER",
+          "AUTHORITY"
+        ],
+        "hadConfirmedDelivery": false,
+        "hadUnresolvedDelivery": false,
+        "hadOperatorIntervention": true,
+        "failureClasses": [
+          "POLICY_VIOLATION",
+          "STATE_TRANSITION_CONFLICT"
+        ],
+        "journalEventIds": [
+          "lead-website-intake-form-operations-proof-1787774749358-case-2:INGRESS_RECEIVED:accepted",
+          "lead-website-intake-form-operations-proof-1787774749358-case-2:OPERATOR_AUTHENTICATION:REFUSED:MISSING_CREDENTIAL:2026-08-26T20:05:49.710Z",
+          "lead-website-intake-form-operations-proof-1787774749358-case-2:HUMAN_DECISION_RECORDED:REFUSED:decide:lead-website-intake-form-operations-proof-1787774749358-case-2:op-tobias-lindqvist:2026-08-26T20:05:49.785Z"
+        ]
+      },
+      {
+        "incidentId": "lead-website-intake-form-operations-proof-1787774749358-case-3",
+        "correlationIds": [
+          "inc-lead-website-intake-form-operations-proof-1787774749358-case-3"
+        ],
+        "eventCount": 1,
+        "firstObservedAt": "2026-08-26T20:05:49.794Z",
+        "lastObservedAt": "2026-08-26T20:05:49.794Z",
+        "observedIntervalMs": {
+          "kind": "UNAVAILABLE",
+          "reason": "a single observation has no interval to measure"
+        },
+        "outcomes": [
+          "ACCEPTED"
+        ],
+        "stages": [
+          "TRIGGER"
+        ],
+        "hadConfirmedDelivery": false,
+        "hadUnresolvedDelivery": false,
+        "hadOperatorIntervention": false,
+        "failureClasses": [],
+        "journalEventIds": [
+          "lead-website-intake-form-operations-proof-1787774749358-case-3:INGRESS_RECEIVED:accepted"
+        ]
+      }
+    ],
+    "outcomes": [
+      {
+        "outcome": "REFUSED",
+        "count": 18,
+        "journalEventIds": [
+          "lead-website-intake-form-journal-proof-1787726557910:HUMAN_DECISION_RECORDED:REFUSED:decide:lead-website-intake-form-journal-proof-1787726557910:2026-08-26T06:42:38.237Z",
+          "lead-website-intake-form-journal-proof-1787726557910:DISPATCH_ATTEMPTED:REFUSED:despatch:lead-website-intake-form-journal-proof-1787726557910:2026-08-26T06:42:38.311Z",
+          "lead-website-intake-form-journal-proof-1787726661296:HUMAN_DECISION_RECORDED:REFUSED:decide:lead-website-intake-form-journal-proof-1787726661296:2026-08-26T06:44:21.335Z",
+          "lead-website-intake-form-journal-proof-1787726661296:DISPATCH_ATTEMPTED:REFUSED:despatch:lead-website-intake-form-journal-proof-1787726661296:2026-08-26T06:44:21.341Z",
+          "demo-lead-1787729281389-f11neu:OPERATOR_AUTHENTICATION:REFUSED:MISSING_CREDENTIAL:2026-08-26T07:28:01.472Z",
+          "demo-lead-1787729281389-f11neu:OPERATOR_AUTHENTICATION:REFUSED:INVALID_SIGNATURE:2026-08-26T07:28:01.496Z",
+          "demo-lead-1787729281389-f11neu:HUMAN_DECISION_RECORDED:REFUSED:decide:demo-lead-1787729281389-f11neu:op-tobias-lindqvist:2026-08-26T07:28:01.522Z",
+          "demo-lead-1787729281389-f11neu:HUMAN_DECISION_RECORDED:REFUSED:decide:demo-lead-1787729281389-f11neu:op-marisol-adeyemi:2026-08-26T07:28:01.533Z",
+          "lead-website-intake-form-journal-proof-1787729410913:HUMAN_DECISION_RECORDED:REFUSED:decide:lead-website-intake-form-journal-proof-1787729410913:op-tobias-lindqvist:2026-08-26T07:30:11.140Z",
+          "lead-website-intake-form-journal-proof-1787729410913:DISPATCH_ATTEMPTED:REFUSED:despatch:lead-website-intake-form-journal-proof-1787729410913:op-marisol-adeyemi:2026-08-26T07:30:11.213Z",
+          "lead-website-intake-form-journal-proof-1787729410913:OPERATOR_AUTHENTICATION:REFUSED:MISSING_CREDENTIAL:2026-08-26T07:30:11.219Z",
+          "demo-lead-1787729411578-61z89i:OPERATOR_AUTHENTICATION:REFUSED:MISSING_CREDENTIAL:2026-08-26T07:30:11.587Z",
+          "demo-lead-1787729411578-61z89i:OPERATOR_AUTHENTICATION:REFUSED:INVALID_SIGNATURE:2026-08-26T07:30:11.603Z",
+          "demo-lead-1787729411578-61z89i:HUMAN_DECISION_RECORDED:REFUSED:decide:demo-lead-1787729411578-61z89i:op-tobias-lindqvist:2026-08-26T07:30:11.630Z",
+          "demo-lead-1787729411578-61z89i:HUMAN_DECISION_RECORDED:REFUSED:decide:demo-lead-1787729411578-61z89i:op-marisol-adeyemi:2026-08-26T07:30:11.641Z",
+          "demo-lead-1787729464444-qrcb0w:HUMAN_DECISION_RECORDED:REFUSED:decide:demo-lead-1787729464444-qrcb0w:op-tobias-lindqvist:2026-08-26T07:31:17.184Z",
+          "lead-website-intake-form-operations-proof-1787774749358-case-2:OPERATOR_AUTHENTICATION:REFUSED:MISSING_CREDENTIAL:2026-08-26T20:05:49.710Z",
+          "lead-website-intake-form-operations-proof-1787774749358-case-2:HUMAN_DECISION_RECORDED:REFUSED:decide:lead-website-intake-form-operations-proof-1787774749358-case-2:op-tobias-lindqvist:2026-08-26T20:05:49.785Z"
+        ]
+      },
+      {
+        "outcome": "ACCEPTED",
+        "count": 12,
+        "journalEventIds": [
+          "lead-website-intake-form-journal-proof-1787726557910:INGRESS_RECEIVED:accepted",
+          "lead-website-intake-form-journal-proof-1787726661296:INGRESS_RECEIVED:accepted",
+          "lead-website-intake-form-journal-ui-1787726804:INGRESS_RECEIVED:accepted",
+          "demo-lead-1787729281389-f11neu:HUMAN_DECISION_RECORDED:ACCEPTED:decide:demo-lead-1787729281389-f11neu:op-marisol-adeyemi:2026-08-26T07:28:01.544Z",
+          "lead-website-intake-form-journal-proof-1787729410913:INGRESS_RECEIVED:accepted",
+          "demo-lead-1787729411578-61z89i:HUMAN_DECISION_RECORDED:ACCEPTED:decide:demo-lead-1787729411578-61z89i:op-marisol-adeyemi:2026-08-26T07:30:11.651Z",
+          "demo-lead-1787729464444-qrcb0w:HUMAN_DECISION_RECORDED:ACCEPTED:decide:demo-lead-1787729464444-qrcb0w:op-marisol-adeyemi:2026-08-26T07:31:19.546Z",
+          "lead-website-intake-form-live-classifier-proof-1:INGRESS_RECEIVED:accepted",
+          "lead-website-intake-form-live-classifier-proof-2:INGRESS_RECEIVED:accepted",
+          "lead-website-intake-form-operations-proof-1787774749358-case-1:INGRESS_RECEIVED:accepted",
+          "lead-website-intake-form-operations-proof-1787774749358-case-2:INGRESS_RECEIVED:accepted",
+          "lead-website-intake-form-operations-proof-1787774749358-case-3:INGRESS_RECEIVED:accepted"
+        ]
+      },
+      {
+        "outcome": "SUPPRESSED_DUPLICATE",
+        "count": 7,
+        "journalEventIds": [
+          "lead-website-intake-form-journal-proof-1787726557910:INGRESS_RECEIVED:duplicate:2026-08-26T06:42:38.150Z",
+          "lead-website-intake-form-journal-proof-1787726661296:INGRESS_RECEIVED:duplicate:2026-08-26T06:44:21.328Z",
+          "lead-website-intake-form-journal-ui-1787726804:INGRESS_RECEIVED:duplicate:2026-08-26T06:46:44.392Z",
+          "lead-website-intake-form-journal-proof-1787729410913:INGRESS_RECEIVED:duplicate:2026-08-26T07:30:11.122Z",
+          "lead-website-intake-form-n8n-runtime-evidence-ingress-1:INGRESS_RECEIVED:duplicate:2026-08-26T15:56:15.280Z",
+          "lead-website-intake-form-n8n-runtime-evidence-ingress-1:INGRESS_RECEIVED:duplicate:2026-08-26T16:14:20.600Z",
+          "lead-website-intake-form-operations-proof-1787774749358-case-1:INGRESS_RECEIVED:duplicate:2026-08-26T20:05:49.552Z"
+        ]
+      },
+      {
+        "outcome": "EXECUTED",
+        "count": 4,
+        "journalEventIds": [
+          "lead-website-intake-form-journal-proof-1787726557910:DISPATCH_ATTEMPTED:EXECUTED:offer:lead-website-intake-form-journal-proof-1787726557910:2026-08-26T06:42:38.135Z@rev1",
+          "lead-website-intake-form-journal-proof-1787726661296:DISPATCH_ATTEMPTED:EXECUTED:offer:lead-website-intake-form-journal-proof-1787726661296:2026-08-26T06:44:21.315Z@rev1",
+          "lead-website-intake-form-journal-proof-1787729410913:DISPATCH_ATTEMPTED:EXECUTED:offer:lead-website-intake-form-journal-proof-1787729410913:2026-08-26T07:30:11.107Z@rev1",
+          "lead-website-intake-form-operations-proof-1787774749358-case-1:DISPATCH_ATTEMPTED:EXECUTED:offer:lead-website-intake-form-operations-proof-1787774749358-case-1:2026-08-26T20:05:49.536Z@rev1"
+        ]
+      }
+    ],
+    "dispatch": {
+      "attempts": 7,
+      "executed": 4,
+      "suppressedDuplicate": 0,
+      "failedBeforeEffect": 0,
+      "outcomeUnknown": 0,
+      "otherOutcomes": 3,
+      "incidentsWithConfirmedDelivery": 4,
+      "incidentsWithUnresolvedDelivery": 0
+    },
+    "timing": {
+      "observedIntervals": {
+        "kind": "AVAILABLE",
+        "value": {
+          "incidentsMeasured": 10,
+          "minMs": 21,
+          "medianMs": 87,
+          "maxMs": 1085320
+        }
+      },
+      "stageTransitions": [
+        {
+          "from": "TRIGGER",
+          "to": "TRIGGER",
+          "count": 6,
+          "totalMs": 1085400,
+          "incidentIds": [
+            "lead-website-intake-form-journal-proof-1787726557910",
+            "lead-website-intake-form-journal-proof-1787726661296",
+            "lead-website-intake-form-journal-proof-1787729410913",
+            "lead-website-intake-form-journal-ui-1787726804",
+            "lead-website-intake-form-n8n-runtime-evidence-ingress-1",
+            "lead-website-intake-form-operations-proof-1787774749358-case-1"
+          ]
+        },
+        {
+          "from": "AUTHORITY",
+          "to": "AUTHORITY",
+          "count": 10,
+          "totalMs": 2573,
+          "incidentIds": [
+            "demo-lead-1787729281389-f11neu",
+            "demo-lead-1787729411578-61z89i",
+            "demo-lead-1787729464444-qrcb0w",
+            "lead-website-intake-form-operations-proof-1787774749358-case-2"
+          ]
+        },
+        {
+          "from": "AUTHORITY",
+          "to": "ACTION",
+          "count": 4,
+          "totalMs": 159,
+          "incidentIds": [
+            "lead-website-intake-form-journal-proof-1787726557910",
+            "lead-website-intake-form-journal-proof-1787726661296",
+            "lead-website-intake-form-journal-proof-1787729410913"
+          ]
+        },
+        {
+          "from": "TRIGGER",
+          "to": "AUTHORITY",
+          "count": 4,
+          "totalMs": 124,
+          "incidentIds": [
+            "lead-website-intake-form-journal-proof-1787726557910",
+            "lead-website-intake-form-journal-proof-1787726661296",
+            "lead-website-intake-form-journal-proof-1787729410913",
+            "lead-website-intake-form-operations-proof-1787774749358-case-2"
+          ]
+        },
+        {
+          "from": "TRIGGER",
+          "to": "ACTION",
+          "count": 1,
+          "totalMs": 116,
+          "incidentIds": [
+            "lead-website-intake-form-operations-proof-1787774749358-case-1"
+          ]
+        },
+        {
+          "from": "ACTION",
+          "to": "ACTION",
+          "count": 2,
+          "totalMs": 13,
+          "incidentIds": [
+            "lead-website-intake-form-journal-proof-1787726557910",
+            "lead-website-intake-form-journal-proof-1787726661296"
+          ]
+        },
+        {
+          "from": "ACTION",
+          "to": "AUTHORITY",
+          "count": 1,
+          "totalMs": 6,
+          "incidentIds": [
+            "lead-website-intake-form-journal-proof-1787729410913"
+          ]
+        }
+      ],
+      "unmeasurableIncidents": [
+        {
+          "incidentId": "lead-website-intake-form-live-classifier-proof-1",
+          "reason": "a single observation has no interval to measure"
+        },
+        {
+          "incidentId": "lead-website-intake-form-live-classifier-proof-2",
+          "reason": "a single observation has no interval to measure"
+        },
+        {
+          "incidentId": "lead-website-intake-form-operations-proof-1787774749358-case-3",
+          "reason": "a single observation has no interval to measure"
+        }
+      ]
+    },
+    "failures": [
+      {
+        "failureClass": "POLICY_VIOLATION",
+        "count": 9,
+        "journalEventIds": [
+          "demo-lead-1787729281389-f11neu:OPERATOR_AUTHENTICATION:REFUSED:MISSING_CREDENTIAL:2026-08-26T07:28:01.472Z",
+          "demo-lead-1787729281389-f11neu:OPERATOR_AUTHENTICATION:REFUSED:INVALID_SIGNATURE:2026-08-26T07:28:01.496Z",
+          "demo-lead-1787729281389-f11neu:HUMAN_DECISION_RECORDED:REFUSED:decide:demo-lead-1787729281389-f11neu:op-tobias-lindqvist:2026-08-26T07:28:01.522Z",
+          "lead-website-intake-form-journal-proof-1787729410913:OPERATOR_AUTHENTICATION:REFUSED:MISSING_CREDENTIAL:2026-08-26T07:30:11.219Z",
+          "demo-lead-1787729411578-61z89i:OPERATOR_AUTHENTICATION:REFUSED:MISSING_CREDENTIAL:2026-08-26T07:30:11.587Z",
+          "demo-lead-1787729411578-61z89i:OPERATOR_AUTHENTICATION:REFUSED:INVALID_SIGNATURE:2026-08-26T07:30:11.603Z",
+          "demo-lead-1787729411578-61z89i:HUMAN_DECISION_RECORDED:REFUSED:decide:demo-lead-1787729411578-61z89i:op-tobias-lindqvist:2026-08-26T07:30:11.630Z",
+          "demo-lead-1787729464444-qrcb0w:HUMAN_DECISION_RECORDED:REFUSED:decide:demo-lead-1787729464444-qrcb0w:op-tobias-lindqvist:2026-08-26T07:31:17.184Z",
+          "lead-website-intake-form-operations-proof-1787774749358-case-2:OPERATOR_AUTHENTICATION:REFUSED:MISSING_CREDENTIAL:2026-08-26T20:05:49.710Z"
+        ]
+      },
+      {
+        "failureClass": "STATE_TRANSITION_CONFLICT",
+        "count": 9,
+        "journalEventIds": [
+          "lead-website-intake-form-journal-proof-1787726557910:HUMAN_DECISION_RECORDED:REFUSED:decide:lead-website-intake-form-journal-proof-1787726557910:2026-08-26T06:42:38.237Z",
+          "lead-website-intake-form-journal-proof-1787726557910:DISPATCH_ATTEMPTED:REFUSED:despatch:lead-website-intake-form-journal-proof-1787726557910:2026-08-26T06:42:38.311Z",
+          "lead-website-intake-form-journal-proof-1787726661296:HUMAN_DECISION_RECORDED:REFUSED:decide:lead-website-intake-form-journal-proof-1787726661296:2026-08-26T06:44:21.335Z",
+          "lead-website-intake-form-journal-proof-1787726661296:DISPATCH_ATTEMPTED:REFUSED:despatch:lead-website-intake-form-journal-proof-1787726661296:2026-08-26T06:44:21.341Z",
+          "demo-lead-1787729281389-f11neu:HUMAN_DECISION_RECORDED:REFUSED:decide:demo-lead-1787729281389-f11neu:op-marisol-adeyemi:2026-08-26T07:28:01.533Z",
+          "lead-website-intake-form-journal-proof-1787729410913:HUMAN_DECISION_RECORDED:REFUSED:decide:lead-website-intake-form-journal-proof-1787729410913:op-tobias-lindqvist:2026-08-26T07:30:11.140Z",
+          "lead-website-intake-form-journal-proof-1787729410913:DISPATCH_ATTEMPTED:REFUSED:despatch:lead-website-intake-form-journal-proof-1787729410913:op-marisol-adeyemi:2026-08-26T07:30:11.213Z",
+          "demo-lead-1787729411578-61z89i:HUMAN_DECISION_RECORDED:REFUSED:decide:demo-lead-1787729411578-61z89i:op-marisol-adeyemi:2026-08-26T07:30:11.641Z",
+          "lead-website-intake-form-operations-proof-1787774749358-case-2:HUMAN_DECISION_RECORDED:REFUSED:decide:lead-website-intake-form-operations-proof-1787774749358-case-2:op-tobias-lindqvist:2026-08-26T20:05:49.785Z"
+        ]
+      }
+    ],
+    "intervention": {
+      "humanDecisions": 12,
+      "authenticationRefusals": 6,
+      "authorityRefusals": 9,
+      "incidentsWithIntervention": 7,
+      "journalEventIds": [
+        "lead-website-intake-form-journal-proof-1787726557910:HUMAN_DECISION_RECORDED:REFUSED:decide:lead-website-intake-form-journal-proof-1787726557910:2026-08-26T06:42:38.237Z",
+        "lead-website-intake-form-journal-proof-1787726661296:HUMAN_DECISION_RECORDED:REFUSED:decide:lead-website-intake-form-journal-proof-1787726661296:2026-08-26T06:44:21.335Z",
+        "demo-lead-1787729281389-f11neu:OPERATOR_AUTHENTICATION:REFUSED:MISSING_CREDENTIAL:2026-08-26T07:28:01.472Z",
+        "demo-lead-1787729281389-f11neu:OPERATOR_AUTHENTICATION:REFUSED:INVALID_SIGNATURE:2026-08-26T07:28:01.496Z",
+        "demo-lead-1787729281389-f11neu:HUMAN_DECISION_RECORDED:REFUSED:decide:demo-lead-1787729281389-f11neu:op-tobias-lindqvist:2026-08-26T07:28:01.522Z",
+        "demo-lead-1787729281389-f11neu:HUMAN_DECISION_RECORDED:REFUSED:decide:demo-lead-1787729281389-f11neu:op-marisol-adeyemi:2026-08-26T07:28:01.533Z",
+        "demo-lead-1787729281389-f11neu:HUMAN_DECISION_RECORDED:ACCEPTED:decide:demo-lead-1787729281389-f11neu:op-marisol-adeyemi:2026-08-26T07:28:01.544Z",
+        "lead-website-intake-form-journal-proof-1787729410913:HUMAN_DECISION_RECORDED:REFUSED:decide:lead-website-intake-form-journal-proof-1787729410913:op-tobias-lindqvist:2026-08-26T07:30:11.140Z",
+        "lead-website-intake-form-journal-proof-1787729410913:OPERATOR_AUTHENTICATION:REFUSED:MISSING_CREDENTIAL:2026-08-26T07:30:11.219Z",
+        "demo-lead-1787729411578-61z89i:OPERATOR_AUTHENTICATION:REFUSED:MISSING_CREDENTIAL:2026-08-26T07:30:11.587Z",
+        "demo-lead-1787729411578-61z89i:OPERATOR_AUTHENTICATION:REFUSED:INVALID_SIGNATURE:2026-08-26T07:30:11.603Z",
+        "demo-lead-1787729411578-61z89i:HUMAN_DECISION_RECORDED:REFUSED:decide:demo-lead-1787729411578-61z89i:op-tobias-lindqvist:2026-08-26T07:30:11.630Z",
+        "demo-lead-1787729411578-61z89i:HUMAN_DECISION_RECORDED:REFUSED:decide:demo-lead-1787729411578-61z89i:op-marisol-adeyemi:2026-08-26T07:30:11.641Z",
+        "demo-lead-1787729411578-61z89i:HUMAN_DECISION_RECORDED:ACCEPTED:decide:demo-lead-1787729411578-61z89i:op-marisol-adeyemi:2026-08-26T07:30:11.651Z",
+        "demo-lead-1787729464444-qrcb0w:HUMAN_DECISION_RECORDED:REFUSED:decide:demo-lead-1787729464444-qrcb0w:op-tobias-lindqvist:2026-08-26T07:31:17.184Z",
+        "demo-lead-1787729464444-qrcb0w:HUMAN_DECISION_RECORDED:ACCEPTED:decide:demo-lead-1787729464444-qrcb0w:op-marisol-adeyemi:2026-08-26T07:31:19.546Z",
+        "lead-website-intake-form-operations-proof-1787774749358-case-2:OPERATOR_AUTHENTICATION:REFUSED:MISSING_CREDENTIAL:2026-08-26T20:05:49.710Z",
+        "lead-website-intake-form-operations-proof-1787774749358-case-2:HUMAN_DECISION_RECORDED:REFUSED:decide:lead-website-intake-form-operations-proof-1787774749358-case-2:op-tobias-lindqvist:2026-08-26T20:05:49.785Z"
+      ]
+    },
+    "completeness": {
+      "basis": "Derived only from observations the journal retained. The journal drops rather than blocking business work, so this describes what was observed, never everything that occurred.",
+      "incidentsWithSingleObservation": 3
+    }
+  },
+  "derivedAssertions": {
+    "manyIncidentsObservedTogether": true,
+    "aggregateReconcilesToIncidents": true,
+    "suppressedDuplicateObserved": true,
+    "confirmedDeliveryIsCountedByLeadNotByAttempt": true,
+    "singleObservationIntervalReportedUnavailable": true,
+    "unmeasurableIncidentsNamed": true
+  },
+  "doesNotProve": [
+    "Nothing here ran on a hosted or client deployment; this is a local prototype runtime.",
+    "The journal is lossy under failure by design, so this view describes what was OBSERVED, never everything that occurred.",
+    "No real prospect, recipient, model, or external provider was involved at any point.",
+    "Intervals are wall-clock between recorded observations. They include any time a case sat parked, and are not a processing-latency measurement."
+  ]
+}

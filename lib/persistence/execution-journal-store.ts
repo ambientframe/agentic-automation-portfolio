@@ -234,6 +234,20 @@ export interface ExecutionJournalReader {
   readCorrelation(correlationId: string): Promise<readonly JournalEvent[]>;
   /** Every case with any retained history. Empty when the journal has never been written. */
   listIncidents(): Promise<readonly string[]>;
+  /**
+   * Every retained observation across every case, in one chronological read.
+   *
+   * The three reads above answer "what happened to THIS lead?". None of them can answer
+   * "what has this system been doing?", because assembling that from `listIncidents()` plus a
+   * read per case leaves the caller to invent the cross-case ordering — and every caller would
+   * invent it slightly differently. One ordering, defined here, is what makes an aggregate
+   * derived from it reproducible.
+   *
+   * Subject to exactly the same honesty rules as the per-case reads: a malformed record raises
+   * `MalformedJournalRecordError` rather than being skipped, because a silently shortened
+   * history presented as a complete one is the failure mode an operational summary makes worst.
+   */
+  readAll(): Promise<readonly JournalEvent[]>;
 }
 
 export interface ExecutionJournal extends ExecutionJournalRecorder, ExecutionJournalReader {}
@@ -287,6 +301,10 @@ export class InMemoryExecutionJournal implements ExecutionJournal {
 
   async listIncidents(): Promise<readonly string[]> {
     return [...new Set([...this.events.values()].map((e) => e.incidentId))].sort();
+  }
+
+  async readAll(): Promise<readonly JournalEvent[]> {
+    return chronological([...this.events.values()]);
   }
 }
 
@@ -423,6 +441,14 @@ export class FileExecutionJournal implements ExecutionJournal {
     const all: JournalEvent[] = [];
     for (const incidentId of await this.listIncidents()) {
       all.push(...(await this.readDir(incidentId)).filter((e) => e.correlationId === correlationId));
+    }
+    return chronological(all);
+  }
+
+  async readAll(): Promise<readonly JournalEvent[]> {
+    const all: JournalEvent[] = [];
+    for (const incidentId of await this.listIncidents()) {
+      all.push(...(await this.readDir(incidentId)));
     }
     return chronological(all);
   }

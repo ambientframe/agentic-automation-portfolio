@@ -17,10 +17,11 @@ import {
   type ScenarioIndexEntry,
 } from '@/lib/proof/commercial-grammar';
 import { deriveFailureRegister, deriveFidelityLedger } from '@/lib/proof/fidelity-ledger';
-import { readEvaluationEvidence, readRuntimeEvidence } from '@/lib/proof/n8n-evidence';
+import { readEvaluationEvidence, readOperationalViewEvidence, readRuntimeEvidence } from '@/lib/proof/n8n-evidence';
 import { JourneyConsole } from '@/components/proof/journey-console';
 import { OperatorConsole } from '@/components/proof/operator-console';
 import { FailureRegister, FidelityPanel } from '@/components/proof/fidelity-panel';
+import { OperationsPanel } from '@/components/proof/operations-panel';
 
 /**
  * THE LEAD RESCUE PROOF EXPERIENCE.
@@ -82,7 +83,11 @@ export default async function LeadRescueProofPage() {
     index.push(toScenarioIndexEntry(journey));
   }
 
-  const [evidence, evaluation] = await Promise.all([readRuntimeEvidence(), readEvaluationEvidence()]);
+  const [evidence, evaluation, operations] = await Promise.all([
+    readRuntimeEvidence(),
+    readEvaluationEvidence(),
+    readOperationalViewEvidence(),
+  ]);
   const ledger = deriveFidelityLedger({ evidence, evaluation });
   const failures = deriveFailureRegister();
 
@@ -288,6 +293,18 @@ export default async function LeadRescueProofPage() {
           body="Duplicate deliveries, unconfirmed sends, malformed payloads, approvals nobody actions. Each one has a named recovery and a state the case ends up in. The ones a test genuinely exercises are marked separately from the ones that are only designed."
         />
         <FailureRegister entries={failures} />
+      </section>
+
+      {/* ================================================================== */}
+      {/* C.3 · ACROSS EVERY RUN                                              */}
+      {/* ================================================================== */}
+      <section className="space-y-8">
+        <ActHeading
+          act="Three · c"
+          title="What it looks like across every run, not one"
+          body="The same journal the case above is read from, read across every case the runtime retained. Leads and execution attempts are counted separately so a suppressed replay cannot read as a second delivery, and any interval that was never measured says so rather than showing zero."
+        />
+        <OperationsPanel evidence={operations} />
       </section>
 
       {/* ================================================================== */}

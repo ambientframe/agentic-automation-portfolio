@@ -1,5 +1,6 @@
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
+import type { OperationalView } from '@/lib/observability/operational-view';
 
 /**
  * THE RUNTIME-EVIDENCE ADAPTER — deliberately the only file in this build that knows the
@@ -281,4 +282,87 @@ export function evidenceRecordsEvaluation(
   evidence: EvaluationEvidence,
 ): evidence is Extract<EvaluationEvidence, { kind: 'PRESENT' }> {
   return evidence.kind === 'PRESENT' && !evidence.unrecognisedShape;
+}
+
+// ---------------------------------------------------------------------------
+// Retained AGGREGATE OPERATIONAL VIEW capture.
+// ---------------------------------------------------------------------------
+
+export const OPERATIONAL_VIEW_EVIDENCE_RELATIVE_PATH = 'n8n/evidence/lead-rescue-operational-view.json';
+
+/**
+ * The retained capture of a multi-execution view, read through the same quarantine as every
+ * other artefact here.
+ *
+ * WHY THE PAGE READS A CAPTURE RATHER THAN THE LIVE JOURNAL. The live journal lives in
+ * `.data/`, which is gitignored runtime state: on any machine that has not driven the system,
+ * it is legitimately empty. Rendering the live view alone would mean the proof surface showed
+ * nothing to a reviewer who just cloned the repository, and rendering a *fabricated* view
+ * would be worse. The capture is the honest middle: a real aggregate the running application
+ * genuinely computed, retained with the git head that produced it.
+ *
+ * The `view` is passed through verbatim rather than re-derived here. Re-deriving would let this
+ * build disagree with the runtime that produced the capture — and the capture, not this module,
+ * is the evidence.
+ */
+export type OperationalViewEvidence =
+  | { readonly kind: 'ABSENT'; readonly detail: string }
+  | { readonly kind: 'UNREADABLE'; readonly detail: string }
+  | {
+      readonly kind: 'PRESENT';
+      readonly capturedAt: string | null;
+      readonly gitHead: string | null;
+      readonly scope: string | null;
+      /** The view exactly as the running application computed it. */
+      readonly view: OperationalView;
+      readonly doesNotProve: readonly string[];
+      readonly unrecognisedShape: boolean;
+    };
+
+export async function readOperationalViewEvidence(): Promise<OperationalViewEvidence> {
+  const file = path.join(process.cwd(), ...OPERATIONAL_VIEW_EVIDENCE_RELATIVE_PATH.split('/'));
+
+  let text: string;
+  try {
+    text = await readFile(file, 'utf8');
+  } catch {
+    return {
+      kind: 'ABSENT',
+      detail: `No capture found at ${OPERATIONAL_VIEW_EVIDENCE_RELATIVE_PATH}. No aggregate is claimed.`,
+    };
+  }
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(text);
+  } catch {
+    return {
+      kind: 'UNREADABLE',
+      detail: `${OPERATIONAL_VIEW_EVIDENCE_RELATIVE_PATH} exists but is not valid JSON. No aggregate is claimed.`,
+    };
+  }
+
+  const view = child(parsed, 'view');
+  // One structural question only: does it carry the incident list every tally traces back to?
+  const recognised =
+    view !== null && typeof view === 'object' && Array.isArray((view as Record<string, unknown>)['incidents']);
+
+  if (!recognised) {
+    return {
+      kind: 'UNREADABLE',
+      detail: `${OPERATIONAL_VIEW_EVIDENCE_RELATIVE_PATH} does not contain a recognisable operational view. No aggregate is claimed.`,
+    };
+  }
+
+  const doesNotProve = child(parsed, 'doesNotProve');
+
+  return {
+    kind: 'PRESENT',
+    capturedAt: str(parsed, 'capturedAt'),
+    gitHead: str(parsed, 'gitHead'),
+    scope: str(child(parsed, 'environment'), 'scope'),
+    view: view as unknown as OperationalView,
+    doesNotProve: Array.isArray(doesNotProve) ? doesNotProve.filter((v): v is string => typeof v === 'string') : [],
+    unrecognisedShape: false,
+  };
 }

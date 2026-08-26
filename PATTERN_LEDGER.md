@@ -86,11 +86,21 @@
 - **Note:** the *harness* is the earned pattern. Its current verdict is FAILED, which is a measurement, not an unearned pattern.
 - **Reusable for 2–6:** the evaluation shape for any bounded judgment.
 
+### 11. Deterministic aggregate projection over an append-only journal
+- **Earned:** aggregate operational observability package, 2026-08-26
+- **Implementation:** `lib/observability/operational-view.ts` · `app/api/lead-rescue/operations/route.ts` · `components/proof/operations-panel.tsx` · `readAll()` on `ExecutionJournalReader`
+- **Tests:** `tests/lead-rescue-operational-view.test.ts` (18 tests, RED before implementation; each semantic guard separately confirmed to fail under a targeted mutation)
+- **Runtime artifact:** `n8n/evidence/lead-rescue-operational-view.json` — 13 leads, 41 observations, computed by the running application through `GET /api/lead-rescue/operations` and read back by a separate process
+- **Establishes:** many executions can be read together and summarised by a pure, clock-free function of records that were already durable, so the same records always yield the same view. Four ways such a summary normally lies are refused structurally: attempts are counted separately from leads, so a suppressed replay cannot read as a second delivery; a measurement never taken is an `Availability` union rather than a zero; `OUTCOME_UNKNOWN` is carried through rather than folded into success or failure; every tally carries the `journalEventId`s behind it.
+- **Reusable for 2–6:** `deriveOperationalView` takes `JournalEvent[]` and knows nothing about Lead Rescue. Any system that records observations through the same journal inherits the aggregate for free, and `Availability<T>` is the repository's general answer to "this was never measured".
+
 ## NOT YET EARNED
 
 | Candidate | Why not |
 | --- | --- |
 | Third-party provider contract (CRM, calendar, SMS) | No implementation. SMTP to a local sandbox with a non-routable recipient earns the boundary contract (#5), not third-party delivery. |
-| Aggregate operational observability (metrics, latency, alerting) | The journal (#6) is per-case forensics only. §14's "preserve cheap history" list — latency, operator intervention — is not yet captured in aggregate. |
+| Journal loss accounting | `record()` drops rather than blocking business work, and nothing counts what it dropped. The aggregate (#11) states that it describes only what was observed, but cannot say how much it missed — so completeness is disclaimed, not measured. |
+| Alerting on an operational condition | #11 is a view an operator must go and read. Nothing raises a failure, a stalled case, or an unresolved delivery to anyone. |
+| Runtime-observed failure and unknown delivery | The retained capture contains `EXECUTED`, `SUPPRESSED_DUPLICATE`, `REFUSED`, and `ACCEPTED`, but no `FAILED_BEFORE_EFFECT` or `OUTCOME_UNKNOWN` at the dispatch boundary. Those semantics are proven by tests (#11), never yet by a real run. |
 | External identity provider integration | `lead-rescue-operator-authentication.json` records `externalIdentityProvider = false` and every principal as `syntheticIdentity = true`. The credential mechanism is real (#4); the identity source is not. |
 | Cross-domain generalisation of the proof surface | Constitution §8: generalise only after ≥2 domains justify it. Only Lead Rescue has a proof surface today. |

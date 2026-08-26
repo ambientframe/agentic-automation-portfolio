@@ -527,7 +527,14 @@ describe('execution journal — durability, isolation and honest failure', () =>
   });
 
   it('11b. no engine or port module reads the journal — the query side is unreachable from decision code', () => {
-    const READER_SYMBOLS = ['readIncident', 'readCorrelation', 'listIncidents', 'FileExecutionJournal', 'InMemoryExecutionJournal'];
+    const READER_SYMBOLS = [
+      'readIncident',
+      'readCorrelation',
+      'listIncidents',
+      'readAll',
+      'FileExecutionJournal',
+      'InMemoryExecutionJournal',
+    ];
     const roots = [path.join(process.cwd(), 'lib', 'engine'), path.join(process.cwd(), 'lib', 'ports')];
 
     const offenders: string[] = [];
