@@ -1,0 +1,179 @@
+{
+  "schemaVersion": "lead-rescue-operator-authentication-evidence-1",
+  "capturedAt": "2026-08-26T07:30:11.670Z",
+  "gitHead": "531ac03b4425d29e2f582f327dba20c80a6adb25",
+  "authentication": {
+    "mechanism": "First-party HMAC-SHA256 signed bearer token (v1.<payload>.<signature>), verified constant-time at the decision boundary.",
+    "mode": "EPHEMERAL_KEY",
+    "keyLocation": "Held in the server process only. Never written to disk, never logged, never returned by any route.",
+    "externalIdentityProvider": false,
+    "passwordOrMfa": false,
+    "note": "Proves a request bears a credential only this runtime could mint, and that it resolves to one canonical operator. It does not prove a human proved who they were — there is no login here."
+  },
+  "principals": [
+    {
+      "principalId": "op-priya-raman",
+      "displayName": "Priya Raman",
+      "roleId": "founder",
+      "authorityCeiling": 4,
+      "syntheticIdentity": true
+    },
+    {
+      "principalId": "op-marisol-adeyemi",
+      "displayName": "Marisol Adeyemi",
+      "roleId": "client-partner",
+      "authorityCeiling": 3,
+      "syntheticIdentity": true
+    },
+    {
+      "principalId": "op-lena-fischer",
+      "displayName": "Lena Fischer",
+      "roleId": "ops-coordinator",
+      "authorityCeiling": 2,
+      "syntheticIdentity": true
+    },
+    {
+      "principalId": "op-tobias-lindqvist",
+      "displayName": "Tobias Lindqvist",
+      "roleId": "analyst",
+      "authorityCeiling": 1,
+      "syntheticIdentity": true
+    }
+  ],
+  "case": {
+    "incidentId": "demo-lead-1787729411578-61z89i",
+    "startingRevision": 1,
+    "syntheticData": true
+  },
+  "attempts": [
+    {
+      "step": "A. approval attempted with no operator credential",
+      "credential": "none",
+      "httpStatus": 401,
+      "refusal": "MISSING_CREDENTIAL",
+      "principalAccepted": null,
+      "engineOutcome": null,
+      "caseRevisionAfter": 1,
+      "offerSentAfter": false
+    },
+    {
+      "step": "B. approval attempted with a tampered credential",
+      "credential": "tampered (signature corrupted)",
+      "httpStatus": 401,
+      "refusal": "INVALID_SIGNATURE",
+      "principalAccepted": null,
+      "engineOutcome": null,
+      "caseRevisionAfter": 1,
+      "offerSentAfter": false
+    },
+    {
+      "step": "B2. approval attempted with a self-declared identity in the request body",
+      "credential": "valid (client-partner), body also claims \"founder\"",
+      "httpStatus": 400,
+      "refusal": "invalid request body",
+      "principalAccepted": null,
+      "engineOutcome": null,
+      "caseRevisionAfter": 1,
+      "offerSentAfter": false
+    },
+    {
+      "step": "C. approval attempted by an authenticated low-authority operator",
+      "credential": "valid (analyst)",
+      "httpStatus": 403,
+      "refusal": "insufficient authority",
+      "principalAccepted": null,
+      "engineOutcome": null,
+      "caseRevisionAfter": 1,
+      "offerSentAfter": false
+    },
+    {
+      "step": "F. approval attempted by a valid high-authority operator against a stale revision",
+      "credential": "valid (client-partner)",
+      "httpStatus": 200,
+      "refusal": null,
+      "principalAccepted": "op-marisol-adeyemi",
+      "engineOutcome": "STALE_REVISION",
+      "caseRevisionAfter": 1,
+      "offerSentAfter": false
+    },
+    {
+      "step": "D. approval by an authenticated sufficient-authority operator",
+      "credential": "valid (client-partner)",
+      "httpStatus": 200,
+      "refusal": null,
+      "principalAccepted": "op-marisol-adeyemi",
+      "engineOutcome": "ACCEPTED",
+      "caseRevisionAfter": 2,
+      "offerSentAfter": false
+    }
+  ],
+  "acceptedDecision": {
+    "capturedFacts": {
+      "principalId": "op-marisol-adeyemi",
+      "roleId": "client-partner",
+      "authorityCeiling": 3,
+      "engineOutcome": "ACCEPTED",
+      "boundToExpectedRevision": 1,
+      "revisionAfter": 2,
+      "lifecycleStateAfter": "BOOKING_READY"
+    },
+    "derivedAssertions": {
+      "identityCameFromCredentialNotBody": true,
+      "roleResolvedFromProfile": true
+    }
+  },
+  "zeroExecutionBeforeValidAuthorization": {
+    "capturedFacts": {
+      "refusedAttempts": 4,
+      "offerSentAfterAnyRefusal": false,
+      "revisionUnchangedThroughRefusals": true
+    }
+  },
+  "journal": {
+    "capturedFacts": {
+      "eventsRecorded": 5,
+      "sequence": [
+        {
+          "type": "OPERATOR_AUTHENTICATION",
+          "outcome": "REFUSED",
+          "mechanism": "AUTHENTICATION",
+          "actorId": null,
+          "revision": 1
+        },
+        {
+          "type": "OPERATOR_AUTHENTICATION",
+          "outcome": "REFUSED",
+          "mechanism": "AUTHENTICATION",
+          "actorId": null,
+          "revision": 1
+        },
+        {
+          "type": "HUMAN_DECISION_RECORDED",
+          "outcome": "REFUSED",
+          "mechanism": "HUMAN_DECISION",
+          "actorId": "op-tobias-lindqvist",
+          "revision": 1
+        },
+        {
+          "type": "HUMAN_DECISION_RECORDED",
+          "outcome": "REFUSED",
+          "mechanism": "HUMAN_DECISION",
+          "actorId": "op-marisol-adeyemi",
+          "revision": 1
+        },
+        {
+          "type": "HUMAN_DECISION_RECORDED",
+          "outcome": "ACCEPTED",
+          "mechanism": "HUMAN_DECISION",
+          "actorId": "op-marisol-adeyemi",
+          "revision": 1
+        }
+      ]
+    }
+  },
+  "doesNotProve": [
+    "No human proved who they were: there is no login, no password, and no MFA anywhere in this package.",
+    "No enterprise SSO, production IAM, or client identity federation exists here.",
+    "Nothing ran on a hosted or client deployment; this is a local prototype runtime with synthetic operators and a synthetic case."
+  ]
+}

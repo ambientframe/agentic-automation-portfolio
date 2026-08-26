@@ -49,10 +49,15 @@ const KIND_LABEL: Record<'reply' | 'offer', string> = {
   offer: 'offer (lr-t22)',
 };
 
-/** Two roles, deliberately spanning the authority gate: one passes it, one does not. */
+/**
+ * Named operators, deliberately spanning the authority gate. The page selects WHO is acting;
+ * it does not, and cannot, select what they may do — the server resolves each principal's role
+ * and ceiling from the profile after verifying the credential. Choosing "Tobias" here does not
+ * ask for a refusal; it asks to act as a real analyst, and the refusal is the server's answer.
+ */
 const DECIDER_OPTIONS = [
-  { id: 'client-partner', label: 'Client partner — authority 3 (sufficient)' },
-  { id: 'analyst', label: 'Analyst — authority 1 (insufficient; will be rejected)' },
+  { id: 'op-marisol-adeyemi', label: 'Marisol Adeyemi — Client Partner' },
+  { id: 'op-tobias-lindqvist', label: 'Tobias Lindqvist — Compliance Analyst' },
 ];
 
 const DECISION_OPTIONS = [
@@ -193,18 +198,45 @@ export default function LeadRescueWaitPage() {
     [refresh],
   );
 
+  /**
+   * Obtains a signed operator credential for the selected principal.
+   *
+   * The page no longer tells the server who is acting — it cannot. It asks the prototype
+   * principal selector for a credential and presents that; the server resolves the identity
+   * and its authority itself, from the token and the profile. Returning `null` here (the
+   * selector unavailable, or the principal unknown) means the request goes out with no
+   * credential and is refused with 401, which is the correct and observable outcome.
+   */
+  const credentialFor = useCallback(async (principalId: FormDataEntryValue | null): Promise<string | null> => {
+    if (typeof principalId !== 'string' || principalId === '') return null;
+    const res = await fetch('/api/lead-rescue/operator-session', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ principalId }),
+    });
+    if (!res.ok) return null;
+    const body: unknown = await res.json();
+    const token = (body as { token?: unknown }).token;
+    return typeof token === 'string' ? token : null;
+  }, []);
+
   const submitDecision = useCallback(
     async (incidentId: string, expectedRevision: number, form: HTMLFormElement) => {
       const data = new FormData(form);
       setBusy(true);
       try {
+        const token = await credentialFor(data.get('actingAs'));
         const res = await fetch('/api/lead-rescue/wait-incidents/decide', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token === null ? {} : { Authorization: `Bearer ${token}` }),
+          },
+          // No identity field: the wire contract has none, and a body that tried to name one
+          // would be rejected outright rather than quietly ignored.
           body: JSON.stringify({
             incidentId,
             expectedRevision,
-            decidedBy: data.get('decidedBy'),
             decision: data.get('decision'),
             rationale: data.get('rationale'),
           }),
@@ -216,7 +248,7 @@ export default function LeadRescueWaitPage() {
         setBusy(false);
       }
     },
-    [refresh],
+    [refresh, credentialFor],
   );
 
   const submitDispatch = useCallback(
@@ -224,13 +256,16 @@ export default function LeadRescueWaitPage() {
       const data = new FormData(form);
       setBusy(true);
       try {
+        const token = await credentialFor(data.get('actingAs'));
         const res = await fetch('/api/lead-rescue/wait-incidents/dispatch', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token === null ? {} : { Authorization: `Bearer ${token}` }),
+          },
           body: JSON.stringify({
             incidentId,
             expectedRevision,
-            decidedBy: data.get('decidedBy'),
             target: data.get('target'),
             offerSummary: data.get('offerSummary'),
           }),
@@ -242,7 +277,7 @@ export default function LeadRescueWaitPage() {
         setBusy(false);
       }
     },
-    [refresh],
+    [refresh, credentialFor],
   );
 
   const reviewIncidents = incidents.filter((i) => i.stage === 'review');
@@ -370,9 +405,9 @@ export default function LeadRescueWaitPage() {
                 onSimulate={() => checkNow(incident.incidentId, true)}
               />
               <div className="flex flex-wrap items-center gap-2">
-                <label className="instrument" style={{ color: 'var(--ink-muted)' }}>
-                  Decide as
-                  <select name="decidedBy" defaultValue="client-partner" className="ml-2 border rule rounded-sm px-1 py-0.5">
+                <label className="instrument flex items-center gap-2 min-w-0 max-w-full" style={{ color: 'var(--ink-muted)' }}>
+                  <span className="shrink-0">Act as</span>
+                  <select name="actingAs" defaultValue="op-marisol-adeyemi" className="min-w-0 max-w-full border rule rounded-sm px-1 py-0.5">
                     {DECIDER_OPTIONS.map((o) => (
                       <option key={o.id} value={o.id}>
                         {o.label}
@@ -380,9 +415,9 @@ export default function LeadRescueWaitPage() {
                     ))}
                   </select>
                 </label>
-                <label className="instrument" style={{ color: 'var(--ink-muted)' }}>
-                  Decision
-                  <select name="decision" defaultValue="CLEARED_TO_PROCEED" className="ml-2 border rule rounded-sm px-1 py-0.5">
+                <label className="instrument flex items-center gap-2 min-w-0 max-w-full" style={{ color: 'var(--ink-muted)' }}>
+                  <span className="shrink-0">Decision</span>
+                  <select name="decision" defaultValue="CLEARED_TO_PROCEED" className="min-w-0 max-w-full border rule rounded-sm px-1 py-0.5">
                     {DECISION_OPTIONS.map((o) => (
                       <option key={o.value} value={o.value}>
                         {o.label}
@@ -470,9 +505,9 @@ export default function LeadRescueWaitPage() {
                 />
               </label>
               <div className="flex flex-wrap items-center gap-2">
-                <label className="instrument" style={{ color: 'var(--ink-muted)' }}>
-                  Authorize as
-                  <select name="decidedBy" defaultValue="client-partner" className="ml-2 border rule rounded-sm px-1 py-0.5">
+                <label className="instrument flex items-center gap-2 min-w-0 max-w-full" style={{ color: 'var(--ink-muted)' }}>
+                  <span className="shrink-0">Act as</span>
+                  <select name="actingAs" defaultValue="op-marisol-adeyemi" className="min-w-0 max-w-full border rule rounded-sm px-1 py-0.5">
                     {DECIDER_OPTIONS.map((o) => (
                       <option key={o.id} value={o.id}>
                         {o.label}

@@ -43,13 +43,35 @@ interface Step {
   readonly observableOutcome: string;
 }
 
-async function post(pathname: string, body: unknown): Promise<{ status: number; json: Record<string, unknown> }> {
+async function post(
+  pathname: string,
+  body: unknown,
+  authorization?: string,
+): Promise<{ status: number; json: Record<string, unknown> }> {
   const response = await fetch(`${BASE}${pathname}`, {
     method: 'POST',
-    headers: { 'content-type': 'application/json' },
+    headers: {
+      'content-type': 'application/json',
+      ...(authorization === undefined ? {} : { authorization }),
+    },
     body: JSON.stringify(body),
   });
   return { status: response.status, json: (await response.json()) as Record<string, unknown> };
+}
+
+/**
+ * The operator boundary is authenticated, so this proof holds a real credential like any
+ * other caller. It asks the prototype principal selector for one rather than minting its own:
+ * the signing key lives inside the server process and this script has no access to it, which
+ * is exactly the property being relied on.
+ */
+async function credentialFor(principalId: string): Promise<string> {
+  const issued = await post('/api/lead-rescue/operator-session', { principalId });
+  const token = issued.json['token'];
+  if (typeof token !== 'string') {
+    throw new Error(`could not obtain an operator credential for "${principalId}" (status ${issued.status})`);
+  }
+  return `Bearer ${token}`;
 }
 
 async function get(pathname: string): Promise<{ status: number; json: Record<string, unknown> }> {
@@ -119,28 +141,40 @@ async function main(): Promise<void> {
   const revision = Number(accepted.json['revision']);
 
   // --- A REFUSAL: a human decision against a case that is not under review --------------
-  const refusedDecision = await post('/api/lead-rescue/wait-incidents/decide', {
-    incidentId,
-    expectedRevision: revision,
-    decidedBy: 'analyst',
-    decision: 'CLEARED_TO_PROCEED',
-    rationale: 'Synthetic proof step: a decision submitted against a case that is not under review.',
-  });
+  const analystCredential = await credentialFor('op-tobias-lindqvist');
+  const partnerCredential = await credentialFor('op-marisol-adeyemi');
+
+  const refusedDecision = await post(
+    '/api/lead-rescue/wait-incidents/decide',
+    {
+      incidentId,
+      expectedRevision: revision,
+      decision: 'CLEARED_TO_PROCEED',
+      rationale: 'Synthetic proof step: a decision submitted against a case that is not under review.',
+    },
+    analystCredential,
+  );
   steps.push({
     step: 'human decision (refused)',
     request: 'POST /api/lead-rescue/wait-incidents/decide',
     httpStatus: refusedDecision.status,
-    observableOutcome: String((refusedDecision.json['result'] as Record<string, unknown> | undefined)?.['outcome']),
+    observableOutcome:
+      refusedDecision.status === 200
+        ? String((refusedDecision.json['result'] as Record<string, unknown> | undefined)?.['outcome'])
+        : String(refusedDecision.json['error']),
   });
 
   // --- A SECOND REFUSAL: a despatch bound to a revision the case has moved past ---------
-  const staleDispatch = await post('/api/lead-rescue/wait-incidents/dispatch', {
-    incidentId,
-    expectedRevision: revision + 41,
-    decidedBy: 'client-partner',
-    target: 'journal-proof@example.invalid',
-    offerSummary: 'Synthetic proof step: a despatch bound to a stale revision.',
-  });
+  const staleDispatch = await post(
+    '/api/lead-rescue/wait-incidents/dispatch',
+    {
+      incidentId,
+      expectedRevision: revision + 41,
+      target: 'journal-proof@example.invalid',
+      offerSummary: 'Synthetic proof step: a despatch bound to a stale revision.',
+    },
+    partnerCredential,
+  );
   steps.push({
     step: 'despatch at a stale revision (refused)',
     request: 'POST /api/lead-rescue/wait-incidents/dispatch',
@@ -148,14 +182,31 @@ async function main(): Promise<void> {
     observableOutcome: String((staleDispatch.json['result'] as Record<string, unknown> | undefined)?.['outcome']),
   });
 
-  // --- THE ACTION: an authorized despatch through the real execution boundary ------------
-  const dispatched = await post('/api/lead-rescue/wait-incidents/dispatch', {
+  // --- AN AUTHENTICATION REFUSAL: the same despatch with no credential at all ------------
+  const unauthenticated = await post('/api/lead-rescue/wait-incidents/dispatch', {
     incidentId,
     expectedRevision: revision,
-    decidedBy: 'client-partner',
     target: 'journal-proof@example.invalid',
-    offerSummary: 'Synthetic proof step: an authorized offer despatch.',
+    offerSummary: 'Synthetic proof step: a despatch presented with no operator credential.',
   });
+  steps.push({
+    step: 'despatch with no operator credential (refused)',
+    request: 'POST /api/lead-rescue/wait-incidents/dispatch',
+    httpStatus: unauthenticated.status,
+    observableOutcome: String(unauthenticated.json['reason'] ?? unauthenticated.json['error']),
+  });
+
+  // --- THE ACTION: an authorized despatch through the real execution boundary ------------
+  const dispatched = await post(
+    '/api/lead-rescue/wait-incidents/dispatch',
+    {
+      incidentId,
+      expectedRevision: revision,
+      target: 'journal-proof@example.invalid',
+      offerSummary: 'Synthetic proof step: an authorized offer despatch.',
+    },
+    partnerCredential,
+  );
   const dispatchOutcome = String((dispatched.json['result'] as Record<string, unknown> | undefined)?.['outcome']);
   steps.push({
     step: 'despatch (authorized)',

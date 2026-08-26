@@ -1,7 +1,7 @@
 {
   "schemaVersion": "lead-rescue-execution-journal-evidence-1",
-  "capturedAt": "2026-08-26T06:44:21.363Z",
-  "gitHead": "271775dae4325c6cfa6fae1edebbb4561b005036",
+  "capturedAt": "2026-08-26T07:30:11.246Z",
+  "gitHead": "531ac03b4425d29e2f582f327dba20c80a6adb25",
   "environment": {
     "runtime": "Next.js dev server (npm run dev) on 127.0.0.1:3000",
     "executionPath": "Real HTTP routes: POST /api/lead-rescue/ingress, POST /api/lead-rescue/wait-incidents/{decide,dispatch}, GET /api/lead-rescue/journal.",
@@ -15,8 +15,8 @@
     "note": "No manual journal write occurs anywhere in this script. It has no recorder — only a reader."
   },
   "case": {
-    "incidentId": "lead-website-intake-form-journal-proof-1787726661296",
-    "correlationId": "inc-lead-website-intake-form-journal-proof-1787726661296",
+    "incidentId": "lead-website-intake-form-journal-proof-1787729410913",
+    "correlationId": "inc-lead-website-intake-form-journal-proof-1787729410913",
     "lifecycleStateAfterIngress": "BOOKING_READY",
     "revisionAfterIngress": 1
   },
@@ -46,6 +46,12 @@
       "observableOutcome": "STALE_REVISION"
     },
     {
+      "step": "despatch with no operator credential (refused)",
+      "request": "POST /api/lead-rescue/wait-incidents/dispatch",
+      "httpStatus": 401,
+      "observableOutcome": "MISSING_CREDENTIAL"
+    },
+    {
       "step": "despatch (authorized)",
       "request": "POST /api/lead-rescue/wait-incidents/dispatch",
       "httpStatus": 200,
@@ -54,7 +60,7 @@
   ],
   "automaticEmission": {
     "capturedFacts": {
-      "eventsRecorded": 5,
+      "eventsRecorded": 6,
       "sequence": [
         {
           "type": "INGRESS_RECEIVED",
@@ -62,10 +68,10 @@
           "mechanism": "DETERMINISTIC_RULE",
           "executionMode": null,
           "actorId": null,
-          "operationClaimId": "ingress:lead-website-intake-form-journal-proof-1787726661296",
+          "operationClaimId": "ingress:lead-website-intake-form-journal-proof-1787729410913",
           "failureClass": null,
           "revision": null,
-          "recordedAt": "2026-08-26T06:44:21.315Z"
+          "recordedAt": "2026-08-26T07:30:11.107Z"
         },
         {
           "type": "INGRESS_RECEIVED",
@@ -73,21 +79,21 @@
           "mechanism": "DETERMINISTIC_RULE",
           "executionMode": null,
           "actorId": null,
-          "operationClaimId": "ingress:lead-website-intake-form-journal-proof-1787726661296",
+          "operationClaimId": "ingress:lead-website-intake-form-journal-proof-1787729410913",
           "failureClass": null,
           "revision": null,
-          "recordedAt": "2026-08-26T06:44:21.328Z"
+          "recordedAt": "2026-08-26T07:30:11.122Z"
         },
         {
           "type": "HUMAN_DECISION_RECORDED",
           "outcome": "REFUSED",
           "mechanism": "HUMAN_DECISION",
           "executionMode": null,
-          "actorId": "analyst",
+          "actorId": "op-tobias-lindqvist",
           "operationClaimId": null,
           "failureClass": "STATE_TRANSITION_CONFLICT",
           "revision": 1,
-          "recordedAt": "2026-08-26T06:44:21.335Z"
+          "recordedAt": "2026-08-26T07:30:11.140Z"
         },
         {
           "type": "DISPATCH_ATTEMPTED",
@@ -98,7 +104,18 @@
           "operationClaimId": null,
           "failureClass": "STATE_TRANSITION_CONFLICT",
           "revision": 1,
-          "recordedAt": "2026-08-26T06:44:21.341Z"
+          "recordedAt": "2026-08-26T07:30:11.213Z"
+        },
+        {
+          "type": "OPERATOR_AUTHENTICATION",
+          "outcome": "REFUSED",
+          "mechanism": "AUTHENTICATION",
+          "executionMode": null,
+          "actorId": null,
+          "operationClaimId": null,
+          "failureClass": "POLICY_VIOLATION",
+          "revision": 1,
+          "recordedAt": "2026-08-26T07:30:11.219Z"
         },
         {
           "type": "DISPATCH_ATTEMPTED",
@@ -106,10 +123,10 @@
           "mechanism": "EXECUTION",
           "executionMode": "SIMULATED",
           "actorId": "lead-rescue-wait-resume-simulated-executor",
-          "operationClaimId": "offer:lead-website-intake-form-journal-proof-1787726661296:2026-08-26T06:44:21.315Z@rev1",
+          "operationClaimId": "offer:lead-website-intake-form-journal-proof-1787729410913:2026-08-26T07:30:11.107Z@rev1",
           "failureClass": null,
           "revision": 1,
-          "recordedAt": "2026-08-26T06:44:21.347Z"
+          "recordedAt": "2026-08-26T07:30:11.225Z"
         }
       ]
     },
@@ -124,14 +141,14 @@
     "capturedFacts": {
       "httpStatus": 200,
       "empty": false,
-      "countReportedByServer": 5
+      "countReportedByServer": 6
     }
   },
   "reconstruction": {
     "capturedFacts": {
       "readerConstructedIn": "a separate process from the one that wrote the records",
-      "countReadBack": 5,
-      "countByCorrelation": 5
+      "countReadBack": 6,
+      "countByCorrelation": 6
     },
     "derivedAssertions": {
       "matchesServerQuery": true,
