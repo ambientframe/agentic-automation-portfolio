@@ -1,4 +1,4 @@
-import type { RuntimeProof, RuntimeProofResolution, ProofSequence } from '@/lib/evidence/runtime-proof';
+import type { RuntimeProof, RuntimeProofResolution, ProofSequence, AuthorityPhase, AuthorityStage } from '@/lib/evidence/runtime-proof';
 
 /**
  * THE RUNTIME PROOF SURFACE.
@@ -104,6 +104,8 @@ function ProofCard({ proof }: { proof: RuntimeProof }) {
         ))}
       </ol>
 
+      {proof.authorityTimeline !== undefined && <AuthorityTimeline stages={proof.authorityTimeline} />}
+
       {/* --- Proves / does not prove, side by side and equally weighted -------- */}
       <div className="grid gap-5 sm:grid-cols-2 p-5 border-t rule">
         <ClaimList
@@ -157,6 +159,82 @@ function ProofCard({ proof }: { proof: RuntimeProof }) {
         </div>
       </details>
     </article>
+  );
+}
+
+const PHASE_LABEL: Record<AuthorityPhase, string> = {
+  PREPARED: 'Prepared',
+  REFUSED: 'Refused',
+  AUTHORIZED: 'Authorised',
+  EXECUTED: 'Executed',
+  REPLAY: 'Replay',
+};
+
+/** Refusals and the approval-with-no-send are the point, so they carry the evidence accent. */
+function phaseAccent(phase: AuthorityPhase): string {
+  switch (phase) {
+    case 'REFUSED':
+      return 'var(--blocked)';
+    case 'AUTHORIZED':
+      return 'var(--prov-policy)';
+    case 'EXECUTED':
+      return 'var(--prov-evidence)';
+    default:
+      return 'var(--ink-faint)';
+  }
+}
+
+/**
+ * THE NEGATIVE-SPACE PROOF, given its own treatment.
+ *
+ * The rightmost column is the entire commercial argument: an independent server's message
+ * count, held at zero through every refusal AND through the approval itself, reaching one only
+ * at execution and never moving again. Reading down that column is the proof; the prose is
+ * support. Kept as a semantic table so the relationship survives a screen reader and a narrow
+ * viewport, where it collapses to stacked rows rather than scrolling sideways.
+ */
+function AuthorityTimeline({ stages }: { stages: readonly AuthorityStage[] }) {
+  return (
+    <div className="border-t rule">
+      <div className="px-5 pt-4 pb-2 flex flex-wrap items-baseline justify-between gap-2">
+        <p className="label">Nothing left the building until someone approved it</p>
+        <p className="instrument" style={{ color: 'var(--ink-faint)' }}>
+          messages observed by the receiving server
+        </p>
+      </div>
+      <ol className="divide-y rule">
+        {stages.map((stage, index) => {
+          const accent = phaseAccent(stage.phase);
+          const delivered = stage.messageCount > 0;
+          return (
+            <li
+              key={`${stage.phase}-${index}`}
+              className="px-5 py-3 flex flex-col sm:flex-row sm:items-baseline gap-2 sm:gap-4"
+            >
+              {/* `self-start` matters: in the stacked mobile layout a flex child would
+                  otherwise stretch to full width, turning the badge into a banner. */}
+              <span className="badge self-start shrink-0 sm:w-28" style={{ color: accent, borderColor: accent }}>
+                {PHASE_LABEL[stage.phase]}
+              </span>
+              <span className="text-[0.8125rem] leading-relaxed flex-1 min-w-0" style={{ color: 'var(--ink-muted)' }}>
+                {stage.what}
+                {stage.outcome !== undefined && (
+                  <span className="instrument ml-2" style={{ color: accent }}>
+                    {stage.outcome}
+                  </span>
+                )}
+              </span>
+              <span
+                className="instrument tabular-nums shrink-0 sm:w-24 sm:text-right"
+                style={{ color: delivered ? 'var(--prov-evidence)' : 'var(--ink-faint)' }}
+              >
+                {stage.messageCount === 0 ? 'none sent' : `${stage.messageCount} sent`}
+              </span>
+            </li>
+          );
+        })}
+      </ol>
+    </div>
   );
 }
 

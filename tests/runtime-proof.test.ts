@@ -6,6 +6,7 @@ import {
   deriveRuntimeProof,
   N8N_EVIDENCE_REPO_PATH,
   SMTP_EVIDENCE_REPO_PATH,
+  AUTHORITY_EVIDENCE_REPO_PATH,
   type RuntimeProofResolution,
 } from '@/lib/evidence/runtime-proof';
 import { RuntimeProofSection } from '@/components/runtime-proof';
@@ -69,7 +70,7 @@ describe('runtime proof model — derived from committed evidence, never re-type
     if (res.status !== 'AVAILABLE') throw new Error('evidence unavailable');
 
     for (const proof of res.proofs) {
-      expect([N8N_EVIDENCE_REPO_PATH, SMTP_EVIDENCE_REPO_PATH]).toContain(proof.evidenceSource);
+      expect([N8N_EVIDENCE_REPO_PATH, SMTP_EVIDENCE_REPO_PATH, AUTHORITY_EVIDENCE_REPO_PATH]).toContain(proof.evidenceSource);
       expect(proof.identifiers.length).toBeGreaterThan(0);
       for (const id of proof.identifiers) {
         expect(id.label.length).toBeGreaterThan(0);

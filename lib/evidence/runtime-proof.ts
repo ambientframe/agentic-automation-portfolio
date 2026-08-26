@@ -24,6 +24,7 @@ import { z } from 'zod';
 
 export const N8N_EVIDENCE_REPO_PATH = 'n8n/evidence/lead-rescue-runtime-execution.json';
 export const SMTP_EVIDENCE_REPO_PATH = 'n8n/evidence/lead-rescue-smtp-execution.json';
+export const AUTHORITY_EVIDENCE_REPO_PATH = 'n8n/evidence/lead-rescue-authority-execution.json';
 
 // ---------------------------------------------------------------------------
 // Artifact schemas — deliberately partial: only what may be presented.
@@ -97,11 +98,62 @@ const SmtpArtifactSchema = z.object({
   }),
 });
 
+const AuthorityArtifactSchema = z.object({
+  gitHead: z.string().min(1),
+  environment: z.object({
+    smtpServer: z.object({ product: z.string().min(1), version: z.string().min(1), relayConfigured: z.boolean() }),
+    n8nParticipated: z.boolean(),
+    anthropicCalled: z.boolean(),
+  }),
+  capturedFacts: z.object({
+    syntheticCase: z.object({ incidentId: z.string().min(1), syntheticData: z.boolean() }),
+    preparedAction: z.object({ kind: z.string().min(1), recipient: z.string().min(1), offerSummary: z.string().min(1) }),
+    preAuthorizationState: z.object({ lifecycleState: z.string().min(1), revision: z.number() }),
+    unauthorizedAttempts: z
+      .array(z.object({ attempt: z.string().min(1), outcome: z.string().min(1), smtpMessagesAfter: z.number() }))
+      .min(1),
+    authorizationEvent: z.object({
+      decidedByRoleName: z.string().min(1),
+      decidedByAuthorityCeiling: z.number(),
+      decision: z.string().min(1),
+      boundToExpectedRevision: z.number(),
+      occurredAt: z.string().min(1),
+    }),
+    postAuthorizationState: z.object({ lifecycleState: z.string().min(1), revision: z.number() }),
+    execution: z.object({
+      outcome: z.string().min(1),
+      executorId: z.string().min(1),
+      operationClaim: z.object({ operationId: z.string().min(1), status: z.string().min(1) }),
+      smtpReceipt: z.object({ captureServerId: z.string().min(1), messageId: z.string().min(1) }),
+    }),
+    replay: z.object({ outcome: z.string().min(1), smtpMessagesAfter: z.number() }),
+    smtpMessageCountTimeline: z.array(z.object({ stage: z.string().min(1), count: z.number() })).min(3),
+  }),
+});
+
 // ---------------------------------------------------------------------------
 // Presentation model
 // ---------------------------------------------------------------------------
 
-export type RuntimeProofKind = 'N8N_ORCHESTRATION' | 'SMTP_EXECUTION';
+export type RuntimeProofKind = 'N8N_ORCHESTRATION' | 'SMTP_EXECUTION' | 'AUTHORITY_BEFORE_EXECUTION';
+
+/**
+ * The negative-space authority proof, as a sequence a reader can scan in one pass. The
+ * `messageCount` column is the whole claim: it must stay at zero through every refusal AND
+ * through the authorisation itself, then reach one, then stop moving. (Phrased as a count, not
+ * as a delivery guarantee — this surface never claims exactly-once semantics.)
+ */
+export type AuthorityPhase = 'PREPARED' | 'REFUSED' | 'AUTHORIZED' | 'EXECUTED' | 'REPLAY';
+
+export interface AuthorityStage {
+  readonly phase: AuthorityPhase;
+  /** Plain-language description of what was attempted at this point. */
+  readonly what: string;
+  /** The application's own outcome token where one applies (e.g. UNAUTHORIZED). */
+  readonly outcome?: string;
+  /** Messages the independent capture server held after this stage. */
+  readonly messageCount: number;
+}
 
 export interface ProofIdentifier {
   readonly label: string;
@@ -130,6 +182,8 @@ export interface RuntimeProof {
   readonly runtime: { readonly name: string; readonly version: string; readonly locality: string };
   /** Only meaningful for a send; describes the recipient CLASS, never an address. */
   readonly recipientClass?: string;
+  /** Present only on the authority proof — the refusal → authorisation → execution sequence. */
+  readonly authorityTimeline?: readonly AuthorityStage[];
   readonly evidenceSource: string;
   readonly observedAt: string;
 }
@@ -142,11 +196,31 @@ export type RuntimeProofResolution =
  * Derives the presentation model from already-parsed JSON. Pure — no filesystem — so the
  * absent/malformed branches are directly testable without touching disk.
  */
-export function deriveRuntimeProof(n8nRaw: unknown, smtpRaw: unknown): RuntimeProofResolution {
+/**
+ * Maps a retained timeline stage label onto a presentation phase.
+ *
+ * ORDER IS LOAD-BEARING, and two cases are genuinely adversarial:
+ *   - "after authorised execution" would match the loose AUTHORIZED test, so EXECUTED wins first;
+ *   - "after unauthorised despatch attempt" CONTAINS "authoris", so the refusal test (every
+ *     refusal stage is an "…attempt") must run before AUTHORIZED, or a refusal silently
+ *     reads as an approval — which would invert the entire proof.
+ */
+function authorityPhaseFor(stage: string): AuthorityPhase {
+  const s = stage.toLowerCase();
+  if (s.startsWith('prepared')) return 'PREPARED';
+  if (s.includes('replay')) return 'REPLAY';
+  if (s.includes('execution')) return 'EXECUTED';
+  if (s.includes('attempt')) return 'REFUSED';
+  if (s.includes('authoris') || s.includes('authoriz')) return 'AUTHORIZED';
+  return 'REFUSED';
+}
+
+export function deriveRuntimeProof(n8nRaw: unknown, smtpRaw: unknown, authorityRaw?: unknown): RuntimeProofResolution {
   const n8n = N8nArtifactSchema.safeParse(n8nRaw);
   const smtp = SmtpArtifactSchema.safeParse(smtpRaw);
+  const authority = AuthorityArtifactSchema.safeParse(authorityRaw);
 
-  if (!n8n.success && !smtp.success) {
+  if (!n8n.success && !smtp.success && !authority.success) {
     return {
       status: 'UNAVAILABLE',
       reason: 'No valid retained runtime evidence was found. Proof is shown only when a committed artifact supports it.',
@@ -294,6 +368,74 @@ export function deriveRuntimeProof(n8nRaw: unknown, smtpRaw: unknown): RuntimePr
     });
   }
 
+  if (authority.success) {
+    const c = authority.data.capturedFacts;
+    const env = authority.data.environment;
+
+    // Refusal stages are paired positionally with the retained refusal outcomes, so the
+    // outcome token shown against each row is the application's own, never a label authored here.
+    let refusalCursor = 0;
+    const timeline: AuthorityStage[] = c.smtpMessageCountTimeline.map((entry) => {
+      const phase = authorityPhaseFor(entry.stage);
+      const attempt = phase === 'REFUSED' ? c.unauthorizedAttempts[refusalCursor++] : undefined;
+      return {
+        phase,
+        what: attempt?.attempt ?? entry.stage,
+        ...(attempt === undefined ? {} : { outcome: attempt.outcome }),
+        messageCount: entry.count,
+      };
+    });
+
+    const auth = c.authorizationEvent;
+    const refusalCount = timeline.filter((s) => s.phase === 'REFUSED').length;
+
+    proofs.push({
+      id: 'authority-before-execution',
+      kind: 'AUTHORITY_BEFORE_EXECUTION',
+      headline: 'The system refused to send until a person with the authority to approve it actually did.',
+      summary:
+        'A prepared offer sat ready to go. Four separate attempts to push it out — including one by a colleague without the standing to approve it — were each refused, and the receiving server confirms nothing left the building. Only after a real, attributable approval did a single message go out.',
+      sequence: {
+        trigger: `A synthetic case was prepared with an offer ready to send, sitting in ${c.preAuthorizationState.lifecycleState.replace(/_/g, ' ').toLowerCase()} at revision ${c.preAuthorizationState.revision}. Prepared is not approved.`,
+        decision: `${auth.decidedByRoleName} — a role carrying authority level ${auth.decidedByAuthorityCeiling} — recorded “${auth.decision}” against that exact case and revision. A person, not a rule and not a model.`,
+        action: `Only then did the specifically approved offer go out, bound to revision ${c.postAuthorizationState.revision} — the revision created by the approval itself.`,
+        guardrail: `${refusalCount} earlier attempts were refused outright, and the approval alone still sent nothing. Approving and sending are separate steps.`,
+        outcome: `The receiving server independently recorded ${c.replay.smtpMessagesAfter} message, and re-running the send afterwards returned “${c.replay.outcome}” without producing another.`,
+      },
+      proves: [
+        'A prepared action is genuinely inert: something ready to send did not send.',
+        'A colleague without sufficient standing was refused — authority is checked against configured roles, not assumed.',
+        'An approval is tied to one case at one revision; once the record moved on, the old approval no longer authorised anything.',
+        'Approving is not sending. The message count stayed at zero across the approval itself.',
+        'Re-running the send after approval produced no second message.',
+      ],
+      doesNotProve: [
+        'Nothing here checks who the approver really is. The role is supplied with the request; there is no sign-in binding a person to that role.',
+        'Approval is bound to the case and its revision, not to the exact wording of the message.',
+        'The recipient was synthetic and non-routable, and the receiving server was a local sandbox — no real person was contacted.',
+      ],
+      identifiers: [
+        { label: 'Case', value: c.syntheticCase.incidentId },
+        { label: 'Approved by', value: `${auth.decidedByRoleName} (authority ${auth.decidedByAuthorityCeiling})` },
+        { label: 'Approved at revision', value: String(auth.boundToExpectedRevision) },
+        { label: 'Executed at revision', value: String(c.postAuthorizationState.revision) },
+        { label: 'Capture-server receipt', value: c.execution.smtpReceipt.captureServerId },
+        { label: 'Operation claim', value: c.execution.operationClaim.operationId },
+        { label: 'Claim status', value: c.execution.operationClaim.status },
+        { label: 'Evidence recorded at commit', value: authority.data.gitHead.slice(0, 12) },
+      ],
+      runtime: {
+        name: `${env.smtpServer.product} ${env.smtpServer.version}`,
+        version: env.smtpServer.version,
+        locality: env.smtpServer.relayConfigured ? 'Relay configured' : 'Local sandbox, no relay configured',
+      },
+      recipientClass: 'Synthetic sandbox recipient on a reserved, non-routable domain',
+      authorityTimeline: timeline,
+      evidenceSource: AUTHORITY_EVIDENCE_REPO_PATH,
+      observedAt: auth.occurredAt,
+    });
+  }
+
   if (proofs.length === 0) {
     return { status: 'UNAVAILABLE', reason: 'Retained evidence was found but contained no presentable proof records.' };
   }
@@ -306,7 +448,11 @@ export function deriveRuntimeProof(n8nRaw: unknown, smtpRaw: unknown): RuntimePr
  * state in the built page rather than as a runtime error for a visitor.
  */
 export function loadRuntimeProof(): RuntimeProofResolution {
-  return deriveRuntimeProof(readJsonOrUndefined(N8N_EVIDENCE_REPO_PATH), readJsonOrUndefined(SMTP_EVIDENCE_REPO_PATH));
+  return deriveRuntimeProof(
+    readJsonOrUndefined(N8N_EVIDENCE_REPO_PATH),
+    readJsonOrUndefined(SMTP_EVIDENCE_REPO_PATH),
+    readJsonOrUndefined(AUTHORITY_EVIDENCE_REPO_PATH),
+  );
 }
 
 /**
