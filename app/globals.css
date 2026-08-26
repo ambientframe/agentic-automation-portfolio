@@ -141,6 +141,46 @@ body {
   flex: none;
 }
 
+/* --- Proof console -------------------------------------------------------- */
+
+/* Motion tied to a state change, not to arrival: the inspector is keyed on the selected
+ * moment, so this plays when a reader moves between steps and never on first paint of a
+ * static page. Reduced-motion is handled globally at the bottom of this file. */
+@keyframes proof-reveal {
+  from {
+    opacity: 0;
+    transform: translateY(2px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.proof-reveal {
+  animation: proof-reveal var(--dur-medium) var(--ease-out);
+}
+
+/* Operator inputs. Native controls, tokenised — a bespoke select would lose the platform
+ * keyboard behaviour this surface depends on for its forms to be usable at all. */
+.proof-input {
+  inline-size: 100%;
+  min-width: 0;
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  color: var(--ink);
+  background: var(--paper);
+  border: var(--rule-hair) solid var(--rule-strong);
+  border-radius: var(--radius-sm);
+  padding: 0.3125rem 0.5rem;
+}
+
+.proof-input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
 /* --- Interaction ---------------------------------------------------------- */
 
 a,
