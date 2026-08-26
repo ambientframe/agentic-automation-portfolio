@@ -1,0 +1,167 @@
+{
+  "schemaVersion": "lead-rescue-authority-execution-evidence-1",
+  "capturedAt": "2026-08-26T03:06:12.872Z",
+  "gitHead": "fd48ca667088c536ba02a6e980f2fb8c8d887d3e",
+  "environment": {
+    "smtpServer": {
+      "product": "Mailpit",
+      "version": "v1.31.0",
+      "kind": "local capture/sandbox server (stores messages, never relays)",
+      "host": "127.0.0.1",
+      "port": 1025,
+      "relayConfigured": false
+    },
+    "executionPath": "applyHumanDecision / dispatchAuthorizedOffer (lib/engine/wait-resume.ts) against the real module-level FileWaitIncidentStore and FileOperationClaimStore singletons — the exact functions the /decide and /dispatch routes call.",
+    "httpHopExercised": false,
+    "httpHopNote": "The HTTP hop into those two routes was not exercised: they resolve their executor from process.env at module load, and wiring real-SMTP mode into the tracked .claude/launch.json would contradict the config gate that keeps simulated the default safe mode.",
+    "n8nParticipated": false,
+    "n8nNote": "Authority is enforced inside the application, not by the orchestrator. n8n transports commands elsewhere in this portfolio but plays no part in this authority decision, so no n8n execution identity is claimed here.",
+    "anthropicCalled": false
+  },
+  "capturedFacts": {
+    "syntheticCase": {
+      "incidentId": "lead-authority-proof-reviewed-offer-1",
+      "syntheticData": true,
+      "provenance": null,
+      "note": "Seeded via WaitIncidentStore.park() — the same production persistence method ingress and re-park use. No real prospect, contact, or company."
+    },
+    "preparedAction": {
+      "kind": "OFFER_DESPATCH (lead.offer.despatched)",
+      "recipient": "lead-rescue-authority-proof@example.invalid",
+      "offerSummary": "Offer a 30-minute SOC 2 readiness scoping call."
+    },
+    "preAuthorizationState": {
+      "lifecycleState": "NEEDS_HUMAN",
+      "revision": 1,
+      "offerSentAt": null,
+      "awaitingHuman": "Confirm the engagement is in segment before offering a next step."
+    },
+    "unauthorizedAttempts": [
+      {
+        "attempt": "despatch offer while still under human review, no authorisation recorded",
+        "via": "dispatchAuthorizedOffer (same function POST /api/lead-rescue/wait-incidents/dispatch calls)",
+        "outcome": "NOT_READY",
+        "smtpMessagesAfter": 0,
+        "recordUnchanged": true
+      },
+      {
+        "attempt": "authorisation attempted by role \"analyst\" (authority ceiling 1), below the level the handler requires",
+        "via": "applyHumanDecision (same function POST /api/lead-rescue/wait-incidents/decide calls)",
+        "outcome": "UNAUTHORIZED",
+        "smtpMessagesAfter": 0,
+        "recordUnchanged": true
+      },
+      {
+        "attempt": "authorisation submitted against a stale/mismatched revision",
+        "via": "applyHumanDecision (same function POST /api/lead-rescue/wait-incidents/decide calls)",
+        "outcome": "STALE_REVISION",
+        "smtpMessagesAfter": 0,
+        "recordUnchanged": true
+      },
+      {
+        "attempt": "despatch attempted against the pre-authorisation revision after the case was re-parked",
+        "via": "dispatchAuthorizedOffer (same function POST /api/lead-rescue/wait-incidents/dispatch calls)",
+        "outcome": "STALE_REVISION",
+        "smtpMessagesAfter": 0,
+        "recordUnchanged": true
+      }
+    ],
+    "authorizationEvent": {
+      "via": "applyHumanDecision (same function POST /api/lead-rescue/wait-incidents/decide calls)",
+      "eventType": "human.decision.recorded",
+      "actor": "HUMAN",
+      "decidedByRoleId": "client-partner",
+      "decidedByRoleName": "Client Partner",
+      "decidedByAuthorityCeiling": 3,
+      "decision": "CLEARED_TO_PROCEED",
+      "boundToIncidentId": "lead-authority-proof-reviewed-offer-1",
+      "boundToExpectedRevision": 1,
+      "outcome": "ACCEPTED",
+      "occurredAt": "2026-08-26T03:06:11.386Z"
+    },
+    "postAuthorizationState": {
+      "lifecycleState": "BOOKING_READY",
+      "revision": 2
+    },
+    "execution": {
+      "via": "dispatchAuthorizedOffer (same function POST /api/lead-rescue/wait-incidents/dispatch calls)",
+      "outcome": "CONFIRMED",
+      "executorId": "lead-rescue-local-smtp-executor",
+      "executorMode": "LIVE",
+      "boundToExpectedRevision": 2,
+      "occurredAt": "2026-08-26T03:06:11.394Z",
+      "operationClaim": {
+        "operationId": "offer:lead-authority-proof-reviewed-offer-1:2026-08-26T03:06:11.386Z@rev2",
+        "status": "CONFIRMED",
+        "confirmedAt": "2026-08-26T03:06:11.394Z"
+      },
+      "smtpReceipt": {
+        "captureServerId": "4wj1NJkTlgX3aQd9yJaQTr",
+        "messageId": "f1778d05-fb7d-fa3c-939f-a54d97976bd9@example.invalid",
+        "to": [
+          "lead-rescue-authority-proof@example.invalid"
+        ],
+        "source": "Mailpit HTTP API — read back from the capture server itself, not reported by the application."
+      },
+      "resultingState": {
+        "lifecycleState": "BOOKING_READY",
+        "revision": 3,
+        "offerSentAt": "2026-08-26T03:06:11.394Z"
+      }
+    },
+    "replay": {
+      "via": "dispatchAuthorizedOffer (same function POST /api/lead-rescue/wait-incidents/dispatch calls)",
+      "outcome": "ALREADY_DISPATCHED",
+      "smtpMessagesAfter": 1,
+      "captureServerIdAfterReplay": "4wj1NJkTlgX3aQd9yJaQTr"
+    },
+    "smtpMessageCountTimeline": [
+      {
+        "stage": "prepared (awaiting authorisation)",
+        "count": 0
+      },
+      {
+        "stage": "after unauthorised despatch attempt",
+        "count": 0
+      },
+      {
+        "stage": "after under-authority approval attempt",
+        "count": 0
+      },
+      {
+        "stage": "after stale-revision approval attempt",
+        "count": 0
+      },
+      {
+        "stage": "after authorisation (still no send)",
+        "count": 0
+      },
+      {
+        "stage": "after stale-revision despatch attempt",
+        "count": 0
+      },
+      {
+        "stage": "after authorised execution",
+        "count": 1
+      },
+      {
+        "stage": "after replay",
+        "count": 1
+      }
+    ]
+  },
+  "derivedAssertions": {
+    "noSideEffectBeforeAuthorization": true,
+    "authorizationPrecededExecution": true,
+    "executedActionMatchedAuthorizedAction": true,
+    "authorizationBoundToEntityAndRevision": true,
+    "staleAuthorizationRefused": true,
+    "underAuthorityRoleRefused": true,
+    "exactlyOneLocalSmtpEffectRetained": true,
+    "replaySuppressedDuplicate": true,
+    "syntheticLocalOnlyExecution": true,
+    "noRealRecipientInvolved": true,
+    "modelGrantedNoExecutionAuthority": "No AI judgment participated in this run; the decision to send was a human operator event validated against a configured role authority ceiling."
+  },
+  "scopeStatement": "A synthetic Lead Rescue outbound offer was prepared but could not execute before explicit authorisation: an unauthorised despatch, an under-authority approval, and a stale-revision approval were each refused with zero SMTP messages retained. A real operator authorisation by a role holding a sufficient configured authority ceiling was then validated by the application, and only the specifically authorised action crossed the existing local SMTP boundary to a sandbox capture server, addressed to a synthetic non-routable recipient. Replay produced no second delivery. No real person, mailbox, or mail provider was contacted. This is NOT autonomous execution, NOT a production deployment, NOT client operation, and NOT real-recipient delivery. No Anthropic call and no n8n execution participated in this run."
+}
