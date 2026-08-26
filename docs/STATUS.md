@@ -1,5 +1,23 @@
 # Status
 
+**As of 2026-08-26 (later pass, same day) · Lead Rescue operator authority is now bound to an
+authenticated identity instead of a caller-supplied claim.** Until this pass a request chose
+its own authority: `POST .../decide` accepted `decidedBy: 'client-partner'` in the body, and the
+engine then enforced that role's ceiling faithfully — against an identity nobody had ever
+verified. Every authority guarantee in this portfolio rested on the caller being honest.
+`lib/auth/operator-identity.ts` adds a first-party HMAC-SHA256 signed bearer credential: the
+signature is verified constant-time and BEFORE the payload is parsed, the principal resolves to
+a canonical operator, and the authority ceiling is read from `profile.roles`. `decidedBy` is
+gone from both wire contracts (`strictObject`), so a body naming its own role is rejected
+outright rather than ignored. `dispatchAuthorizedOffer` now also enforces the authority
+verification its own handler had always computed and this layer never read — a declared rule
+that was silently unenforced. Verified against the real HTTP boundary: unauthenticated,
+tampered, self-declared-identity, and under-authority attempts all refused with the case
+unmoved and nothing executed; a valid client-partner accepted and bound. **This is not a
+login** — there is no password, no MFA, and no identity provider; see "Lead Rescue operator
+authentication," below, for exactly what that does and does not prove. Maturity unchanged:
+`INTERACTIVE_PROTOTYPE`, `NOT_LIVE`.
+
 **As of 2026-08-26 · Lead Rescue now keeps a durable, correlated, queryable execution
 journal, generated automatically by the running application.** Until this pass the portfolio's
 runtime evidence was excellent but one-off: three artifacts captured deliberately, for
@@ -1994,6 +2012,81 @@ the activation defect this section's correction addresses. The route now delegat
 decision to `resolveIngressDecisionProvider` (`lib/config/decision-provider-config.ts`), which
 requires an explicit `LEAD_RESCUE_DECISION_PROVIDER=claude` selection in addition to a usable
 credential; see "Lead Rescue provider-activation semantics correction," below.
+
+## Lead Rescue operator authentication — this pass
+
+**The weakness.** Role ceilings, revision binding, claim-before-execute and the authority proof
+were all real. They shared one unexamined assumption: that whoever called the endpoint was who
+they said they were. `decidedBy` arrived in the request body. Anyone able to reach the route
+could grant themselves founder authority by typing `founder`.
+
+**Authentication and authorization are now separate concerns, in separate modules.**
+
+| question | answered by | source of truth |
+| --- | --- | --- |
+| who is this? | `lib/auth/operator-identity.ts` | a signature the caller cannot forge |
+| what may they do? | the engine, unchanged | `profile.roles` authority ceilings |
+| what happens to this case? | the engine, unchanged | declared transitions and policy |
+
+`lib/auth/operator-identity.ts` contains no threshold and no decision rule. It resolves a
+principal to its canonical role id and reports the ceiling the profile already declares; it
+never compares that ceiling to anything. An auth module that started deciding what a role may
+approve would have become a second authorization policy competing with the engine's.
+
+**The credential.** `v1.<base64url payload>.<HMAC-SHA256(payload)>`. Three properties carry the
+proof: the signature is over the encoded payload with a key the caller does not hold, so editing
+the principal invalidates it; comparison is constant-time; and the signature is checked BEFORE
+the payload is ever parsed, so a tampered token is refused as tampered rather than decoded and
+reasoned about. Missing, malformed, wrongly-signed, expired, unknown-principal and unknown-role
+each return a distinct typed refusal. There is no branch that returns a principal on a doubt.
+
+**Identity cannot be manufactured downstream either.** `AuthenticatedPrincipal` carries a
+module-private symbol brand, and every instance the module mints is added to a `WeakSet`.
+`requireAuthenticatedPrincipal` checks that set and throws, so a hand-built object that
+satisfies the type through an `as` cast still cannot be used as an identity at runtime.
+
+**Modes, and why the default is the safe one.** `lib/config/operator-auth-config.ts`:
+`CONFIGURED_KEY` when `LEAD_RESCUE_OPERATOR_SIGNING_KEY` is set and long enough — tokens survive
+restarts, and the prototype principal selector refuses to issue anything at all, so a runtime
+with durable credentials has no faucet handing identities to whoever asks. `EPHEMERAL_KEY` (the
+default) generates a random key once per process: exactly as unforgeable, worthless after a
+restart, and the selector is available so the local operator page works. `MISCONFIGURED` — a key
+that is set but too short — refuses everyone rather than silently downgrading to a working mode.
+No key is hard-coded anywhere; the ephemeral one is generated, never authored.
+
+**What this does NOT prove, stated plainly.** There is no login. The prototype principal
+selector (`app/api/lead-rescue/operator-session`) asks for no password, verifies no human, and
+contacts no identity provider — building that needs real accounts and is a different package.
+So this portfolio does not demonstrate that a human proved who they were. It does demonstrate
+that the decision boundary accepts only a credential this runtime could have minted, that the
+credential resolves to one canonical operator, and that authority comes from the profile rather
+than the caller — which hold regardless of how the credential was obtained. No SSO, no MFA, no
+production IAM, no identity federation.
+
+**A declared-but-unenforced rule, fixed.** `handleOfferDespatched` has always computed a
+`v-offer-despatch` verification requiring ceiling ≥ 2, and `dispatchAuthorizedOffer` never read
+it — so despatch authority was documented and unchecked. It is now gated exactly the way
+`applyHumanDecision` already gates its own `v-human` check, before any claim or executor call.
+No new policy and no new threshold: the rule was already there.
+
+**Runtime proof.** `scripts/operator-authentication-proof.ts` drives the real HTTP boundary of
+the running application against a synthetic case: no credential (401), a credential whose
+signature was corrupted (401), a valid credential whose body also claimed `founder` (400), an
+authenticated analyst (403), a valid client-partner at a stale revision (200 STALE_REVISION),
+and finally the accepted decision bound to `op-marisol-adeyemi`. The case is re-read from the
+live store after every refusal: no offer, no revision movement. The script holds no key — it
+obtains credentials the same way the page does, and the tampered one is a corruption of a real
+one. Retained as `n8n/evidence/lead-rescue-operator-authentication.json`, guarded by
+`tests/operator-authentication-evidence.test.ts`, whose falsifiers were checked to bite against
+three fabrication classes.
+
+**Observability.** One new journal event type, `OPERATOR_AUTHENTICATION`, and one new
+mechanism, `AUTHENTICATION`. It exists so an operator can tell "nobody could prove who they
+were" from "they proved it and were still not allowed" — different problems with different
+fixes. An authentication refusal records the typed reason and NAMES NOBODY: at that point
+nobody has been identified, and recording an unverified claim would be the original weakness
+moved into the journal. No token, signature, or header is ever persisted. The journal remains
+non-authoritative.
 
 ## Lead Rescue execution journal — this pass
 

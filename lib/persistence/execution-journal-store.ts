@@ -56,6 +56,14 @@ export type JournalStage = z.infer<typeof JournalStageSchema>;
 export const JOURNAL_EVENT_TYPES = [
   /** An external lead entered the system through the ingress seam. */
   'INGRESS_RECEIVED',
+  /**
+   * An operator credential was checked at a consequential boundary. Recorded ONLY on refusal
+   * plus the acceptance that precedes a decision — never as a per-request access log. This is
+   * observability, not a security log: it exists so an operator can tell "nobody could prove
+   * who they were" apart from "they proved it and were still not allowed", which are entirely
+   * different problems with entirely different fixes.
+   */
+  'OPERATOR_AUTHENTICATION',
   /** A parked case was re-evaluated against its configured window by the deterministic engine. */
   'WAIT_EVALUATED',
   /** A person submitted a decision against a case under review. */
@@ -68,18 +76,22 @@ export type JournalEventType = z.infer<typeof JournalEventTypeSchema>;
 
 export const STAGE_FOR_EVENT_TYPE: Record<JournalEventType, JournalStage> = {
   INGRESS_RECEIVED: 'TRIGGER',
+  OPERATOR_AUTHENTICATION: 'AUTHORITY',
   WAIT_EVALUATED: 'DECISION',
   HUMAN_DECISION_RECORDED: 'AUTHORITY',
   DISPATCH_ATTEMPTED: 'ACTION',
 };
 
 /**
- * The canonical `DECISION_MECHANISMS` plus exactly one addition. An execution attempt is not
- * a decision — it is the carrying out of one already made — and calling it `DETERMINISTIC_RULE`
- * would misreport who was responsible. `tests/execution-journal.test.ts` asserts this stays a
- * superset so the canonical vocabulary can never drift away underneath it.
+ * The canonical `DECISION_MECHANISMS` plus exactly two additions, each because the canonical
+ * vocabulary genuinely has no word for it. An execution attempt is not a decision — it is the
+ * carrying out of one already made — and an identity check is not a decision either; it
+ * establishes WHO is asking, before anything is decided at all. Calling either
+ * `DETERMINISTIC_RULE` would misreport who was responsible.
+ * `tests/execution-journal.test.ts` asserts this stays a superset so the canonical vocabulary
+ * can never drift away underneath it.
  */
-export const JOURNAL_MECHANISMS = [...DECISION_MECHANISMS, 'EXECUTION'] as const;
+export const JOURNAL_MECHANISMS = [...DECISION_MECHANISMS, 'EXECUTION', 'AUTHENTICATION'] as const;
 export const JournalMechanismSchema = z.enum(JOURNAL_MECHANISMS);
 export type JournalMechanism = z.infer<typeof JournalMechanismSchema>;
 

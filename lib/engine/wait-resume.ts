@@ -552,6 +552,15 @@ export async function applyHumanDecision(
   if (record === undefined) return { incidentId, outcome: 'NOT_FOUND' };
 
   const decidedBy = typeof event.payload['decidedBy'] === 'string' ? event.payload['decidedBy'] : undefined;
+  /**
+   * WHO exercised the role, when an authenticated boundary established it — distinct from the
+   * role itself, which is WHAT authority was exercised. Attribution only: nothing here reads
+   * it to make a decision, and an event without one (every caller before the authentication
+   * boundary existed) still attributes to the role id exactly as it always did.
+   */
+  const decidedByPrincipalId =
+    typeof event.payload['decidedByPrincipalId'] === 'string' ? event.payload['decidedByPrincipalId'] : undefined;
+  const attributedActor = decidedByPrincipalId ?? decidedBy;
 
   /**
    * The AUTHORITY observation. Every outcome is recorded — including, especially, the
@@ -571,7 +580,7 @@ export async function applyHumanDecision(
       mechanism: 'HUMAN_DECISION',
       outcome,
       detail,
-      ...(decidedBy === undefined ? {} : { actorId: decidedBy }),
+      ...(attributedActor === undefined ? {} : { actorId: attributedActor }),
       ...(failureClass === undefined ? {} : { failureClass }),
     });
 
@@ -639,7 +648,22 @@ export async function applyHumanDecision(
 // OFFER DESPATCH: a claim-gated, genuinely observable prospect-facing send.
 // ---------------------------------------------------------------------------
 
-export type DispatchOutcome = 'NOT_FOUND' | 'STALE_REVISION' | 'NOT_READY' | 'ALREADY_DISPATCHED' | 'REJECTED' | 'CONFIRMED' | 'UNCERTAIN';
+export type DispatchOutcome =
+  | 'NOT_FOUND'
+  | 'STALE_REVISION'
+  | 'NOT_READY'
+  | 'ALREADY_DISPATCHED'
+  | 'REJECTED'
+  /**
+   * The despatching role does not hold sufficient authority. `handleOfferDespatched` has
+   * ALWAYS computed this verification (`v-offer-despatch`, ceiling >= 2) — this orchestration
+   * layer simply never read it, so the rule was declared and unenforced. Gating on it here is
+   * the identical treatment `applyHumanDecision` already gives its own `v-human` check; no new
+   * policy, no new threshold, and nothing about what an offer requires is decided in this file.
+   */
+  | 'UNAUTHORIZED'
+  | 'CONFIRMED'
+  | 'UNCERTAIN';
 
 export interface DispatchResult {
   readonly incidentId: string;
@@ -752,6 +776,18 @@ export async function dispatchAuthorizedOffer(
     judgments: new Map(),
     internals: freshInternals(),
   });
+
+  // AUTHORITY BEFORE ANY CLAIM OR EXECUTOR CALL. Reads the handler's own already-computed
+  // verification rather than re-deriving the rule, exactly as `applyHumanDecision` does.
+  const authorityCheck = result.entries.flatMap((e) => e.verifications).find((v) => v.check.includes('authority'));
+  if (authorityCheck !== undefined && authorityCheck.result !== 'PASS') {
+    await observeDispatch(
+      'REFUSED',
+      'The despatching role does not hold sufficient authority to authorize a prospect-facing offer.',
+      { failureClass: 'POLICY_VIOLATION' },
+    );
+    return { incidentId, outcome: 'UNAUTHORIZED', record, entries: result.entries };
+  }
 
   const executed = executedSideEffects(result.entries);
   if (executed.length === 0) {
