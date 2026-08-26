@@ -1,5 +1,22 @@
 # Status
 
+**As of 2026-08-26 · Lead Rescue now keeps a durable, correlated, queryable execution
+journal, generated automatically by the running application.** Until this pass the portfolio's
+runtime evidence was excellent but one-off: three artifacts captured deliberately, for
+demonstrations. Nothing recorded what the system did in the ordinary course of running.
+`lib/persistence/execution-journal-store.ts` adds a schema-validated observation per
+consequential boundary — ingress, wait evaluation, human decision, despatch — sharded one
+directory per case, published by write-temp-then-`link` so publication is atomic and duplicate
+`journalEventId`s are refused by the kernel. `app/api/lead-rescue/journal` and the run-history
+panel on `app/lead-rescue/wait` let an operator read a case's TRIGGER → DECISION → AUTHORITY →
+ACTION sequence without repository archaeology. **The journal is observability and nothing
+else**: the write and read halves are separate interfaces, engine code is handed only the
+recorder (and a structural test fails if any reader symbol appears under `lib/engine/**` or
+`lib/ports/**`), and running the same business path with a journal that fails every write, and
+one that throws on every write, produces byte-identical engine results.
+**Its guarantee is explicitly lossy** — see "Lead Rescue execution journal," below. Maturity
+unchanged: `INTERACTIVE_PROTOTYPE`, `NOT_LIVE`.
+
 **As of 2026-08-24 (later pass, same day) · Corrected: provider activation was credential-driven,
 not explicit — fixed before any higher-stakes external side effect was considered.** The pass
 below ("Lead Rescue's bounded intake/reply classification...") wired `ClaudeDecisionProvider`
@@ -1977,6 +1994,81 @@ the activation defect this section's correction addresses. The route now delegat
 decision to `resolveIngressDecisionProvider` (`lib/config/decision-provider-config.ts`), which
 requires an explicit `LEAD_RESCUE_DECISION_PROVIDER=claude` selection in addition to a usable
 credential; see "Lead Rescue provider-activation semantics correction," below.
+
+## Lead Rescue execution journal — this pass
+
+**The gap this closes.** `n8n/evidence/` holds three genuinely strong artifacts, but every one
+of them was produced by a script written to produce it. They prove that specific capabilities
+existed on a specific day. None of them is an operational history: before this pass, if a case
+went through the running application, nothing anywhere recorded what happened to it.
+
+**Three authorities, still three.** The invariant that governs this whole design:
+
+| concern | authority | question it answers |
+| --- | --- | --- |
+| business / lifecycle state | `WaitIncidentStore` | what the case IS |
+| execution / idempotency | `OperationClaimStore` | what may HAPPEN, once |
+| observability / history | `FileExecutionJournal` | what was OBSERVED |
+
+The journal never becomes an input to the first two. That is enforced three ways rather than
+asserted once: the write and read halves are separate interfaces (`ExecutionJournalRecorder`,
+`ExecutionJournalReader`); `lib/observability/lead-rescue-journal.ts` hands the engine a value
+typed as the recorder, so decision code is type-incapable of reading history back; and a
+structural test scans `lib/engine/**` and `lib/ports/**` and fails if any reader symbol appears
+there at all. Behaviourally, `tests/execution-journal.test.ts` runs the same business path
+three times — with a working journal, one that drops every write, and one that throws on every
+write — and requires byte-identical engine results.
+
+**What is recorded.** One observation per consequential boundary, never one per function call:
+`INGRESS_RECEIVED`, `WAIT_EVALUATED`, `HUMAN_DECISION_RECORDED`, `DISPATCH_ATTEMPTED`. Each
+carries the case and correlation ids, the revision in force, the mechanism (the canonical
+`DECISION_MECHANISMS` plus `EXECUTION`, since carrying out a decision is not making one), a
+normalized outcome, the canonical `FailureClass` where one applies, the execution mode and
+executor identity where something ran, the governing operation-claim id, and the provenance the
+case actually has. `EXECUTED`, `SUPPRESSED_DUPLICATE`, `FAILED_BEFORE_EFFECT` and
+`OUTCOME_UNKNOWN` are deliberately four distinct outcomes.
+
+**What is deliberately NOT recorded.** A wait evaluation that correctly found nothing due
+writes nothing. A scheduled trigger runs on a timer, so recording every no-op would produce a
+per-tick heartbeat that buries the handful of events that matter — a log, not a journal. The
+absence of a record between two consequential events therefore means "nothing consequential
+happened". There is also no field anywhere in the schema for a message body, a payload, or
+model reasoning: the schema is a `strictObject` over a fixed field list, so private
+chain-of-thought has nowhere to go even if a future caller tried. The one free-text field is
+length-bounded and refuses credential-shaped content outright.
+
+**The observation can be more specific than the business position, on purpose.** When the
+executor reports `FAILED_BEFORE_EFFECT`, the case is still held `UNCERTAIN` — the durable claim
+was already taken and this build has no independent verification channel to prove
+non-execution. The journal records both facts rather than collapsing them into the weaker one.
+
+**Persistence.** One directory per `incidentId`, one file per observation, published by writing
+a temp file in the same directory and then `fs.link()`-ing it into place. `link` is atomic and
+fails with `EEXIST` if that `journalEventId` already exists, so duplicate suppression is a
+kernel guarantee rather than a read-then-write window, and a crash before the link leaves an
+orphaned `.tmp` and no partial record. Sharding also gives isolation for free: one case's
+history is physically incapable of appearing in another's read. Reads fail loudly — an
+unparseable or non-conforming record raises `MalformedJournalRecordError` and is never skipped,
+because silently omitting it would present a shorter history as though it were complete.
+
+**The guarantee, precisely.** Every observation that is durably written survives process
+restart and is readable by any later process pointed at the same directory. That is the whole
+claim. The journal is **not lossless**: `record()` never throws and never retries, and a
+failure is reported as `DROPPED` with a reason. This is a deliberate trade — making the
+business write and the journal write atomic would let an observability outage stop real work.
+Ordering is by recorded timestamp, then by identity; two observations written in the same
+millisecond by two independent writers are ordered deterministically but that order is not a
+claim about their true sequence. There is no distributed tracing here, no production telemetry,
+and no aggregate metrics.
+
+**Runtime proof.** `scripts/execution-journal-proof.ts` drives the real HTTP routes of the
+running application — ingress, a redelivery, a refused human decision, a despatch at a stale
+revision, and an authorized despatch — then queries `GET /api/lead-rescue/journal` and,
+separately, constructs a brand-new reader in its own OS process. The script contains no
+recorder and writes no journal record; every observation it reads was emitted by the server
+while handling an ordinary request. Retained as
+`n8n/evidence/lead-rescue-execution-journal.json` and guarded by
+`tests/execution-journal-evidence.test.ts`.
 
 ## Lead Rescue provider-activation semantics correction — this pass
 

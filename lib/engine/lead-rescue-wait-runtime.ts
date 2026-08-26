@@ -7,6 +7,7 @@ import { FileOperationClaimStore } from '@/lib/persistence/operation-claim-store
 import type { SendRequest, VerifyRequest, SideEffectExecutor } from '@/lib/ports/side-effect-executor';
 import type { ExecutionMode, SendOutcome, VerifyOutcome } from '@/lib/model/runtime';
 import { resolveLeadRescueSideEffectExecutor } from '@/lib/config/side-effect-executor-config';
+import { leadRescueJournalRecorder } from '@/lib/observability/lead-rescue-journal';
 import type { WaitResumeDeps } from './wait-resume';
 
 /**
@@ -96,6 +97,13 @@ export const LEAD_RESCUE_WAIT_DEPS: WaitResumeDeps = {
   handlers: LEAD_RESCUE_HANDLERS,
   reevaluationEventType: 'lead.wait.reevaluated',
   executor: executorResolution.executor,
+  /**
+   * Write-only. This runtime can emit observations and is type-incapable of reading any
+   * back — see `lib/observability/lead-rescue-journal.ts`. Every consequential decision,
+   * authority, and execution outcome the routes below produce becomes durable history
+   * automatically, and a journal outage can never change what any of them decide.
+   */
+  journal: leadRescueJournalRecorder,
 };
 
 /**

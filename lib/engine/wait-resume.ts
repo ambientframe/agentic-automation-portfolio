@@ -4,6 +4,12 @@ import type { CanonicalEvent, SideEffect, TimelineEntry } from '@/lib/model/runt
 import type { WaitIncidentRecord, WaitIncidentStore } from '@/lib/persistence/wait-incident-store';
 import type { ClaimAttempt, OperationClaimRecord, OperationClaimStore } from '@/lib/persistence/operation-claim-store';
 import { resolveSend, type SideEffectExecutor } from '@/lib/ports/side-effect-executor';
+import {
+  EXECUTION_JOURNAL_SCHEMA_VERSION,
+  recordSafely,
+  type ExecutionJournalRecorder,
+  type JournalEvent,
+} from '@/lib/persistence/execution-journal-store';
 import { applyEvent } from './reducer';
 import { EventLedger, ExecutionLedger, SideEffectLedger } from './ledger';
 import type { EngineInternals, EngineState, SystemHandlers } from './types';
@@ -100,6 +106,18 @@ export interface WaitResumeDeps {
    * this portfolio's own demo wires in.
    */
   readonly executor?: SideEffectExecutor;
+  /**
+   * Optional, WRITE-ONLY observability — the recorder half of the execution journal and never
+   * the reader half. Absent (every caller before this pass, and every existing test) records
+   * nothing and changes nothing. Present, each of the three consequential boundaries below
+   * emits exactly one observation per outcome.
+   *
+   * Nothing in this file ever reads the journal back, and it must stay that way: the moment a
+   * resume, authority, or despatch decision consulted recorded history, that history would
+   * have become business state under a different name. See
+   * `lib/persistence/execution-journal-store.ts`.
+   */
+  readonly journal?: ExecutionJournalRecorder;
 }
 
 export interface ParkWaitingIncidentInput {
@@ -234,6 +252,20 @@ export function downgradeEffect(
 }
 
 /**
+ * Emits ONE observation. Awaited so a successful write is durable before the boundary
+ * returns, but its result is always discarded — a dropped observation must never be able to
+ * change what a boundary returns, and `recordSafely` guarantees it can never throw.
+ *
+ * Boundaries deliberately record NOTHING for a `NOT_FOUND` outcome: an attempt against a case
+ * that does not exist has no `correlationId` and no `systemId` that could be read rather than
+ * invented, and inventing them to make the history look complete is precisely the fabrication
+ * this journal exists to avoid.
+ */
+async function observe(journal: ExecutionJournalRecorder | undefined, event: Omit<JournalEvent, 'schemaVersion'>): Promise<void> {
+  await recordSafely(journal, { ...event, schemaVersion: EXECUTION_JOURNAL_SCHEMA_VERSION });
+}
+
+/**
  * Loads the persisted incident, applies exactly one re-evaluation event against it, and —
  * ONLY if the handler's own deterministic rule actually moved the lifecycle state, AND every
  * side effect it proposed to execute wins a durable, exclusive claim — resolves (removes)
@@ -261,6 +293,30 @@ export async function checkWaitIncident(
 ): Promise<WaitCheckResult> {
   const record = await store.load(incidentId);
   if (record === undefined) return { incidentId, outcome: 'NOT_FOUND' };
+
+  /**
+   * The DECISION observation, recorded ONLY when the evaluation was consequential.
+   *
+   * A sweep that correctly finds the window has not elapsed is deliberately NOT recorded. A
+   * scheduled trigger runs on a timer, so recording every no-op evaluation would write a
+   * per-tick heartbeat that buries the handful of events an operator actually needs — a log,
+   * not a journal. The absence of a record between two consequential events therefore means
+   * "nothing consequential happened", which is exactly what it should mean.
+   */
+  const observeEvaluation = (outcome: JournalEvent['outcome'], detail: string, failureClass?: JournalEvent['failureClass']) =>
+    observe(deps.journal, {
+      journalEventId: `${incidentId}:WAIT_EVALUATED:${outcome}:${nowIso}`,
+      recordedAt: nowIso,
+      systemId: record.systemId,
+      incidentId,
+      correlationId: record.correlationId,
+      revision: record.revision,
+      type: 'WAIT_EVALUATED',
+      mechanism: 'DETERMINISTIC_RULE',
+      outcome,
+      detail,
+      ...(failureClass === undefined ? {} : { failureClass }),
+    });
 
   const event: CanonicalEvent = {
     eventId: `${incidentId}:wait-check:${nowIso}`,
@@ -377,6 +433,10 @@ export async function checkWaitIncident(
   }
 
   if (blocking !== undefined) {
+    await observeEvaluation(
+      'OUTCOME_UNKNOWN',
+      `A durable claim held by ${blocking.claimedBy} was never confirmed, so this evaluation cannot resolve the case.`,
+    );
     return { incidentId, outcome: 'UNCERTAIN', state: result.state, entries, uncertainOperations: [blocking] };
   }
 
@@ -389,11 +449,24 @@ export async function checkWaitIncident(
   // own rule move the lifecycle state? Never guessed from the check's own outcome kind.
   if (lifecycleMoved) {
     const resolution = await store.resolve(incidentId, record.revision);
-    if (resolution === 'STALE_REVISION') return { incidentId, outcome: 'STALE_REVISION', state: result.state, entries };
+    if (resolution === 'STALE_REVISION') {
+      await observeEvaluation(
+        'REFUSED',
+        'A concurrent caller resolved this case first; this evaluation changed nothing.',
+        'STATE_TRANSITION_CONFLICT',
+      );
+      return { incidentId, outcome: 'STALE_REVISION', state: result.state, entries };
+    }
     if (resolution === 'NOT_FOUND') return { incidentId, outcome: 'NOT_FOUND' };
+    await observeEvaluation('RESOLVED', `The configured window elapsed; the case moved to ${result.state.lifecycleState}.`);
     return { incidentId, outcome: 'ELAPSED', state: result.state, entries };
   }
 
+  await observeEvaluation(
+    'ESCALATED',
+    'The attention window elapsed with nobody acting. The case stays parked and was raised to the next owner.',
+    'HUMAN_APPROVAL_TIMEOUT',
+  );
   return { incidentId, outcome: 'ATTENTION_OVERDUE', state: result.state, entries };
 }
 
@@ -473,12 +546,49 @@ export async function applyHumanDecision(
   incidentId: string,
   expectedRevision: number,
   event: CanonicalEvent,
-  deps: Pick<WaitResumeDeps, 'system' | 'profile' | 'handlers'>,
+  deps: Pick<WaitResumeDeps, 'system' | 'profile' | 'handlers' | 'journal'>,
 ): Promise<DecisionResult> {
   const record = await store.load(incidentId);
   if (record === undefined) return { incidentId, outcome: 'NOT_FOUND' };
-  if (record.revision !== expectedRevision) return { incidentId, outcome: 'STALE_REVISION', record };
+
+  const decidedBy = typeof event.payload['decidedBy'] === 'string' ? event.payload['decidedBy'] : undefined;
+
+  /**
+   * The AUTHORITY observation. Every outcome is recorded — including, especially, the
+   * refusals: an operator asking "why did nothing go out?" is answered by the refusals, not
+   * by the approval. Recording one never grants any: this runs strictly after the guard that
+   * produced the outcome, and its result is discarded.
+   */
+  const observeDecision = (outcome: JournalEvent['outcome'], detail: string, failureClass?: JournalEvent['failureClass']) =>
+    observe(deps.journal, {
+      journalEventId: `${incidentId}:HUMAN_DECISION_RECORDED:${outcome}:${event.sourceEventId}`,
+      recordedAt: event.occurredAt,
+      systemId: record.systemId,
+      incidentId,
+      correlationId: record.correlationId,
+      revision: record.revision,
+      type: 'HUMAN_DECISION_RECORDED',
+      mechanism: 'HUMAN_DECISION',
+      outcome,
+      detail,
+      ...(decidedBy === undefined ? {} : { actorId: decidedBy }),
+      ...(failureClass === undefined ? {} : { failureClass }),
+    });
+
+  if (record.revision !== expectedRevision) {
+    await observeDecision(
+      'REFUSED',
+      `Decision submitted against revision ${expectedRevision} but the case is at revision ${record.revision}.`,
+      'STATE_TRANSITION_CONFLICT',
+    );
+    return { incidentId, outcome: 'STALE_REVISION', record };
+  }
   if (!UNDER_REVIEW_STATES.includes(record.engineState.lifecycleState)) {
+    await observeDecision(
+      'REFUSED',
+      `Decision submitted while the case is in ${record.engineState.lifecycleState}, which is not under human review.`,
+      'STATE_TRANSITION_CONFLICT',
+    );
     return { incidentId, outcome: 'NOT_UNDER_REVIEW', record };
   }
 
@@ -491,10 +601,18 @@ export async function applyHumanDecision(
   });
 
   const accepted = result.entries.flatMap((e) => e.transitions).some((t) => t.accepted);
-  if (!accepted) return { incidentId, outcome: 'REJECTED', record, entries: result.entries };
+  if (!accepted) {
+    await observeDecision('REJECTED', 'No declared transition accepted this decision for the case’s current state.');
+    return { incidentId, outcome: 'REJECTED', record, entries: result.entries };
+  }
 
   const authorityCheck = result.entries.flatMap((e) => e.verifications).find((v) => v.check.includes('authority'));
   if (authorityCheck !== undefined && authorityCheck.result !== 'PASS') {
+    await observeDecision(
+      'REFUSED',
+      'The submitted decision exceeded the deciding role’s configured authority ceiling.',
+      'POLICY_VIOLATION',
+    );
     return { incidentId, outcome: 'UNAUTHORIZED', record, entries: result.entries };
   }
 
@@ -510,6 +628,10 @@ export async function applyHumanDecision(
     // before the n8n ingress adapter existed) — never fabricated.
     ...(record.provenance === undefined ? {} : { provenance: record.provenance }),
   });
+  await observeDecision(
+    'ACCEPTED',
+    `Authorized decision accepted; the case moved to ${result.state.lifecycleState}. Approval alone despatches nothing.`,
+  );
   return { incidentId, outcome: 'ACCEPTED', record: reparked, entries: result.entries };
 }
 
@@ -567,9 +689,59 @@ export async function dispatchAuthorizedOffer(
 ): Promise<DispatchResult> {
   const record = await store.load(incidentId);
   if (record === undefined) return { incidentId, outcome: 'NOT_FOUND' };
-  if (record.revision !== expectedRevision) return { incidentId, outcome: 'STALE_REVISION', record };
-  if (record.engineState.lifecycleState !== 'BOOKING_READY') return { incidentId, outcome: 'NOT_READY', record };
+
+  /**
+   * The ACTION observation — the one an operator asking "did anything actually go out?" reads
+   * first. It records the executor that ran, the mode it ran in, and the durable claim that
+   * governed it, so a real send and a simulated one are never presented as the same event.
+   *
+   * The `outcome` here is what was OBSERVED, which can legitimately be more specific than the
+   * conservative position the business state takes. A confirmed `FAILED_BEFORE_EFFECT` from
+   * the executor still leaves the case UNCERTAIN, because the durable claim was already taken
+   * and this build has no independent verification channel to prove non-execution — the
+   * journal records both facts rather than collapsing them into the weaker one.
+   */
+  const observeDispatch = (
+    outcome: JournalEvent['outcome'],
+    detail: string,
+    extra: { operationClaimId?: string; failureClass?: JournalEvent['failureClass'] } = {},
+  ) =>
+    observe(deps.journal, {
+      journalEventId: `${incidentId}:DISPATCH_ATTEMPTED:${outcome}:${extra.operationClaimId ?? event.sourceEventId}`,
+      recordedAt: event.occurredAt,
+      systemId: record.systemId,
+      incidentId,
+      correlationId: record.correlationId,
+      revision: record.revision,
+      type: 'DISPATCH_ATTEMPTED',
+      mechanism: 'EXECUTION',
+      outcome,
+      detail,
+      ...(deps.executor === undefined ? {} : { executionMode: deps.executor.mode, actorId: deps.executor.id }),
+      ...(extra.operationClaimId === undefined ? {} : { operationClaimId: extra.operationClaimId }),
+      ...(extra.failureClass === undefined ? {} : { failureClass: extra.failureClass }),
+    });
+
+  if (record.revision !== expectedRevision) {
+    await observeDispatch(
+      'REFUSED',
+      `Despatch attempted against revision ${expectedRevision} but the case is at revision ${record.revision}.`,
+      { failureClass: 'STATE_TRANSITION_CONFLICT' },
+    );
+    return { incidentId, outcome: 'STALE_REVISION', record };
+  }
+  if (record.engineState.lifecycleState !== 'BOOKING_READY') {
+    await observeDispatch(
+      'REFUSED',
+      `Despatch attempted while the case is in ${record.engineState.lifecycleState}, which is not authorized to send.`,
+      { failureClass: 'POLICY_VIOLATION' },
+    );
+    return { incidentId, outcome: 'NOT_READY', record };
+  }
   if (record.engineState.facts['offerSentAt'] !== undefined) {
+    await observeDispatch('SUPPRESSED_DUPLICATE', 'An offer was already recorded as sent for this cycle. Nothing was sent again.', {
+      failureClass: 'RETRY_DUPLICATE_SIDE_EFFECT',
+    });
     return { incidentId, outcome: 'ALREADY_DISPATCHED', record };
   }
 
@@ -582,7 +754,10 @@ export async function dispatchAuthorizedOffer(
   });
 
   const executed = executedSideEffects(result.entries);
-  if (executed.length === 0) return { incidentId, outcome: 'REJECTED', record, entries: result.entries };
+  if (executed.length === 0) {
+    await observeDispatch('REJECTED', 'The engine proposed no executable effect for this despatch event.');
+    return { incidentId, outcome: 'REJECTED', record, entries: result.entries };
+  }
 
   let entries = result.entries;
   let blocking: OperationClaimRecord | undefined;
@@ -600,12 +775,20 @@ export async function dispatchAuthorizedOffer(
       );
       // The winner already re-parked the confirmed state; this caller must not also park,
       // which would duplicate or race that re-park under a different revision.
+      await observeDispatch(
+        'SUPPRESSED_DUPLICATE',
+        `A prior confirmed claim already covers this despatch (claimed by ${attempt.record.claimedBy}). Nothing was sent again.`,
+        { operationClaimId: operationId, failureClass: 'RETRY_DUPLICATE_SIDE_EFFECT' },
+      );
       return { incidentId, outcome: 'ALREADY_DISPATCHED', entries };
     }
 
     if (attempt.decision === 'CLAIMED') {
       if (deps.executor === undefined) {
         await claimStore.confirm(operationId, event.occurredAt);
+        await observeDispatch('EXECUTED', 'Claim confirmed with no executor configured; the plan is the whole story.', {
+          operationClaimId: operationId,
+        });
         continue;
       }
 
@@ -620,6 +803,7 @@ export async function dispatchAuthorizedOffer(
 
       if (resolved.status === 'OK' && resolved.result.kind === 'SUCCEEDED') {
         await claimStore.confirm(operationId, event.occurredAt);
+        await observeDispatch('EXECUTED', 'The executor confirmed the send succeeded.', { operationClaimId: operationId });
         continue;
       }
 
@@ -627,6 +811,28 @@ export async function dispatchAuthorizedOffer(
         resolved.status === 'OK'
           ? `attemptSend on "${deps.executor.id}" returned ${resolved.result.kind}: ${'reason' in resolved.result ? resolved.result.reason : 'no further detail'}.`
           : `attemptSend on "${deps.executor.id}" could not be resolved (${resolved.status}): ${resolved.reason}.`;
+
+      // What the executor OBSERVABLY reported, which is more specific than the conservative
+      // position the business state is about to take. Confirmed non-execution and genuine
+      // uncertainty are different operational facts and are recorded as different outcomes.
+      const observedKind = resolved.status === 'OK' ? resolved.result.kind : 'UNRESOLVED';
+      const held = 'The case is still held UNCERTAIN: the durable claim was already taken and nothing here can independently verify non-execution.';
+      if (observedKind === 'FAILED_BEFORE_EFFECT') {
+        await observeDispatch('FAILED_BEFORE_EFFECT', `The executor confirmed nothing was sent. ${held}`, {
+          operationClaimId: operationId,
+          failureClass: 'DOWNSTREAM_API_FAILURE',
+        });
+      } else if (observedKind === 'RATE_LIMITED') {
+        await observeDispatch('FAILED_BEFORE_EFFECT', `The provider refused the attempt before any effect. ${held}`, {
+          operationClaimId: operationId,
+          failureClass: 'RATE_LIMITED',
+        });
+      } else {
+        await observeDispatch('OUTCOME_UNKNOWN', 'The executor gave no confirmation either way. Whether the offer reached the prospect is genuinely unknown.', {
+          operationClaimId: operationId,
+        });
+      }
+
       entries = downgradeEffect(
         entries,
         effect.idempotencyKey,
@@ -645,6 +851,11 @@ export async function dispatchAuthorizedOffer(
       effect.idempotencyKey,
       'OUTCOME_UNKNOWN',
       `Idempotency key "${effect.idempotencyKey}" was claimed by ${attempt.record.claimedBy} at ${attempt.record.claimedAt} but never durably confirmed. Whether it despatched is genuinely unknown from here; refusing to treat the offer as sent.`,
+    );
+    await observeDispatch(
+      'OUTCOME_UNKNOWN',
+      `An unconfirmed claim by ${attempt.record.claimedBy} already exists. Whether the offer despatched is genuinely unknown from here.`,
+      { operationClaimId: operationId },
     );
     blocking = attempt.record;
   }

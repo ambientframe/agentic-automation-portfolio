@@ -3,6 +3,12 @@ import type { SystemDefinition } from '@/lib/model/system';
 import type { CanonicalEvent, ClassificationResult, TimelineEntry } from '@/lib/model/runtime';
 import type { WaitIncidentRecord, WaitIncidentStore } from '@/lib/persistence/wait-incident-store';
 import type { OperationClaimStore } from '@/lib/persistence/operation-claim-store';
+import {
+  EXECUTION_JOURNAL_SCHEMA_VERSION,
+  recordSafely,
+  type ExecutionJournalRecorder,
+  type ObservableOutcome,
+} from '@/lib/persistence/execution-journal-store';
 import { FixtureDecisionProvider, resolveJudgment, type DecisionProvider, type ResolvedJudgment } from '@/lib/ports/decision-provider';
 import { extractJudgmentRequest } from './run';
 import { applyEvent } from './reducer';
@@ -149,6 +155,14 @@ export interface LeadIngressDeps {
    * payload names — this is the existing orchestration seam, not a parallel code path.
    */
   readonly provider?: DecisionProvider;
+  /**
+   * Optional, write-only observability. Absent (every caller before this pass, and every
+   * existing test) records nothing and changes nothing — the same optional-dependency shape
+   * `provider` above already uses. Present, every ingress outcome becomes an operator-visible
+   * observation. This is deliberately the RECORDER type and never the reader: nothing in this
+   * file can read history back, so history can never become an input to a routing decision.
+   */
+  readonly journal?: ExecutionJournalRecorder;
 }
 
 function buildIngressEvent(
@@ -216,6 +230,36 @@ export async function ingestExternalLead(
   const correlationId = `inc-${entityId}`;
   const base = { entityId, correlationId, source: envelope.source, sourceEventId: envelope.sourceEventId };
 
+  const provenance = { source: envelope.source, sourceEventId: envelope.sourceEventId, ingestionPath: 'n8n' };
+
+  /**
+   * One observation per ingress outcome. `journalEventId` is derived from identities that
+   * already exist rather than from a clock alone, so the single genuine ACCEPTANCE is
+   * recorded exactly once no matter how many times the same event is redelivered, while each
+   * redelivery is still visible as its own distinct SUPPRESSED_DUPLICATE observation — an
+   * operator asking "did this lead arrive twice?" needs both facts.
+   *
+   * Awaited, but its result is deliberately discarded: a dropped observation must never
+   * change what this function returns. See `recordSafely`.
+   */
+  async function observe(outcome: ObservableOutcome, idSuffix: string, detail: string, ruleId?: string): Promise<void> {
+    await recordSafely(deps.journal, {
+      journalEventId: `${entityId}:INGRESS_RECEIVED:${idSuffix}`,
+      schemaVersion: EXECUTION_JOURNAL_SCHEMA_VERSION,
+      recordedAt: nowIso,
+      systemId: deps.system.id,
+      incidentId: entityId,
+      correlationId,
+      type: 'INGRESS_RECEIVED',
+      mechanism: 'DETERMINISTIC_RULE',
+      outcome,
+      operationClaimId: claimId,
+      provenance,
+      detail,
+      ...(ruleId === null || ruleId === undefined ? {} : { ruleId }),
+    });
+  }
+
   const attempt = await claimStore.claim(claimId, runtimeId, nowIso);
 
   if (attempt.decision === 'ALREADY_CONFIRMED') {
@@ -224,12 +268,22 @@ export async function ingestExternalLead(
     // WAITING_FOR_REPLY record) — that is an existing, unrelated property of the wait/resume
     // machinery, not something this path re-derives; `record` is simply absent then.
     const existing = await store.load(entityId);
+    await observe(
+      'SUPPRESSED_DUPLICATE',
+      `duplicate:${nowIso}`,
+      'Redelivery of an already-confirmed external event. No second case and no second engine run.',
+    );
     return { ...base, outcome: 'DUPLICATE', record: existing };
   }
 
   if (attempt.decision === 'UNCERTAIN') {
     // A concurrent delivery is still mid-flight, or a process crashed between claiming and
     // confirming. Either way: never guess, never execute, never report success.
+    await observe(
+      'OUTCOME_UNKNOWN',
+      `uncertain:${nowIso}`,
+      'A prior claim on this external event exists but was never confirmed. Whether a case was created is genuinely unknown from here.',
+    );
     return { ...base, outcome: 'UNCERTAIN' };
   }
 
@@ -273,6 +327,13 @@ export async function ingestExternalLead(
       .flatMap((e) => e.transitions)
       .filter((t) => t.accepted)
       .at(-1)?.ruleId ?? null;
+
+  await observe(
+    'ACCEPTED',
+    'accepted',
+    `Case created and parked in ${result.state.lifecycleState}.`,
+    decisionRuleId ?? undefined,
+  );
 
   return { ...base, outcome: 'ACCEPTED', record: parked, entries: result.entries, decisionRuleId };
 }

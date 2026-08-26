@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
+import { RunHistory } from '@/components/run-history';
 
 type Stage = 'review' | 'ready' | 'waiting';
 
@@ -399,6 +400,7 @@ export default function LeadRescueWaitPage() {
               <button type="submit" disabled={busy} className="badge" style={{ borderColor: 'var(--accent)', color: 'var(--accent)' }}>
                 Submit decision
               </button>
+              <RunHistory incidentId={incident.incidentId} />
             </form>
           ))}
         </div>
@@ -487,6 +489,7 @@ export default function LeadRescueWaitPage() {
                   Despatch offer (simulated)
                 </button>
               </div>
+              <RunHistory incidentId={incident.incidentId} />
             </form>
           ))}
         </div>
@@ -524,7 +527,7 @@ export default function LeadRescueWaitPage() {
                   </td>
                 </tr>
               )}
-              {waitingIncidents.map((incident) => (
+              {waitingIncidents.flatMap((incident) => [
                 <tr key={incident.incidentId} className="border-t rule">
                   <td className="py-2 pr-2">{incident.incidentId}</td>
                   <td className="pr-2">{incident.kind === null ? '—' : KIND_LABEL[incident.kind]}</td>
@@ -544,8 +547,13 @@ export default function LeadRescueWaitPage() {
                       Simulate past deadline &amp; check
                     </button>
                   </td>
-                </tr>
-              ))}
+                </tr>,
+                <tr key={`${incident.incidentId}-history`}>
+                  <td colSpan={6} className="pb-3">
+                    <RunHistory incidentId={incident.incidentId} />
+                  </td>
+                </tr>,
+              ])}
             </tbody>
           </table>
         </div>

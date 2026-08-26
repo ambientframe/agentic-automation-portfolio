@@ -1,0 +1,146 @@
+{
+  "schemaVersion": "lead-rescue-execution-journal-evidence-1",
+  "capturedAt": "2026-08-26T06:44:21.363Z",
+  "gitHead": "271775dae4325c6cfa6fae1edebbb4561b005036",
+  "environment": {
+    "runtime": "Next.js dev server (npm run dev) on 127.0.0.1:3000",
+    "executionPath": "Real HTTP routes: POST /api/lead-rescue/ingress, POST /api/lead-rescue/wait-incidents/{decide,dispatch}, GET /api/lead-rescue/journal.",
+    "httpHopExercised": true,
+    "journalWrittenBy": "the Next.js server process, automatically, while handling ordinary HTTP requests",
+    "journalReadBackBy": "this script — a separate OS process sharing only the filesystem",
+    "anthropicCalled": false,
+    "smtpUsed": false,
+    "n8nParticipated": false,
+    "syntheticData": true,
+    "note": "No manual journal write occurs anywhere in this script. It has no recorder — only a reader."
+  },
+  "case": {
+    "incidentId": "lead-website-intake-form-journal-proof-1787726661296",
+    "correlationId": "inc-lead-website-intake-form-journal-proof-1787726661296",
+    "lifecycleStateAfterIngress": "BOOKING_READY",
+    "revisionAfterIngress": 1
+  },
+  "steps": [
+    {
+      "step": "ingress (first delivery)",
+      "request": "POST /api/lead-rescue/ingress",
+      "httpStatus": 200,
+      "observableOutcome": "ACCEPTED"
+    },
+    {
+      "step": "ingress (redelivery of the same source event)",
+      "request": "POST /api/lead-rescue/ingress",
+      "httpStatus": 200,
+      "observableOutcome": "DUPLICATE"
+    },
+    {
+      "step": "human decision (refused)",
+      "request": "POST /api/lead-rescue/wait-incidents/decide",
+      "httpStatus": 200,
+      "observableOutcome": "NOT_UNDER_REVIEW"
+    },
+    {
+      "step": "despatch at a stale revision (refused)",
+      "request": "POST /api/lead-rescue/wait-incidents/dispatch",
+      "httpStatus": 200,
+      "observableOutcome": "STALE_REVISION"
+    },
+    {
+      "step": "despatch (authorized)",
+      "request": "POST /api/lead-rescue/wait-incidents/dispatch",
+      "httpStatus": 200,
+      "observableOutcome": "CONFIRMED"
+    }
+  ],
+  "automaticEmission": {
+    "capturedFacts": {
+      "eventsRecorded": 5,
+      "sequence": [
+        {
+          "type": "INGRESS_RECEIVED",
+          "outcome": "ACCEPTED",
+          "mechanism": "DETERMINISTIC_RULE",
+          "executionMode": null,
+          "actorId": null,
+          "operationClaimId": "ingress:lead-website-intake-form-journal-proof-1787726661296",
+          "failureClass": null,
+          "revision": null,
+          "recordedAt": "2026-08-26T06:44:21.315Z"
+        },
+        {
+          "type": "INGRESS_RECEIVED",
+          "outcome": "SUPPRESSED_DUPLICATE",
+          "mechanism": "DETERMINISTIC_RULE",
+          "executionMode": null,
+          "actorId": null,
+          "operationClaimId": "ingress:lead-website-intake-form-journal-proof-1787726661296",
+          "failureClass": null,
+          "revision": null,
+          "recordedAt": "2026-08-26T06:44:21.328Z"
+        },
+        {
+          "type": "HUMAN_DECISION_RECORDED",
+          "outcome": "REFUSED",
+          "mechanism": "HUMAN_DECISION",
+          "executionMode": null,
+          "actorId": "analyst",
+          "operationClaimId": null,
+          "failureClass": "STATE_TRANSITION_CONFLICT",
+          "revision": 1,
+          "recordedAt": "2026-08-26T06:44:21.335Z"
+        },
+        {
+          "type": "DISPATCH_ATTEMPTED",
+          "outcome": "REFUSED",
+          "mechanism": "EXECUTION",
+          "executionMode": "SIMULATED",
+          "actorId": "lead-rescue-wait-resume-simulated-executor",
+          "operationClaimId": null,
+          "failureClass": "STATE_TRANSITION_CONFLICT",
+          "revision": 1,
+          "recordedAt": "2026-08-26T06:44:21.341Z"
+        },
+        {
+          "type": "DISPATCH_ATTEMPTED",
+          "outcome": "EXECUTED",
+          "mechanism": "EXECUTION",
+          "executionMode": "SIMULATED",
+          "actorId": "lead-rescue-wait-resume-simulated-executor",
+          "operationClaimId": "offer:lead-website-intake-form-journal-proof-1787726661296:2026-08-26T06:44:21.315Z@rev1",
+          "failureClass": null,
+          "revision": 1,
+          "recordedAt": "2026-08-26T06:44:21.347Z"
+        }
+      ]
+    },
+    "derivedAssertions": {
+      "everyEventEmittedByTheServer": true,
+      "duplicateObserved": true,
+      "refusalObserved": true,
+      "executionObserved": true
+    }
+  },
+  "query": {
+    "capturedFacts": {
+      "httpStatus": 200,
+      "empty": false,
+      "countReportedByServer": 5
+    }
+  },
+  "reconstruction": {
+    "capturedFacts": {
+      "readerConstructedIn": "a separate process from the one that wrote the records",
+      "countReadBack": 5,
+      "countByCorrelation": 5
+    },
+    "derivedAssertions": {
+      "matchesServerQuery": true,
+      "correlationMatchesIncident": true
+    }
+  },
+  "doesNotProve": [
+    "Nothing here ran on a hosted or client deployment; this is a local prototype runtime.",
+    "The journal is lossy under failure by design: a dropped observation is reported, never retried.",
+    "No real prospect, recipient, model, or external provider was involved at any point."
+  ]
+}
