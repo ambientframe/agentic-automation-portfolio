@@ -4,6 +4,8 @@ import { ALL_SYSTEMS, systemBySlug } from '@/data/systems';
 import { sourceById } from '@/data/research/sources';
 import { ALL_RUNNABLE_SCENARIOS } from '@/lib/engine/registry';
 import { MaturityBadge, MechanismBadge, StandardCard } from '@/components/badges';
+import { RuntimeProofSection } from '@/components/runtime-proof';
+import { loadRuntimeProof } from '@/lib/evidence/runtime-proof';
 import { AUTHORITY_LABELS, type AuthorityLevel } from '@/lib/model/system';
 
 export function generateStaticParams() {
@@ -63,6 +65,15 @@ export default async function SystemDossier({ params }: PageProps<'/systems/[slu
           </Link>
         </section>
       )}
+
+      {/*
+        Runtime proof sits high on the page, directly under the demo callout: it is the
+        strongest thing this system can show a buyer, and the retained evidence behind it
+        should not require scrolling past the whole dossier to find. Only Lead Rescue has
+        retained runtime artifacts today — every other system correctly renders nothing here
+        rather than an empty promise.
+      */}
+      {system.id === 'lead-rescue' && <RuntimeProofSection resolution={loadRuntimeProof()} />}
 
       {scenarios.length > 0 && (
         <section className="space-y-4">
