@@ -1,6 +1,54 @@
 # Status
 
-**As of 2026-08-26 (latest pass, same day) · A genuine `claude-opus-5` judgment has now executed
+**As of 2026-08-26 (latest pass, same day) · Lead Rescue can now say whether its own record is
+complete, and it has finally seen the two abnormal delivery states it always claimed to
+understand.** Three gaps closed in one run, none of them by assertion. (1) `record()` has always
+been allowed to drop an observation rather than block business work; that policy is unchanged,
+but ignorance about it is not. A durable write-ahead marker is written before every journal
+write, removed on success, and annotated-and-left on a reported drop, then reconciled against
+the journal by `journalEventId` — so a crash in the cleanup window is not mistaken for data loss
+and a genuinely missing record cannot hide. The answer is one of three,
+`NO_KNOWN_LOSS` / `KNOWN_LOSS` / `UNAVAILABLE`, and both an unreadable marker ledger and an
+unreadable journal fail into the third rather than the flattering first. (2) Five conditions —
+and deliberately only five — are now RAISED rather than left to be found: unresolved delivery,
+failed delivery, an elapsed attention window, known observation loss, and an unmeasurable
+instrument. An authority refusal and a suppressed duplicate raise nothing, because the system
+refusing correctly is not an incident. (3) The retained capture contained zero
+`FAILED_BEFORE_EFFECT` and zero `OUTCOME_UNKNOWN` at the dispatch boundary; it now contains both,
+produced by a real run.
+
+**How each one was produced, since none of it is a fixture.** The journal directory was made
+unwritable for exactly one real HTTP ingress: the business path returned `200 ACCEPTED` and
+durably parked the case, and the runtime named the lost observation as a `CONFIRMED_DROP`
+carrying the recorder's own `EACCES: permission denied, mkdir …`. A despatch against a receiver
+that refused the envelope with `550` at `RCPT TO` produced a genuine `FAILED_BEFORE_EFFECT` —
+corroborated by that receiver independently recording zero bytes received and nothing stored,
+which is the whole point of having a second observer. A despatch against a receiver that took
+the entire message and never answered was interrupted by killing the server process inside its
+send with the durable claim already taken; a freshly started process asked to despatch the same
+case reported `OUTCOME_UNKNOWN` and opened no further connection, so at-most-once held across a
+genuine crash rather than across a simulated one. Retained in
+`n8n/evidence/lead-rescue-observation-integrity.json`, guarded by
+`tests/observation-integrity-evidence.test.ts` (20 tests, each confirmed to fail against a
+deliberately corrupted artifact).
+
+**One defect this pass found by looking rather than by testing.** The same capture shows the
+execution boundary classifying a socket failure AFTER DATA as `FAILED_BEFORE_EFFECT` — "the
+executor confirmed nothing was sent" — while the receiving process genuinely holds the message
+it stored. `SmtpSideEffectExecutor` maps `ESOCKET`/`ECONNECTION` to confirmed non-execution
+regardless of which SMTP phase failed, which is unsound once DATA has been written. The journal
+recorded exactly what the executor reported, so this is a defect at the execution boundary and
+not in the record; it is retained under
+`executionClassificationCheckedAgainstTheReceiver`, rendered on the proof surface under "Where
+the receiver disagreed with the system", and deliberately not fixed here — this package was
+scoped to observability. **The alert derived from that record repeats the executor's claim**,
+which is stated on the artifact rather than left to be discovered.
+
+Maturity unchanged: `INTERACTIVE_PROTOTYPE`, `NOT_LIVE`. Every input was synthetic, the
+receiving SMTP server was purpose-built for this proof and bound to loopback with no relay, no
+Anthropic call or live provider was involved, and $0 was spent.
+
+**As of 2026-08-26 (earlier pass, same day) · A genuine `claude-opus-5` judgment has now executed
 inside the real HTTP ingress path — and the frozen evaluation corpus it enabled promptly FAILED
 its own predeclared thresholds.** Two claims, earned separately, and only one of them is good
 news. `POST /api/lead-rescue/ingress` with `LEAD_RESCUE_DECISION_PROVIDER=claude` genuinely

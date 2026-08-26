@@ -1,0 +1,590 @@
+{
+  "schemaVersion": "lead-rescue-observation-integrity-evidence-1",
+  "capturedAt": "2026-08-26T21:57:59.865Z",
+  "gitHead": "fb41367213d4f2140da8413571b3a03f446fa174",
+  "environment": {
+    "runtime": "Next.js dev server started BY THIS SCRIPT on 127.0.0.1:3011, so the fault configuration is the one the server process itself resolved at boot",
+    "executionPath": "Real HTTP routes: POST /api/lead-rescue/ingress, POST /api/lead-rescue/wait-incidents/dispatch, GET /api/lead-rescue/journal, GET /api/lead-rescue/operations.",
+    "httpHopExercised": true,
+    "everyOutcomeClassifiedByTheApplication": true,
+    "smtpServer": {
+      "kind": "purpose-built local SMTP fault server (scripts/support/smtp-fault-server.ts)",
+      "boundTo": "127.0.0.1:49763",
+      "relayConfigured": false,
+      "thirdPartyProduct": false,
+      "note": "A real SMTP conversation over a real TCP socket, scripted to fail in three specific ways. It is NOT a third-party product; n8n/evidence/lead-rescue-smtp-execution.json remains the capture where a real Mailpit instance issued the receipt."
+    },
+    "anthropicCalled": false,
+    "liveModelProviderSelected": false,
+    "n8nParticipated": false,
+    "syntheticData": true
+  },
+  "casesCreatedByThisRun": {
+    "caseADelivered": "lead-website-intake-form-observation-proof-1787781469724-delivered",
+    "caseBFailedBeforeEffect": "lead-website-intake-form-observation-proof-1787781469724-failed",
+    "caseCCrashedMidSend": "lead-website-intake-form-observation-proof-1787781469724-crashed",
+    "caseDVanishedAfterData": "lead-website-intake-form-observation-proof-1787781469724-vanished",
+    "caseEUnobserved": "lead-website-intake-form-observation-proof-1787781469724-unobserved"
+  },
+  "steps": [
+    {
+      "step": "case A · ingress",
+      "request": "POST /api/lead-rescue/ingress",
+      "httpStatus": 200,
+      "observableOutcome": "ACCEPTED"
+    },
+    {
+      "step": "case A · despatch (server accepts and acknowledges)",
+      "request": "POST /api/lead-rescue/wait-incidents/dispatch",
+      "httpStatus": 200,
+      "observableOutcome": "CONFIRMED"
+    },
+    {
+      "step": "case B · ingress",
+      "request": "POST /api/lead-rescue/ingress",
+      "httpStatus": 200,
+      "observableOutcome": "ACCEPTED"
+    },
+    {
+      "step": "case B · despatch (server refuses the envelope: 550 at RCPT)",
+      "request": "POST /api/lead-rescue/wait-incidents/dispatch",
+      "httpStatus": 200,
+      "observableOutcome": "UNCERTAIN"
+    },
+    {
+      "step": "case D · ingress",
+      "request": "POST /api/lead-rescue/ingress",
+      "httpStatus": 200,
+      "observableOutcome": "ACCEPTED"
+    },
+    {
+      "step": "case D · despatch (server stores the body, then vanishes)",
+      "request": "POST /api/lead-rescue/wait-incidents/dispatch",
+      "httpStatus": 200,
+      "observableOutcome": "UNCERTAIN"
+    },
+    {
+      "step": "case C · ingress",
+      "request": "POST /api/lead-rescue/ingress",
+      "httpStatus": 200,
+      "observableOutcome": "ACCEPTED"
+    },
+    {
+      "step": "case C · despatch retried by a freshly started process (must refuse to guess)",
+      "request": "POST /api/lead-rescue/wait-incidents/dispatch",
+      "httpStatus": 200,
+      "observableOutcome": "UNCERTAIN"
+    },
+    {
+      "step": "case E · ingress while the journal directory is unwritable",
+      "request": "POST /api/lead-rescue/ingress",
+      "httpStatus": 200,
+      "observableOutcome": "ACCEPTED"
+    }
+  ],
+  "independentReceiverTranscript": {
+    "note": "What the receiving server itself recorded, independently of what the application concluded.",
+    "connections": [
+      {
+        "connection": 1,
+        "mode": "ACCEPT",
+        "bodyBytesReceived": 981,
+        "storedMessageId": "fault-1@example.invalid",
+        "acknowledgedToClient": true,
+        "note": "Envelope accepted, body received in full, acceptance acknowledged with a server-issued id."
+      },
+      {
+        "connection": 2,
+        "mode": "REFUSE_ENVELOPE",
+        "bodyBytesReceived": 0,
+        "storedMessageId": null,
+        "acknowledgedToClient": true,
+        "note": "Recipient refused with 550 at RCPT TO. No DATA was ever requested, so no message body reached this server and nothing was stored. Non-execution is confirmed by the receiver, not inferred by the sender."
+      },
+      {
+        "connection": 3,
+        "mode": "ACCEPT_THEN_VANISH",
+        "bodyBytesReceived": 979,
+        "storedMessageId": "fault-3@example.invalid",
+        "acknowledgedToClient": false,
+        "note": "Body received in full and stored, then the socket was destroyed before any acceptance reply. This server holds the message; the client cannot know that."
+      },
+      {
+        "connection": 4,
+        "mode": "HANG_AFTER_DATA",
+        "bodyBytesReceived": 977,
+        "storedMessageId": "fault-4@example.invalid",
+        "acknowledgedToClient": false,
+        "note": "Body received in full and stored, then the connection was held open indefinitely with no reply, so the caller remains inside its send with its durable claim already taken."
+      }
+    ],
+    "storedMessageCount": 3,
+    "connectionsBeforeRecovery": 4,
+    "connectionsAfterRecovery": 4
+  },
+  "abnormalDeliveryEvidence": {
+    "failedBeforeEffect": {
+      "incidentId": "lead-website-intake-form-observation-proof-1787781469724-failed",
+      "journalRecord": {
+        "journalEventId": "lead-website-intake-form-observation-proof-1787781469724-failed:DISPATCH_ATTEMPTED:FAILED_BEFORE_EFFECT:offer:lead-website-intake-form-observation-proof-1787781469724-failed:2026-08-26T21:57:50.799Z@rev1",
+        "schemaVersion": "lead-rescue-execution-journal-1",
+        "recordedAt": "2026-08-26T21:57:50.810Z",
+        "systemId": "lead-rescue",
+        "incidentId": "lead-website-intake-form-observation-proof-1787781469724-failed",
+        "correlationId": "inc-lead-website-intake-form-observation-proof-1787781469724-failed",
+        "revision": 1,
+        "type": "DISPATCH_ATTEMPTED",
+        "mechanism": "EXECUTION",
+        "outcome": "FAILED_BEFORE_EFFECT",
+        "failureClass": "DOWNSTREAM_API_FAILURE",
+        "executionMode": "LIVE",
+        "actorId": "lead-rescue-local-smtp-executor",
+        "operationClaimId": "offer:lead-website-intake-form-observation-proof-1787781469724-failed:2026-08-26T21:57:50.799Z@rev1",
+        "detail": "The executor confirmed nothing was sent. The case is still held UNCERTAIN: the durable claim was already taken and nothing here can independently verify non-execution.",
+        "stage": "ACTION"
+      },
+      "independentNonExecution": {
+        "connection": 2,
+        "mode": "REFUSE_ENVELOPE",
+        "bodyBytesReceived": 0,
+        "storedMessageId": null,
+        "acknowledgedToClient": true,
+        "note": "Recipient refused with 550 at RCPT TO. No DATA was ever requested, so no message body reached this server and nothing was stored. Non-execution is confirmed by the receiver, not inferred by the sender."
+      }
+    },
+    "vanishedAfterData": {
+      "incidentId": "lead-website-intake-form-observation-proof-1787781469724-vanished",
+      "journalRecords": [
+        {
+          "journalEventId": "lead-website-intake-form-observation-proof-1787781469724-vanished:DISPATCH_ATTEMPTED:FAILED_BEFORE_EFFECT:offer:lead-website-intake-form-observation-proof-1787781469724-vanished:2026-08-26T21:57:50.823Z@rev1",
+          "schemaVersion": "lead-rescue-execution-journal-1",
+          "recordedAt": "2026-08-26T21:57:50.833Z",
+          "systemId": "lead-rescue",
+          "incidentId": "lead-website-intake-form-observation-proof-1787781469724-vanished",
+          "correlationId": "inc-lead-website-intake-form-observation-proof-1787781469724-vanished",
+          "revision": 1,
+          "type": "DISPATCH_ATTEMPTED",
+          "mechanism": "EXECUTION",
+          "outcome": "FAILED_BEFORE_EFFECT",
+          "failureClass": "DOWNSTREAM_API_FAILURE",
+          "executionMode": "LIVE",
+          "actorId": "lead-rescue-local-smtp-executor",
+          "operationClaimId": "offer:lead-website-intake-form-observation-proof-1787781469724-vanished:2026-08-26T21:57:50.823Z@rev1",
+          "detail": "The executor confirmed nothing was sent. The case is still held UNCERTAIN: the durable claim was already taken and nothing here can independently verify non-execution.",
+          "stage": "ACTION"
+        }
+      ],
+      "independentReceiverState": {
+        "connection": 3,
+        "mode": "ACCEPT_THEN_VANISH",
+        "bodyBytesReceived": 979,
+        "storedMessageId": "fault-3@example.invalid",
+        "acknowledgedToClient": false,
+        "note": "Body received in full and stored, then the socket was destroyed before any acceptance reply. This server holds the message; the client cannot know that."
+      }
+    },
+    "outcomeUnknownAfterCrash": {
+      "incidentId": "lead-website-intake-form-observation-proof-1787781469724-crashed",
+      "journalRecord": {
+        "journalEventId": "lead-website-intake-form-observation-proof-1787781469724-crashed:DISPATCH_ATTEMPTED:OUTCOME_UNKNOWN:offer:lead-website-intake-form-observation-proof-1787781469724-crashed:2026-08-26T21:57:50.845Z@rev1",
+        "schemaVersion": "lead-rescue-execution-journal-1",
+        "recordedAt": "2026-08-26T21:57:59.755Z",
+        "systemId": "lead-rescue",
+        "incidentId": "lead-website-intake-form-observation-proof-1787781469724-crashed",
+        "correlationId": "inc-lead-website-intake-form-observation-proof-1787781469724-crashed",
+        "revision": 1,
+        "type": "DISPATCH_ATTEMPTED",
+        "mechanism": "EXECUTION",
+        "outcome": "OUTCOME_UNKNOWN",
+        "executionMode": "LIVE",
+        "actorId": "lead-rescue-local-smtp-executor",
+        "operationClaimId": "offer:lead-website-intake-form-observation-proof-1787781469724-crashed:2026-08-26T21:57:50.845Z@rev1",
+        "detail": "An unconfirmed claim by route:2326 already exists. Whether the offer despatched is genuinely unknown from here.",
+        "stage": "ACTION"
+      },
+      "independentReceiverState": {
+        "connection": 4,
+        "mode": "HANG_AFTER_DATA",
+        "bodyBytesReceived": 977,
+        "storedMessageId": "fault-4@example.invalid",
+        "acknowledgedToClient": false,
+        "note": "Body received in full and stored, then the connection was held open indefinitely with no reply, so the caller remains inside its send with its durable claim already taken."
+      },
+      "note": "The receiver holds the body and never acknowledged it; the sending process was killed with its durable claim taken. A freshly started process then refused to re-send rather than guess."
+    },
+    "delivered": {
+      "incidentId": "lead-website-intake-form-observation-proof-1787781469724-delivered",
+      "journalRecord": {
+        "journalEventId": "lead-website-intake-form-observation-proof-1787781469724-delivered:DISPATCH_ATTEMPTED:EXECUTED:offer:lead-website-intake-form-observation-proof-1787781469724-delivered:2026-08-26T21:57:50.744Z@rev1",
+        "schemaVersion": "lead-rescue-execution-journal-1",
+        "recordedAt": "2026-08-26T21:57:50.778Z",
+        "systemId": "lead-rescue",
+        "incidentId": "lead-website-intake-form-observation-proof-1787781469724-delivered",
+        "correlationId": "inc-lead-website-intake-form-observation-proof-1787781469724-delivered",
+        "revision": 1,
+        "type": "DISPATCH_ATTEMPTED",
+        "mechanism": "EXECUTION",
+        "outcome": "EXECUTED",
+        "executionMode": "LIVE",
+        "actorId": "lead-rescue-local-smtp-executor",
+        "operationClaimId": "offer:lead-website-intake-form-observation-proof-1787781469724-delivered:2026-08-26T21:57:50.744Z@rev1",
+        "detail": "The executor confirmed the send succeeded.",
+        "stage": "ACTION"
+      },
+      "independentReceiverState": {
+        "connection": 1,
+        "mode": "ACCEPT",
+        "bodyBytesReceived": 981,
+        "storedMessageId": "fault-1@example.invalid",
+        "acknowledgedToClient": true,
+        "note": "Envelope accepted, body received in full, acceptance acknowledged with a server-issued id."
+      }
+    }
+  },
+  "observationDegradationEvidence": {
+    "incidentId": "lead-website-intake-form-observation-proof-1787781469724-unobserved",
+    "fault": "the journal directory was made unwritable (0555) for exactly one ingress, then restored",
+    "businessWorkSucceeded": true,
+    "journalRecordsForThatCase": [],
+    "integrityLoss": {
+      "kind": "CONFIRMED_DROP",
+      "journalEventId": "lead-website-intake-form-observation-proof-1787781469724-unobserved:INGRESS_RECEIVED:accepted",
+      "incidentId": "lead-website-intake-form-observation-proof-1787781469724-unobserved",
+      "correlationId": "inc-lead-website-intake-form-observation-proof-1787781469724-unobserved",
+      "systemId": "lead-rescue",
+      "type": "INGRESS_RECEIVED",
+      "outcome": "ACCEPTED",
+      "intendedAt": "2026-08-26T21:57:59.807Z",
+      "reason": "EACCES: permission denied, mkdir '/Users/tophermichael/Desktop/agentic-automation-portfolio/.data/lead-rescue-execution-journal/lead-website-intake-form-observation-proof-1787781469724-unobserved'"
+    }
+  },
+  "executionClassificationCheckedAgainstTheReceiver": [
+    {
+      "subject": "case B (envelope refused)",
+      "incidentId": "lead-website-intake-form-observation-proof-1787781469724-failed",
+      "applicationOutcome": "FAILED_BEFORE_EFFECT",
+      "applicationDetail": "The executor confirmed nothing was sent. The case is still held UNCERTAIN: the durable claim was already taken and nothing here can independently verify non-execution.",
+      "receiverBodyBytesReceived": 0,
+      "receiverStoredMessageId": null,
+      "receiverAcknowledgedToClient": true,
+      "agreement": "CORROBORATED",
+      "finding": "The receiver independently confirms it received no message body and stored nothing, so the application’s confirmed-non-execution classification is corroborated by something other than itself."
+    },
+    {
+      "subject": "case D (body stored, then the socket died before the acknowledgement)",
+      "incidentId": "lead-website-intake-form-observation-proof-1787781469724-vanished",
+      "applicationOutcome": "FAILED_BEFORE_EFFECT",
+      "applicationDetail": "The executor confirmed nothing was sent. The case is still held UNCERTAIN: the durable claim was already taken and nothing here can independently verify non-execution.",
+      "receiverBodyBytesReceived": 979,
+      "receiverStoredMessageId": "fault-3@example.invalid",
+      "receiverAcknowledgedToClient": false,
+      "agreement": "CONTRADICTED",
+      "finding": "The application recorded confirmed non-execution while the receiver genuinely holds the message. The journal is a faithful record of what the executor reported; what is unsound is the executor classifying a post-DATA socket failure as FAILED_BEFORE_EFFECT, and this capture is the first evidence of it. An execution-boundary defect, found by observing a real run rather than by a test written to expect it."
+    }
+  ],
+  "integrity": {
+    "kind": "KNOWN_LOSS",
+    "losses": [
+      {
+        "kind": "CONFIRMED_DROP",
+        "journalEventId": "lead-website-intake-form-observation-proof-1787781469724-unobserved:INGRESS_RECEIVED:accepted",
+        "incidentId": "lead-website-intake-form-observation-proof-1787781469724-unobserved",
+        "correlationId": "inc-lead-website-intake-form-observation-proof-1787781469724-unobserved",
+        "systemId": "lead-rescue",
+        "type": "INGRESS_RECEIVED",
+        "outcome": "ACCEPTED",
+        "intendedAt": "2026-08-26T21:57:59.807Z",
+        "reason": "EACCES: permission denied, mkdir '/Users/tophermichael/Desktop/agentic-automation-portfolio/.data/lead-rescue-execution-journal/lead-website-intake-form-observation-proof-1787781469724-unobserved'"
+      }
+    ],
+    "intentsReconciled": 0,
+    "basis": "Derived by reconciling durable write-ahead observation markers against the journal itself. It cannot see a lost observation whose marker also failed to be written, so a clean answer means no loss is KNOWN, never that none occurred."
+  },
+  "alerts": [
+    {
+      "alertId": "UNRESOLVED_DELIVERY:lead-website-intake-form-observation-proof-1787781469724-crashed",
+      "condition": "UNRESOLVED_DELIVERY",
+      "severity": "CRITICAL",
+      "incidentId": "lead-website-intake-form-observation-proof-1787781469724-crashed",
+      "reason": "An action was attempted and the executor never confirmed either way, so whether it reached its recipient is genuinely unknown. It will not be retried automatically.",
+      "operatorAction": "Check the receiving system directly to establish whether the action happened, then either clear the durable claim so it can be re-attempted or record it as delivered.",
+      "status": "ACTIVE",
+      "evidenceJournalEventIds": [
+        "lead-website-intake-form-observation-proof-1787781469724-crashed:DISPATCH_ATTEMPTED:OUTCOME_UNKNOWN:offer:lead-website-intake-form-observation-proof-1787781469724-crashed:2026-08-26T21:57:50.845Z@rev1"
+      ]
+    },
+    {
+      "alertId": "FAILED_DELIVERY:lead-website-intake-form-observation-proof-1787781469724-failed",
+      "condition": "FAILED_DELIVERY",
+      "severity": "ATTENTION",
+      "incidentId": "lead-website-intake-form-observation-proof-1787781469724-failed",
+      "reason": "An action confirmably did not happen. Nothing reached the recipient and no later attempt on this case succeeded.",
+      "operatorAction": "Re-attempt the action once the underlying transport failure is understood; confirmed non-execution means a retry is safe.",
+      "status": "ACTIVE",
+      "evidenceJournalEventIds": [
+        "lead-website-intake-form-observation-proof-1787781469724-failed:DISPATCH_ATTEMPTED:FAILED_BEFORE_EFFECT:offer:lead-website-intake-form-observation-proof-1787781469724-failed:2026-08-26T21:57:50.799Z@rev1"
+      ]
+    },
+    {
+      "alertId": "FAILED_DELIVERY:lead-website-intake-form-observation-proof-1787781469724-vanished",
+      "condition": "FAILED_DELIVERY",
+      "severity": "ATTENTION",
+      "incidentId": "lead-website-intake-form-observation-proof-1787781469724-vanished",
+      "reason": "An action confirmably did not happen. Nothing reached the recipient and no later attempt on this case succeeded.",
+      "operatorAction": "Re-attempt the action once the underlying transport failure is understood; confirmed non-execution means a retry is safe.",
+      "status": "ACTIVE",
+      "evidenceJournalEventIds": [
+        "lead-website-intake-form-observation-proof-1787781469724-vanished:DISPATCH_ATTEMPTED:FAILED_BEFORE_EFFECT:offer:lead-website-intake-form-observation-proof-1787781469724-vanished:2026-08-26T21:57:50.823Z@rev1"
+      ]
+    },
+    {
+      "alertId": "OBSERVATION_LOSS:system",
+      "condition": "OBSERVATION_LOSS",
+      "severity": "ATTENTION",
+      "incidentId": null,
+      "reason": "1 observation(s) were intended but are not in the journal, so every total below understates what happened by at least that much.",
+      "operatorAction": "Open each named record to see what was lost and why, and re-run the affected boundary if the underlying work needs re-observing.",
+      "status": "ACTIVE",
+      "evidenceJournalEventIds": [
+        "lead-website-intake-form-observation-proof-1787781469724-unobserved:INGRESS_RECEIVED:accepted"
+      ]
+    }
+  ],
+  "view": {
+    "schemaVersion": "lead-rescue-operational-view-1",
+    "observationCount": 8,
+    "incidentCount": 4,
+    "correlationCount": 4,
+    "incidents": [
+      {
+        "incidentId": "lead-website-intake-form-observation-proof-1787781469724-crashed",
+        "correlationIds": [
+          "inc-lead-website-intake-form-observation-proof-1787781469724-crashed"
+        ],
+        "eventCount": 2,
+        "firstObservedAt": "2026-08-26T21:57:50.845Z",
+        "lastObservedAt": "2026-08-26T21:57:59.755Z",
+        "observedIntervalMs": {
+          "kind": "AVAILABLE",
+          "value": 8910
+        },
+        "outcomes": [
+          "ACCEPTED",
+          "OUTCOME_UNKNOWN"
+        ],
+        "stages": [
+          "TRIGGER",
+          "ACTION"
+        ],
+        "hadConfirmedDelivery": false,
+        "hadUnresolvedDelivery": true,
+        "hadOperatorIntervention": false,
+        "failureClasses": [],
+        "journalEventIds": [
+          "lead-website-intake-form-observation-proof-1787781469724-crashed:INGRESS_RECEIVED:accepted",
+          "lead-website-intake-form-observation-proof-1787781469724-crashed:DISPATCH_ATTEMPTED:OUTCOME_UNKNOWN:offer:lead-website-intake-form-observation-proof-1787781469724-crashed:2026-08-26T21:57:50.845Z@rev1"
+        ]
+      },
+      {
+        "incidentId": "lead-website-intake-form-observation-proof-1787781469724-delivered",
+        "correlationIds": [
+          "inc-lead-website-intake-form-observation-proof-1787781469724-delivered"
+        ],
+        "eventCount": 2,
+        "firstObservedAt": "2026-08-26T21:57:50.744Z",
+        "lastObservedAt": "2026-08-26T21:57:50.778Z",
+        "observedIntervalMs": {
+          "kind": "AVAILABLE",
+          "value": 34
+        },
+        "outcomes": [
+          "ACCEPTED",
+          "EXECUTED"
+        ],
+        "stages": [
+          "TRIGGER",
+          "ACTION"
+        ],
+        "hadConfirmedDelivery": true,
+        "hadUnresolvedDelivery": false,
+        "hadOperatorIntervention": false,
+        "failureClasses": [],
+        "journalEventIds": [
+          "lead-website-intake-form-observation-proof-1787781469724-delivered:INGRESS_RECEIVED:accepted",
+          "lead-website-intake-form-observation-proof-1787781469724-delivered:DISPATCH_ATTEMPTED:EXECUTED:offer:lead-website-intake-form-observation-proof-1787781469724-delivered:2026-08-26T21:57:50.744Z@rev1"
+        ]
+      },
+      {
+        "incidentId": "lead-website-intake-form-observation-proof-1787781469724-failed",
+        "correlationIds": [
+          "inc-lead-website-intake-form-observation-proof-1787781469724-failed"
+        ],
+        "eventCount": 2,
+        "firstObservedAt": "2026-08-26T21:57:50.799Z",
+        "lastObservedAt": "2026-08-26T21:57:50.810Z",
+        "observedIntervalMs": {
+          "kind": "AVAILABLE",
+          "value": 11
+        },
+        "outcomes": [
+          "ACCEPTED",
+          "FAILED_BEFORE_EFFECT"
+        ],
+        "stages": [
+          "TRIGGER",
+          "ACTION"
+        ],
+        "hadConfirmedDelivery": false,
+        "hadUnresolvedDelivery": false,
+        "hadOperatorIntervention": false,
+        "failureClasses": [
+          "DOWNSTREAM_API_FAILURE"
+        ],
+        "journalEventIds": [
+          "lead-website-intake-form-observation-proof-1787781469724-failed:INGRESS_RECEIVED:accepted",
+          "lead-website-intake-form-observation-proof-1787781469724-failed:DISPATCH_ATTEMPTED:FAILED_BEFORE_EFFECT:offer:lead-website-intake-form-observation-proof-1787781469724-failed:2026-08-26T21:57:50.799Z@rev1"
+        ]
+      },
+      {
+        "incidentId": "lead-website-intake-form-observation-proof-1787781469724-vanished",
+        "correlationIds": [
+          "inc-lead-website-intake-form-observation-proof-1787781469724-vanished"
+        ],
+        "eventCount": 2,
+        "firstObservedAt": "2026-08-26T21:57:50.823Z",
+        "lastObservedAt": "2026-08-26T21:57:50.833Z",
+        "observedIntervalMs": {
+          "kind": "AVAILABLE",
+          "value": 10
+        },
+        "outcomes": [
+          "ACCEPTED",
+          "FAILED_BEFORE_EFFECT"
+        ],
+        "stages": [
+          "TRIGGER",
+          "ACTION"
+        ],
+        "hadConfirmedDelivery": false,
+        "hadUnresolvedDelivery": false,
+        "hadOperatorIntervention": false,
+        "failureClasses": [
+          "DOWNSTREAM_API_FAILURE"
+        ],
+        "journalEventIds": [
+          "lead-website-intake-form-observation-proof-1787781469724-vanished:INGRESS_RECEIVED:accepted",
+          "lead-website-intake-form-observation-proof-1787781469724-vanished:DISPATCH_ATTEMPTED:FAILED_BEFORE_EFFECT:offer:lead-website-intake-form-observation-proof-1787781469724-vanished:2026-08-26T21:57:50.823Z@rev1"
+        ]
+      }
+    ],
+    "outcomes": [
+      {
+        "outcome": "ACCEPTED",
+        "count": 4,
+        "journalEventIds": [
+          "lead-website-intake-form-observation-proof-1787781469724-delivered:INGRESS_RECEIVED:accepted",
+          "lead-website-intake-form-observation-proof-1787781469724-failed:INGRESS_RECEIVED:accepted",
+          "lead-website-intake-form-observation-proof-1787781469724-vanished:INGRESS_RECEIVED:accepted",
+          "lead-website-intake-form-observation-proof-1787781469724-crashed:INGRESS_RECEIVED:accepted"
+        ]
+      },
+      {
+        "outcome": "FAILED_BEFORE_EFFECT",
+        "count": 2,
+        "journalEventIds": [
+          "lead-website-intake-form-observation-proof-1787781469724-failed:DISPATCH_ATTEMPTED:FAILED_BEFORE_EFFECT:offer:lead-website-intake-form-observation-proof-1787781469724-failed:2026-08-26T21:57:50.799Z@rev1",
+          "lead-website-intake-form-observation-proof-1787781469724-vanished:DISPATCH_ATTEMPTED:FAILED_BEFORE_EFFECT:offer:lead-website-intake-form-observation-proof-1787781469724-vanished:2026-08-26T21:57:50.823Z@rev1"
+        ]
+      },
+      {
+        "outcome": "EXECUTED",
+        "count": 1,
+        "journalEventIds": [
+          "lead-website-intake-form-observation-proof-1787781469724-delivered:DISPATCH_ATTEMPTED:EXECUTED:offer:lead-website-intake-form-observation-proof-1787781469724-delivered:2026-08-26T21:57:50.744Z@rev1"
+        ]
+      },
+      {
+        "outcome": "OUTCOME_UNKNOWN",
+        "count": 1,
+        "journalEventIds": [
+          "lead-website-intake-form-observation-proof-1787781469724-crashed:DISPATCH_ATTEMPTED:OUTCOME_UNKNOWN:offer:lead-website-intake-form-observation-proof-1787781469724-crashed:2026-08-26T21:57:50.845Z@rev1"
+        ]
+      }
+    ],
+    "dispatch": {
+      "attempts": 4,
+      "executed": 1,
+      "suppressedDuplicate": 0,
+      "failedBeforeEffect": 2,
+      "outcomeUnknown": 1,
+      "otherOutcomes": 0,
+      "incidentsWithConfirmedDelivery": 1,
+      "incidentsWithUnresolvedDelivery": 1
+    },
+    "timing": {
+      "observedIntervals": {
+        "kind": "AVAILABLE",
+        "value": {
+          "incidentsMeasured": 4,
+          "minMs": 10,
+          "medianMs": 11,
+          "maxMs": 8910
+        }
+      },
+      "stageTransitions": [
+        {
+          "from": "TRIGGER",
+          "to": "ACTION",
+          "count": 4,
+          "totalMs": 8965,
+          "incidentIds": [
+            "lead-website-intake-form-observation-proof-1787781469724-crashed",
+            "lead-website-intake-form-observation-proof-1787781469724-delivered",
+            "lead-website-intake-form-observation-proof-1787781469724-failed",
+            "lead-website-intake-form-observation-proof-1787781469724-vanished"
+          ]
+        }
+      ],
+      "unmeasurableIncidents": []
+    },
+    "failures": [
+      {
+        "failureClass": "DOWNSTREAM_API_FAILURE",
+        "count": 2,
+        "journalEventIds": [
+          "lead-website-intake-form-observation-proof-1787781469724-failed:DISPATCH_ATTEMPTED:FAILED_BEFORE_EFFECT:offer:lead-website-intake-form-observation-proof-1787781469724-failed:2026-08-26T21:57:50.799Z@rev1",
+          "lead-website-intake-form-observation-proof-1787781469724-vanished:DISPATCH_ATTEMPTED:FAILED_BEFORE_EFFECT:offer:lead-website-intake-form-observation-proof-1787781469724-vanished:2026-08-26T21:57:50.823Z@rev1"
+        ]
+      }
+    ],
+    "intervention": {
+      "humanDecisions": 0,
+      "authenticationRefusals": 0,
+      "authorityRefusals": 0,
+      "incidentsWithIntervention": 0,
+      "journalEventIds": []
+    },
+    "completeness": {
+      "basis": "Derived only from observations the journal retained. The journal drops rather than blocking business work, so this describes what was observed, never everything that occurred.",
+      "incidentsWithSingleObservation": 0
+    }
+  },
+  "derivedAssertions": {
+    "realFailedBeforeEffectObserved": true,
+    "realOutcomeUnknownObserved": true,
+    "nonExecutionCorroboratedByTheReceiverForAtLeastOneCase": true,
+    "observationLossMeasuredNotAssumed": true,
+    "businessWorkSurvivedTheObservationLoss": true,
+    "alertsRaisedForAbnormalConditions": true,
+    "atMostOncePreservedAcrossTheCrash": true,
+    "receiverConfirmedNonExecutionForTheRefusedCase": true
+  },
+  "doesNotProve": [
+    "Nothing here ran on a hosted or client deployment; this is a local prototype runtime.",
+    "The receiving SMTP server is purpose-built for this proof, not a third-party product. It is an independent observer of the socket, not independent evidence of a vendor contract.",
+    "An observation whose write-ahead marker ALSO failed to be written remains invisible. The clean answer is NO_KNOWN_LOSS and never \"complete\".",
+    "The UNRESOLVED_INTENT loss kind (a process that died between the marker and the journal write) is proven by test, not by this capture.",
+    "Where `executionClassificationCheckedAgainstTheReceiver` records CONTRADICTED, the alert derived from that record repeats the executor’s claim. Alerts are a faithful function of retained observations and cannot be more accurate than what the execution boundary reported.",
+    "No real prospect, recipient, model, or external provider was involved at any point."
+  ]
+}

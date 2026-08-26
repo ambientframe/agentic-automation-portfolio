@@ -4,6 +4,11 @@ import {
   type ExecutionJournalReader,
   type ExecutionJournalRecorder,
 } from '@/lib/persistence/execution-journal-store';
+import {
+  FileObservationIntentStore,
+  type ObservationIntentStore,
+} from '@/lib/persistence/observation-intent-store';
+import { withObservationIntegrity } from './observation-integrity';
 
 /**
  * THE OBSERVABILITY COMPOSITION ROOT — deliberately outside `lib/engine/`.
@@ -30,10 +35,39 @@ import {
  */
 export const LEAD_RESCUE_JOURNAL_DIR = path.join(process.cwd(), '.data', 'lead-rescue-execution-journal');
 
+/**
+ * A SIBLING DIRECTORY, not a subdirectory of the journal — deliberately. The whole purpose of
+ * the marker ledger is to remain writable when the journal is not, so a fault that takes out
+ * the journal directory (permissions, a full volume, a path that is no longer a directory) has
+ * a genuine chance of leaving this one intact and therefore able to record that a write was
+ * lost. Nesting it inside the journal would guarantee the accounting failed in lockstep with
+ * the thing it accounts for, which is the one arrangement that cannot work.
+ */
+export const LEAD_RESCUE_OBSERVATION_INTENT_DIR = path.join(
+  process.cwd(),
+  '.data',
+  'lead-rescue-observation-intents',
+);
+
 const leadRescueJournal = new FileExecutionJournal(LEAD_RESCUE_JOURNAL_DIR);
 
-/** The write side. Passed to engine boundaries; cannot read anything back. */
-export const leadRescueJournalRecorder: ExecutionJournalRecorder = leadRescueJournal;
+/** Durable write-ahead accounting for every observation this runtime attempts. */
+export const leadRescueObservationIntents: ObservationIntentStore = new FileObservationIntentStore(
+  LEAD_RESCUE_OBSERVATION_INTENT_DIR,
+);
+
+/**
+ * The write side. Passed to engine boundaries; cannot read anything back.
+ *
+ * Wrapped so a dropped observation becomes a durable, inspectable fact rather than a silent
+ * gap. The wrapper returns the journal's own outcome verbatim and cannot throw, so nothing
+ * about the "observability never blocks business work" guarantee changes here — see
+ * `withObservationIntegrity`.
+ */
+export const leadRescueJournalRecorder: ExecutionJournalRecorder = withObservationIntegrity(
+  leadRescueJournal,
+  leadRescueObservationIntents,
+);
 
 /** The query side. Reachable only from the read-only operator surface. */
 export const leadRescueJournalReader: ExecutionJournalReader = leadRescueJournal;

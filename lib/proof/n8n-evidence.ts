@@ -366,3 +366,209 @@ export async function readOperationalViewEvidence(): Promise<OperationalViewEvid
     unrecognisedShape: false,
   };
 }
+
+// ---------------------------------------------------------------------------
+// Retained OBSERVATION INTEGRITY capture.
+// ---------------------------------------------------------------------------
+
+export const OBSERVATION_INTEGRITY_EVIDENCE_RELATIVE_PATH = 'n8n/evidence/lead-rescue-observation-integrity.json';
+
+/**
+ * The retained capture of a run that deliberately broke things: a refused envelope, a receiver
+ * that took the message and vanished, a process killed mid-send, and an unwritable journal.
+ *
+ * WHY IT IS READ SEPARATELY from the aggregate capture. The aggregate answers "what has this
+ * system been doing"; this answers "can the instrument be trusted, and what did it do when the
+ * boundary went wrong". They are produced by different runs against the same journal, and
+ * keeping them separate means neither has to be regenerated when the other changes.
+ *
+ * SAME QUARANTINE, SAME THREE RULES: never throws, never invents, reports its own recognition.
+ * A capture whose shape this adapter does not recognise renders as an explicit negative, which
+ * is the only honest thing to show for evidence that cannot be read.
+ */
+
+/** One deliberately-broken despatch, and what an observer other than the sender recorded. */
+export interface AbnormalDeliveryCase {
+  readonly incidentId: string | null;
+  /** The outcome the application itself classified and retained. */
+  readonly journalOutcome: string | null;
+  readonly journalDetail: string | null;
+  /** What the receiving server independently recorded about the same exchange. */
+  readonly receiverNote: string | null;
+  readonly receiverBodyBytesReceived: number | null;
+  readonly receiverStoredMessageId: string | null;
+  readonly receiverAcknowledged: boolean | null;
+}
+
+export interface ObservationLossCase {
+  readonly incidentId: string | null;
+  readonly fault: string | null;
+  readonly businessWorkSucceeded: boolean | null;
+  readonly lossKind: string | null;
+  readonly lossReason: string | null;
+  readonly journalRecordsForThatCase: number;
+}
+
+export interface ClassificationCheck {
+  readonly subject: string | null;
+  readonly incidentId: string | null;
+  readonly agreement: string | null;
+  readonly finding: string | null;
+}
+
+export interface RetainedAlert {
+  readonly alertId: string;
+  readonly condition: string;
+  readonly severity: string;
+  readonly incidentId: string | null;
+  readonly reason: string;
+  readonly operatorAction: string;
+  readonly status: string;
+  readonly evidenceJournalEventIds: readonly string[];
+}
+
+export type ObservationIntegrityEvidence =
+  | { readonly kind: 'ABSENT'; readonly detail: string }
+  | { readonly kind: 'UNREADABLE'; readonly detail: string }
+  | {
+      readonly kind: 'PRESENT';
+      readonly capturedAt: string | null;
+      readonly gitHead: string | null;
+      /**
+       * `NO_KNOWN_LOSS` / `KNOWN_LOSS` / `UNAVAILABLE`, exactly as the runtime reported it.
+       * Never null on a PRESENT result: a capture with no integrity answer is UNREADABLE, so a
+       * reader is never left to decide for itself what a missing verdict should mean.
+       */
+      readonly integrityKind: string;
+      readonly integrityBasis: string | null;
+      readonly lossCount: number;
+      readonly alerts: readonly RetainedAlert[];
+      readonly delivered: AbnormalDeliveryCase | null;
+      readonly failedBeforeEffect: AbnormalDeliveryCase | null;
+      readonly outcomeUnknown: AbnormalDeliveryCase | null;
+      readonly vanishedAfterData: AbnormalDeliveryCase | null;
+      readonly observationLoss: ObservationLossCase | null;
+      readonly classificationChecks: readonly ClassificationCheck[];
+      readonly receiverKind: string | null;
+      readonly doesNotProve: readonly string[];
+    };
+
+function toAlert(raw: unknown): RetainedAlert | null {
+  if (!isRecord(raw)) return null;
+  const alertId = str(raw, 'alertId');
+  const condition = str(raw, 'condition');
+  const severity = str(raw, 'severity');
+  const status = str(raw, 'status');
+  const reason = str(raw, 'reason');
+  const operatorAction = str(raw, 'operatorAction');
+  if (alertId === null || condition === null || severity === null || status === null) return null;
+  return {
+    alertId,
+    condition,
+    severity,
+    incidentId: str(raw, 'incidentId'),
+    reason: reason ?? '',
+    operatorAction: operatorAction ?? '',
+    status,
+    evidenceJournalEventIds: strings(raw, 'evidenceJournalEventIds'),
+  };
+}
+
+/**
+ * `journalRecord` and `journalRecords` are both accepted because one case in the capture
+ * legitimately has more than one despatch record. Reading only the singular key would silently
+ * drop the case whose evidence matters most.
+ */
+function toAbnormalCase(raw: unknown, receiverKey: string): AbnormalDeliveryCase | null {
+  if (!isRecord(raw)) return null;
+  const single = child(raw, 'journalRecord');
+  const many = child(raw, 'journalRecords');
+  const record = isRecord(single) ? single : Array.isArray(many) && isRecord(many[0]) ? many[0] : null;
+  const receiver = child(raw, receiverKey);
+  return {
+    incidentId: str(raw, 'incidentId'),
+    journalOutcome: str(record, 'outcome'),
+    journalDetail: str(record, 'detail'),
+    receiverNote: str(receiver, 'note'),
+    receiverBodyBytesReceived: num(receiver, 'bodyBytesReceived'),
+    receiverStoredMessageId: str(receiver, 'storedMessageId'),
+    receiverAcknowledged: bool(receiver, 'acknowledgedToClient'),
+  };
+}
+
+export async function readObservationIntegrityEvidence(): Promise<ObservationIntegrityEvidence> {
+  const file = path.join(process.cwd(), ...OBSERVATION_INTEGRITY_EVIDENCE_RELATIVE_PATH.split('/'));
+
+  let text: string;
+  try {
+    text = await readFile(file, 'utf8');
+  } catch {
+    return {
+      kind: 'ABSENT',
+      detail: `No capture found at ${OBSERVATION_INTEGRITY_EVIDENCE_RELATIVE_PATH}. No claim is made about observation integrity or about abnormal delivery.`,
+    };
+  }
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(text);
+  } catch {
+    return {
+      kind: 'UNREADABLE',
+      detail: `${OBSERVATION_INTEGRITY_EVIDENCE_RELATIVE_PATH} exists but is not valid JSON. No claim is made about observation integrity.`,
+    };
+  }
+
+  const integrity = child(parsed, 'integrity');
+  const integrityKind = str(integrity, 'kind');
+  if (integrityKind === null) {
+    return {
+      kind: 'UNREADABLE',
+      detail: `${OBSERVATION_INTEGRITY_EVIDENCE_RELATIVE_PATH} does not report an observation-integrity result. No claim is made.`,
+    };
+  }
+
+  const losses = child(integrity, 'losses');
+  const abnormal = child(parsed, 'abnormalDeliveryEvidence');
+  const degradation = child(parsed, 'observationDegradationEvidence');
+  const degradationLoss = child(degradation, 'integrityLoss');
+  const degradationRecords = child(degradation, 'journalRecordsForThatCase');
+  const rawAlerts = child(parsed, 'alerts');
+  const rawChecks = child(parsed, 'executionClassificationCheckedAgainstTheReceiver');
+  const doesNotProve = child(parsed, 'doesNotProve');
+
+  return {
+    kind: 'PRESENT',
+    capturedAt: str(parsed, 'capturedAt'),
+    gitHead: str(parsed, 'gitHead'),
+    integrityKind,
+    integrityBasis: str(integrity, 'basis'),
+    lossCount: Array.isArray(losses) ? losses.length : 0,
+    alerts: Array.isArray(rawAlerts) ? rawAlerts.map(toAlert).filter((a): a is RetainedAlert => a !== null) : [],
+    delivered: toAbnormalCase(child(abnormal, 'delivered'), 'independentReceiverState'),
+    failedBeforeEffect: toAbnormalCase(child(abnormal, 'failedBeforeEffect'), 'independentNonExecution'),
+    outcomeUnknown: toAbnormalCase(child(abnormal, 'outcomeUnknownAfterCrash'), 'independentReceiverState'),
+    vanishedAfterData: toAbnormalCase(child(abnormal, 'vanishedAfterData'), 'independentReceiverState'),
+    observationLoss:
+      degradation === null
+        ? null
+        : {
+            incidentId: str(degradation, 'incidentId'),
+            fault: str(degradation, 'fault'),
+            businessWorkSucceeded: bool(degradation, 'businessWorkSucceeded'),
+            lossKind: str(degradationLoss, 'kind'),
+            lossReason: str(degradationLoss, 'reason'),
+            journalRecordsForThatCase: Array.isArray(degradationRecords) ? degradationRecords.length : 0,
+          },
+    classificationChecks: Array.isArray(rawChecks)
+      ? rawChecks.filter(isRecord).map((raw) => ({
+          subject: str(raw, 'subject'),
+          incidentId: str(raw, 'incidentId'),
+          agreement: str(raw, 'agreement'),
+          finding: str(raw, 'finding'),
+        }))
+      : [],
+    receiverKind: str(child(child(parsed, 'environment'), 'smtpServer'), 'kind'),
+    doesNotProve: Array.isArray(doesNotProve) ? doesNotProve.filter((v): v is string => typeof v === 'string') : [],
+  };
+}

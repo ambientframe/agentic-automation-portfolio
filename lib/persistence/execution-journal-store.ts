@@ -328,11 +328,20 @@ function shortHash(input: string): string {
 
 const MAX_BASENAME_LENGTH = 180;
 
-function fileNameFor(journalEventId: string): string {
+/**
+ * A filesystem-safe, collision-free, DETERMINISTIC file name for a record identity. Exported
+ * because the observation-intent ledger (`lib/persistence/observation-intent-store.ts`) keys its
+ * write-ahead markers by the same `journalEventId` and must derive the same name for the same
+ * id — two independent encodings of one identity is exactly how a reconciliation between the
+ * two ledgers would silently start missing records.
+ */
+export function recordFileNameFor(journalEventId: string): string {
   const encoded = encodeURIComponent(journalEventId);
   if (encoded.length <= MAX_BASENAME_LENGTH) return `${encoded}.json`;
   return `${encoded.slice(0, MAX_BASENAME_LENGTH)}~${shortHash(journalEventId)}.json`;
 }
+
+const fileNameFor = recordFileNameFor;
 
 /**
  * ONE DIRECTORY PER CASE, ONE FILE PER OBSERVATION. Deliberately NOT one shared append-only

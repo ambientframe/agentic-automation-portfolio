@@ -1,7 +1,9 @@
 import { NextResponse } from 'next/server';
-import { leadRescueJournalReader } from '@/lib/observability/lead-rescue-journal';
+import { leadRescueJournalReader, leadRescueObservationIntents } from '@/lib/observability/lead-rescue-journal';
 import { MalformedJournalRecordError } from '@/lib/persistence/execution-journal-store';
 import { deriveOperationalView } from '@/lib/observability/operational-view';
+import { deriveObservationIntegrity } from '@/lib/observability/observation-integrity';
+import { deriveOperationalAlerts } from '@/lib/observability/operational-alerts';
 
 /**
  * THE READ-ONLY AGGREGATE OPERATOR SURFACE.
@@ -27,16 +29,27 @@ import { deriveOperationalView } from '@/lib/observability/operational-view';
  *                          records that DID parse would be a confident number derived from a
  *                          knowingly partial history, which is the one thing an operational
  *                          view must never present. `MalformedJournalRecordError` propagates.
+ *
+ * THREE ANSWERS IN ONE RESPONSE, and the order matters. `integrity` says whether the records
+ * underneath the view can be trusted to be all of them; `view` is the projection over whatever
+ * survived; `alerts` are the few conditions in it that need a person rather than a reader. A
+ * caller that rendered `view` without `integrity` would be publishing totals with no stated
+ * bound, which is precisely the gap these two fields exist to close — so both are always
+ * present, never optional, and `integrity` is computed even when the aggregate is empty.
  */
 export const dynamic = 'force-dynamic';
 
 export async function GET(): Promise<NextResponse> {
   try {
     const events = await leadRescueJournalReader.readAll();
+    const view = deriveOperationalView(events);
+    const integrity = await deriveObservationIntegrity(leadRescueObservationIntents, leadRescueJournalReader);
 
     return NextResponse.json({
       empty: events.length === 0,
-      view: deriveOperationalView(events),
+      integrity,
+      alerts: deriveOperationalAlerts(view, integrity),
+      view,
     });
   } catch (error) {
     if (error instanceof MalformedJournalRecordError) {

@@ -16,7 +16,9 @@ import {
   evidenceProvesOrchestration,
   evidenceRecordsEvaluation,
   LIVE_CLASSIFICATION_EVIDENCE_RELATIVE_PATH,
+  OBSERVATION_INTEGRITY_EVIDENCE_RELATIVE_PATH,
   type EvaluationEvidence,
+  type ObservationIntegrityEvidence,
   type RuntimeEvidence,
 } from './n8n-evidence';
 
@@ -245,10 +247,59 @@ function evaluationRow(
   };
 }
 
+/**
+ * The observability row, and the second place on this page where better evidence produces a
+ * more uncomfortable sentence.
+ *
+ * A capture that reports KNOWN_LOSS still makes this row REAL, for the same reason a failing
+ * evaluation does: the capability being reported is "can this system tell you when its own
+ * record is incomplete", not "was the record complete". Reporting a measured loss as anything
+ * other than the capability working would be the flattering answer and the wrong one.
+ *
+ * Everything here is read from the artefact. A build with no capture says so and claims
+ * nothing, rather than describing a mechanism the reader cannot check.
+ */
+function observabilityRow(
+  observation: ObservationIntegrityEvidence | undefined,
+): Pick<FidelityRow, 'status' | 'whatIsTrue' | 'basis' | 'limit'> {
+  const limit =
+    'Local prototype scale, and it raises conditions on a page rather than sending them anywhere. There is no pager, inbox, or external notification channel in this build, so a condition still waits for somebody to open this surface.';
+
+  if (observation === undefined || observation.kind !== 'PRESENT') {
+    return {
+      status: 'UNVERIFIED',
+      whatIsTrue:
+        'An observation-integrity mechanism and an alert layer exist in the repository, but no retained capture is readable from this build, so neither is claimed here.',
+      basis: 'lib/observability/observation-integrity.ts · lib/observability/operational-alerts.ts',
+      limit,
+    };
+  }
+
+  const raised = observation.alerts.filter((alert) => alert.status === 'ACTIVE').length;
+  const verdict =
+    observation.integrityKind === 'KNOWN_LOSS'
+      ? `it reported ${observation.lossCount} observation(s) as genuinely missing, naming each one and why`
+      : observation.integrityKind === 'UNAVAILABLE'
+        ? 'it reported that it could not answer, rather than reporting a clean result it could not support'
+        : 'it reported no known loss, bounded by what that answer cannot rule out';
+
+  return {
+    status: 'REAL',
+    whatIsTrue: `Every observation is accounted for by a durable write-ahead marker reconciled against the journal, so a dropped record becomes a named measurement instead of a silent gap. In the retained run — where the journal directory was deliberately made unwritable for one ingress — ${verdict}, and ${raised} operational condition(s) were raised for a person rather than left to be found. The same run drove a real despatch to a confirmed non-execution and to a genuinely unresolved outcome, each checked against a receiving process that recorded the exchange independently.`,
+    basis: `${OBSERVATION_INTEGRITY_EVIDENCE_RELATIVE_PATH} · lib/observability/observation-integrity.ts · lib/observability/operational-alerts.ts · tests/lead-rescue-observation-integrity.test.ts`,
+    limit,
+  };
+}
+
 export interface LedgerInputs {
   readonly evidence: RuntimeEvidence;
   /** The retained evaluation capture, read through the same quarantined adapter. */
   readonly evaluation: EvaluationEvidence;
+  /**
+   * The retained observation-integrity capture. Optional so every existing caller and test
+   * keeps working unchanged; absent means the row claims nothing rather than assuming.
+   */
+  readonly observation?: ObservationIntegrityEvidence;
   /** Defaults to `process.env`. Injectable so tests can assert both configured states. */
   readonly env?: Env;
 }
@@ -256,6 +307,7 @@ export interface LedgerInputs {
 export function deriveFidelityLedger({
   evidence,
   evaluation,
+  observation,
   env = process.env,
 }: LedgerInputs): FidelityLedger {
   const provider = resolveDecisionProviderSelection(env);
@@ -383,6 +435,11 @@ export function deriveFidelityLedger({
       id: 'evaluation',
       capability: 'Judgment-quality evaluation',
       ...evaluationRow(evaluation, evalGate.kind === 'READY'),
+    },
+    {
+      id: 'observation-integrity',
+      capability: 'Operational observability and alerting',
+      ...observabilityRow(observation),
     },
     {
       id: 'customer-deployment',

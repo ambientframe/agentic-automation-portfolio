@@ -17,11 +17,17 @@ import {
   type ScenarioIndexEntry,
 } from '@/lib/proof/commercial-grammar';
 import { deriveFailureRegister, deriveFidelityLedger } from '@/lib/proof/fidelity-ledger';
-import { readEvaluationEvidence, readOperationalViewEvidence, readRuntimeEvidence } from '@/lib/proof/n8n-evidence';
+import {
+  readEvaluationEvidence,
+  readObservationIntegrityEvidence,
+  readOperationalViewEvidence,
+  readRuntimeEvidence,
+} from '@/lib/proof/n8n-evidence';
 import { JourneyConsole } from '@/components/proof/journey-console';
 import { OperatorConsole } from '@/components/proof/operator-console';
 import { FailureRegister, FidelityPanel } from '@/components/proof/fidelity-panel';
 import { OperationsPanel } from '@/components/proof/operations-panel';
+import { ObservationPanel } from '@/components/proof/observation-panel';
 
 /**
  * THE LEAD RESCUE PROOF EXPERIENCE.
@@ -83,12 +89,13 @@ export default async function LeadRescueProofPage() {
     index.push(toScenarioIndexEntry(journey));
   }
 
-  const [evidence, evaluation, operations] = await Promise.all([
+  const [evidence, evaluation, operations, observation] = await Promise.all([
     readRuntimeEvidence(),
     readEvaluationEvidence(),
     readOperationalViewEvidence(),
+    readObservationIntegrityEvidence(),
   ]);
-  const ledger = deriveFidelityLedger({ evidence, evaluation });
+  const ledger = deriveFidelityLedger({ evidence, evaluation, observation });
   const failures = deriveFailureRegister();
 
   /**
@@ -305,6 +312,18 @@ export default async function LeadRescueProofPage() {
           body="The same journal the case above is read from, read across every case the runtime retained. Leads and execution attempts are counted separately so a suppressed replay cannot read as a second delivery, and any interval that was never measured says so rather than showing zero."
         />
         <OperationsPanel evidence={operations} />
+      </section>
+
+      {/* ================================================================== */}
+      {/* C.4 · WHETHER THE RECORD ITSELF HOLDS UP                            */}
+      {/* ================================================================== */}
+      <section className="space-y-8">
+        <ActHeading
+          act="Three · d"
+          title="Whether that record can be trusted, and what it raises"
+          body="Every figure above counts something the system wrote down, so the next question is whether it wrote all of it. This section answers that, raises the few conditions that need a person rather than leaving them to be found, and shows what happened on the two occasions an outbound action genuinely went wrong — each checked against a second process that recorded the same exchange."
+        />
+        <ObservationPanel evidence={observation} />
       </section>
 
       {/* ================================================================== */}
