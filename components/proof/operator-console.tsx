@@ -222,16 +222,39 @@ interface ActionLog {
   readonly raw: unknown;
 }
 
-function readOutcome(payload: unknown): { outcome: string; reading: OutcomeReading } {
+export function readOutcome(payload: unknown): { outcome: string; reading: OutcomeReading } {
   const record = typeof payload === 'object' && payload !== null ? (payload as Record<string, unknown>) : {};
 
   if (typeof record['error'] === 'string') {
+    const detail = typeof record['detail'] === 'string' ? record['detail'] : record['error'];
+
+    /**
+     * An authority refusal under the authenticated contract arrives as a top-level error rather
+     * than as an outcome token, and it must not read as a malfunctioning route — it is the gate
+     * working, and the most convincing thing this panel can show.
+     *
+     * `principal` is the discriminator because that boundary returns one only once it has proven
+     * who is asking and never on a doubt. So its presence separates "we know who you are and you
+     * may not do this" from "we could not establish who you are", which are different events and
+     * would be a lie to merge: the first proves the authority model, the second proves nothing.
+     */
+    if (record['principal'] !== undefined) {
+      return {
+        outcome: 'UNAUTHORIZED',
+        reading: {
+          tone: 'REFUSED',
+          headline: 'Refused — not enough authority',
+          meaning: `${detail} The case was left exactly as it was. This is the authority gate doing its job, not an error.`,
+        },
+      };
+    }
+
     return {
       outcome: 'ERROR',
       reading: {
         tone: 'REFUSED',
         headline: 'The route refused the request',
-        meaning: record['error'],
+        meaning: detail,
       },
     };
   }
