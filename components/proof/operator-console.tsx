@@ -1,6 +1,13 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import {
+  LIVE_SELECTION_RULES,
+  deriveLiveGrammar,
+  type JournalWireEvent,
+  type LiveGrammar,
+  type LiveGrammarCell,
+} from '@/lib/proof/live-grammar';
 
 /**
  * LAYER C — the operator control room.
@@ -164,30 +171,56 @@ const TONE_COLOUR: Record<OutcomeTone, string> = {
 };
 
 /**
- * Two roles that deliberately straddle the gate: one clears it, one cannot. Ids and
- * authority levels match `data/profiles/kestrel/profile.ts`; the route resolves the role
- * itself, so a mismatch here surfaces as a real refusal rather than a wrong label.
- *
- * ONLY USED WHERE THE RUNTIME STILL TAKES A CALLER-SUPPLIED ROLE. See `IdentityRuntime`.
+ * The live strip reuses Part Two's tone vocabulary rather than this panel's, because it is
+ * literally the same five cells and a reader who learned the colours upstairs must not have
+ * to relearn them here. `PERSON` is the one tone the action log has no use for.
  */
-const ROLES = [
-  { id: 'client-partner', label: 'Client Partner — authority 3', hint: 'clears the gate' },
-  { id: 'analyst', label: 'Compliance Analyst — authority 1', hint: 'will be refused' },
-];
+const GRAMMAR_TONE_COLOUR: Record<LiveGrammarCell['tone'], string> = {
+  NEUTRAL: 'var(--ink-muted)',
+  ACTED: 'var(--ok)',
+  HELD: 'var(--blocked)',
+  UNCERTAIN: 'var(--prov-lab)',
+  PERSON: 'var(--prov-fixture)',
+};
 
 /**
- * THE OPERATOR BOUNDARY HAS TWO CONTRACTS IN FLIGHT, and this panel drives whichever one the
- * runtime it is talking to actually implements.
+ * The lane a case sits in, glossed for the outcome cell. Deliberately the same distinction the
+ * lane headings below already make, so the strip cannot describe a case differently from the
+ * section it is standing in.
+ */
+const STAGE_MEANING: Record<Stage, string> = {
+  review: 'A named person owns this case and nothing is running against a clock.',
+  ready: 'Enough is known to offer a next step. That is readiness, not delivery — nothing has been sent.',
+  waiting: 'Parked deliberately against a real deadline that is genuinely running.',
+};
+
+const JOURNAL_ROUTE = '/api/lead-rescue/journal';
+
+/**
+ * Four states, because the journal has four genuinely different answers and an operator must
+ * never be shown the same thing for "nothing happened" and "history is unreadable". The route
+ * returns 409 for the latter precisely so a corrupt record cannot be rendered as a shorter,
+ * successful-looking history.
+ */
+type JournalState =
+  | { readonly kind: 'IDLE' }
+  | { readonly kind: 'LOADING'; readonly incidentId: string }
+  | { readonly kind: 'READY'; readonly incidentId: string; readonly events: readonly JournalWireEvent[] }
+  | { readonly kind: 'UNREADABLE'; readonly incidentId: string; readonly detail: string };
+
+/**
+ * IDENTITY IS PROVEN, NOT CLAIMED, AND THIS PANEL HAS NO OTHER MODE.
  *
- * Older: the caller names its own role in the request body (`decidedBy`).
- * Newer: identity is proven. The caller presents a bearer credential minted by the runtime,
- * the body carries no role at all, and the schemas are strict — so sending `decidedBy` is
- * refused outright rather than ignored.
+ * `DecideRequestSchema` and `DispatchRequestSchema` are `strictObject`s with no `decidedBy`
+ * field, so a body that names its own role is rejected before a handler runs. Every action
+ * below therefore exchanges the chosen principal for a credential this server signed and sends
+ * that instead; the role is resolved from the credential by
+ * `lib/service/operator-decision.ts` and never from anything this page sends.
  *
- * The panel asks the runtime which it is (`GET /operator-session`) instead of assuming, because
- * assuming wrongly is not a degraded demo: under the newer contract every action would return a
- * schema error, and the authority refusal — the most convincing thing on this page — would be
- * replaced by a validation complaint that proves nothing.
+ * The roster comes from `GET /operator-session` rather than being authored here, because a
+ * hard-coded ceiling that drifted from `data/profiles/kestrel/profile.ts` would mislabel the
+ * one control this section exists for: choosing an operator who cannot clear the gate and
+ * watching the gate refuse them.
  */
 interface Principal {
   readonly principalId: string;
@@ -203,6 +236,17 @@ interface IdentityRuntime {
   readonly sessionIssuerEnabled: boolean;
   readonly principals: readonly Principal[];
 }
+
+/**
+ * Three states, because they are three genuinely different situations for a reader and only
+ * one of them means the controls work. Collapsing "still asking" into "cannot act" would show
+ * a refusal notice for a fraction of a second on every load; collapsing "cannot act" into
+ * "still asking" would leave the controls looking available on a runtime that will refuse them.
+ */
+type IdentityState =
+  | { readonly kind: 'LOADING' }
+  | { readonly kind: 'READY'; readonly runtime: IdentityRuntime }
+  | { readonly kind: 'UNAVAILABLE'; readonly detail: string };
 
 const SESSION_ROUTE = '/api/lead-rescue/operator-session';
 
@@ -293,7 +337,37 @@ export function OperatorConsole() {
   const [busy, setBusy] = useState(false);
   const [failure, setFailure] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
-  const [identity, setIdentity] = useState<IdentityRuntime | null>(null);
+  const [identity, setIdentity] = useState<IdentityState>({ kind: 'LOADING' });
+  const [journal, setJournal] = useState<JournalState>({ kind: 'IDLE' });
+
+  const readJournal = useCallback(async (incidentId: string) => {
+    setJournal({ kind: 'LOADING', incidentId });
+    try {
+      const response = await fetch(`${JOURNAL_ROUTE}?incidentId=${encodeURIComponent(incidentId)}`);
+      const payload: unknown = await response.json().catch(() => ({}));
+      const record = typeof payload === 'object' && payload !== null ? (payload as Record<string, unknown>) : {};
+
+      if (!response.ok) {
+        setJournal({
+          kind: 'UNREADABLE',
+          incidentId,
+          detail: typeof record['error'] === 'string' ? record['error'] : `the journal returned ${response.status}`,
+        });
+        return;
+      }
+      setJournal({
+        kind: 'READY',
+        incidentId,
+        events: Array.isArray(record['events']) ? (record['events'] as readonly JournalWireEvent[]) : [],
+      });
+    } catch (error) {
+      setJournal({
+        kind: 'UNREADABLE',
+        incidentId,
+        detail: error instanceof Error ? error.message : 'the journal could not be reached',
+      });
+    }
+  }, []);
 
   const refresh = useCallback(async () => {
     try {
@@ -317,15 +391,19 @@ export function OperatorConsole() {
   }, [refresh]);
 
   useEffect(() => {
-    // A capability probe, not data. A 404 is the expected answer on a runtime that predates the
-    // authenticated contract, so it is not surfaced as a failure — it selects the other branch.
     void (async () => {
       try {
         const response = await fetch(SESSION_ROUTE);
-        if (!response.ok) return;
-        setIdentity((await response.json()) as IdentityRuntime);
-      } catch {
-        /* Offline or route absent. The legacy branch is the correct fallback either way. */
+        if (!response.ok) {
+          setIdentity({ kind: 'UNAVAILABLE', detail: `the operator session route returned ${response.status}` });
+          return;
+        }
+        setIdentity({ kind: 'READY', runtime: (await response.json()) as IdentityRuntime });
+      } catch (error) {
+        setIdentity({
+          kind: 'UNAVAILABLE',
+          detail: error instanceof Error ? error.message : 'the operator session route could not be reached',
+        });
       }
     })();
   }, []);
@@ -335,44 +413,38 @@ export function OperatorConsole() {
       setBusy(true);
       try {
         const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-        let sent = body;
 
         if (actor !== undefined) {
-          if (identity === null) {
-            // Legacy contract: the caller names its own role, and the route believes it.
-            sent = { ...(body as object), decidedBy: actor };
-          } else {
-            // Authenticated contract: exchange the chosen principal for a credential this
-            // runtime minted, and let the route resolve the role from it. The body stays clean
-            // because its schema is strict and would refuse a role field outright.
-            const minted = await fetch(SESSION_ROUTE, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ principalId: actor }),
-            });
-            const issued: unknown = await minted.json().catch(() => ({}));
-            const token =
-              typeof issued === 'object' && issued !== null && typeof (issued as Record<string, unknown>)['token'] === 'string'
-                ? ((issued as Record<string, unknown>)['token'] as string)
-                : null;
+          // Exchange the chosen principal for a credential this runtime minted, and let the
+          // route resolve the role from it. The body is never touched: its schema is strict and
+          // would refuse a role field outright.
+          const minted = await fetch(SESSION_ROUTE, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ principalId: actor }),
+          });
+          const issued: unknown = await minted.json().catch(() => ({}));
+          const token =
+            typeof issued === 'object' && issued !== null && typeof (issued as Record<string, unknown>)['token'] === 'string'
+              ? ((issued as Record<string, unknown>)['token'] as string)
+              : null;
 
-            if (token === null) {
-              // Report the refusal rather than sending an unauthenticated request that would be
-              // refused for a second, unrelated reason and read as though the gate were broken.
-              const { outcome, reading } = readOutcome(issued);
-              setLog((entries) =>
-                [{ action, outcome, reading, at: new Date().toISOString(), raw: issued }, ...entries].slice(0, 6),
-              );
-              return;
-            }
-            headers['Authorization'] = `Bearer ${token}`;
+          if (token === null) {
+            // Report this refusal rather than sending an unauthenticated request, which would be
+            // refused for a second, unrelated reason and read as though the gate were broken.
+            const { outcome, reading } = readOutcome(issued);
+            setLog((entries) =>
+              [{ action, outcome, reading, at: new Date().toISOString(), raw: issued }, ...entries].slice(0, 6),
+            );
+            return;
           }
+          headers['Authorization'] = `Bearer ${token}`;
         }
 
         const response = await fetch(url, {
           method: 'POST',
           headers,
-          body: JSON.stringify(sent),
+          body: JSON.stringify(body),
         });
         const payload: unknown = await response.json().catch(() => ({}));
         const { outcome, reading } = readOutcome(payload);
@@ -381,18 +453,51 @@ export function OperatorConsole() {
         );
         setFailure(null);
         await refresh();
+
+        // Follow the case the operator just acted on, so the strip below is always about the
+        // thing they last touched rather than whatever happened to be first in the list.
+        const touched = incidentIdFrom(body, payload);
+        if (touched !== null) await readJournal(touched);
       } catch (error) {
         setFailure(error instanceof Error ? error.message : 'the request could not be completed');
       } finally {
         setBusy(false);
       }
     },
-    [refresh, identity],
+    [refresh, readJournal],
   );
+
+  useEffect(() => {
+    // Open on a case rather than on an empty frame. Only ever runs while nothing is selected,
+    // so it can never pull focus away from the case an operator is working on.
+    if (journal.kind !== 'IDLE') return;
+    const first = incidents[0];
+    if (first === undefined) return;
+    // Plain effect on purpose, as with `refresh` above: this project deliberately carries no
+    // data-fetching library, and the guard above makes this run at most once per mount.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void readJournal(first.incidentId);
+  }, [incidents, journal.kind, readJournal]);
 
   const review = incidents.filter((incident) => incident.stage === 'review');
   const ready = incidents.filter((incident) => incident.stage === 'ready');
   const waiting = incidents.filter((incident) => incident.stage === 'waiting');
+
+  /**
+   * Derived at render from the CURRENT case list rather than captured when the journal was
+   * fetched, so the outcome cell cannot report a lifecycle state the store has since moved past.
+   */
+  const focusId = journal.kind === 'IDLE' ? null : journal.incidentId;
+  const focus = incidents.find((incident) => incident.incidentId === focusId) ?? null;
+  const grammar: LiveGrammar | null =
+    journal.kind === 'READY'
+      ? deriveLiveGrammar({
+          incidentId: journal.incidentId,
+          events: journal.events,
+          lifecycleState: focus?.lifecycleState ?? null,
+          lifecycleMeaning: focus === null ? null : STAGE_MEANING[focus.stage],
+        })
+      : null;
 
   return (
     <div className="space-y-6">
@@ -420,16 +525,28 @@ export function OperatorConsole() {
           this process and no recipient exists. The claim, the authority check, and the duplicate
           refusal around it are all real.
         </p>
-        {identity !== null && (
-          <p className="instrument leading-relaxed prose-measure" style={{ color: 'var(--ink-muted)' }}>
-            <span className="label">Identity is proven, not claimed</span> This runtime refuses a
-            request that names its own role. Each action below first obtains a credential this
-            server signed, and the gate reads the operator&rsquo;s authority from the business
-            profile rather than from anything this page sends.
-            {!identity.sessionIssuerEnabled &&
-              ' This particular runtime holds a durable signing key and issues no credentials of its own, so the controls below cannot act until a token is supplied out of band — and they will say so rather than appear to work.'}
-          </p>
-        )}
+        <p className="instrument leading-relaxed prose-measure" style={{ color: 'var(--ink-muted)' }}>
+          <span className="label">Identity is proven, not claimed</span> This runtime refuses a
+          request that names its own role. Each action below first obtains a credential this
+          server signed, and the gate reads the operator&rsquo;s authority from the business
+          profile rather than from anything this page sends.
+          {identity.kind === 'READY' && !identity.runtime.sessionIssuerEnabled && (
+            <>
+              {' '}
+              This particular runtime holds a durable signing key and issues no credentials of its
+              own, so the controls below cannot act until a token is supplied out of band — and
+              they will say so rather than appear to work.
+            </>
+          )}
+          {identity.kind === 'UNAVAILABLE' && (
+            <>
+              {' '}
+              The operator roster could not be read from this runtime ({identity.detail}), so no
+              action can be attempted. Nothing below is disabled to hide a failure — there is
+              simply no identity to act as.
+            </>
+          )}
+        </p>
       </div>
 
       {failure !== null && (
@@ -483,6 +600,16 @@ export function OperatorConsole() {
           {windows?.review ?? '…'}h · unsent-but-ready attention {windows?.dispatch ?? '…'}h.
         </p>
       </div>
+
+      {/* --- The same five cells, for a live case -------------------------- */}
+      <LiveGrammarStrip
+        journal={journal}
+        grammar={grammar}
+        incidents={incidents}
+        contactName={focus?.contactName ?? null}
+        onReload={readJournal}
+        busy={busy}
+      />
 
       {/* --- Action log --------------------------------------------------- */}
       {log.length > 0 && (
@@ -568,27 +695,268 @@ export function OperatorConsole() {
 type Post = (action: string, url: string, body: unknown, actor?: string) => Promise<void>;
 
 /**
- * The actor picker. Under the authenticated contract the roster is the runtime's own, and each
- * ceiling is read from the business profile server-side — so the numbers cannot drift from the
- * policy the gate actually enforces. It deliberately offers low-authority operators: choosing
- * one produces a real refusal, which is the point of the control.
+ * The case an action was about. Read from the request body where the caller named one, and
+ * otherwise from the record the route returned — which is the only way to follow a case that
+ * did not exist when the button was pressed.
  */
-function ActorField({ label, identity }: { readonly label: string; readonly identity: IdentityRuntime | null }) {
-  if (identity === null) {
+function incidentIdFrom(body: unknown, payload: unknown): string | null {
+  const fromBody = typeof body === 'object' && body !== null ? (body as Record<string, unknown>)['incidentId'] : undefined;
+  if (typeof fromBody === 'string' && fromBody.length > 0) return fromBody;
+
+  const record = typeof payload === 'object' && payload !== null ? (payload as Record<string, unknown>) : {};
+  const parked = record['parked'];
+  const fromParked = typeof parked === 'object' && parked !== null ? (parked as Record<string, unknown>)['incidentId'] : undefined;
+  return typeof fromParked === 'string' && fromParked.length > 0 ? fromParked : null;
+}
+
+/**
+ * THE SAME FIVE CELLS AS PART TWO, FOR A CASE THAT IS GENUINELY RUNNING.
+ *
+ * Everything rendered here was derived by `lib/proof/live-grammar.ts` from the execution
+ * journal — the history the runtime writes about itself and re-reads from disk — never from
+ * the HTTP responses in the log below. A cell the runtime did not write is drawn as absent
+ * and says which of "not observed" and "did not happen" it is claiming, because the journal
+ * is deliberately lossy and only the first of those is ever provable from it.
+ */
+function LiveGrammarStrip({
+  journal,
+  grammar,
+  incidents,
+  contactName,
+  onReload,
+  busy,
+}: {
+  readonly journal: JournalState;
+  readonly grammar: LiveGrammar | null;
+  readonly incidents: readonly IncidentSummary[];
+  readonly contactName: string | null;
+  readonly onReload: (incidentId: string) => Promise<void>;
+  readonly busy: boolean;
+}) {
+  if (journal.kind === 'IDLE') {
+    return (
+      <div className="border rule rounded-sm p-4" style={{ background: 'var(--paper-raised)' }}>
+        <h4 className="label">The runtime&rsquo;s own record</h4>
+        <p className="instrument leading-relaxed prose-measure mt-2" style={{ color: 'var(--ink-muted)' }}>
+          Create or act on a case above and its recorded history appears here, in the same five
+          cells the incidents further up the page use.
+        </p>
+      </div>
+    );
+  }
+
+  if (journal.kind === 'UNREADABLE') {
+    return (
+      <div
+        className="border rule rounded-sm p-4 space-y-2"
+        style={{ background: 'var(--panel)', borderBlockStartWidth: '2px', borderBlockStartColor: 'var(--blocked)' }}
+      >
+        <h4 className="label" style={{ color: 'var(--blocked)' }}>
+          Retained history is unreadable
+        </h4>
+        <p className="instrument leading-relaxed prose-measure" style={{ color: 'var(--ink-muted)' }}>
+          {journal.detail}. This is deliberately not shown as an empty history: a corrupt record
+          rendered as a shorter, successful-looking run would be a fabricated history in the only
+          sense that matters here.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-2">
+        <div className="min-w-0 space-y-1">
+          <h4 className="label">The runtime&rsquo;s own record of this case</h4>
+          <p className="instrument" style={{ color: 'var(--ink-faint)', overflowWrap: 'anywhere' }}>
+            {contactName === null ? journal.incidentId : `${contactName} · ${journal.incidentId}`}
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          {grammar !== null && (
+            <span className="badge" style={{ borderColor: 'var(--rule-strong)', color: 'var(--ink-muted)' }}>
+              {grammar.recordCount} record{grammar.recordCount === 1 ? '' : 's'} ·{' '}
+              {grammar.observedStages} of 5 stages observed
+            </span>
+          )}
+          {incidents.length > 1 && (
+            <select
+              aria-label="Case to read the record of"
+              value={journal.incidentId}
+              onChange={(event) => void onReload(event.target.value)}
+              disabled={busy}
+              className="proof-input"
+              style={{ inlineSize: 'auto' }}
+            >
+              {incidents.map((incident) => (
+                <option key={incident.incidentId} value={incident.incidentId}>
+                  {incident.contactName ?? incident.incidentId}
+                </option>
+              ))}
+            </select>
+          )}
+          <button
+            type="button"
+            onClick={() => void onReload(journal.incidentId)}
+            disabled={busy || journal.kind === 'LOADING'}
+            className="badge disabled:opacity-40"
+            style={{ borderColor: 'var(--rule-strong)' }}
+          >
+            Re-read from disk
+          </button>
+        </div>
+      </div>
+
+      {grammar === null ? (
+        <p className="instrument" style={{ color: 'var(--ink-faint)' }}>
+          Reading the journal…
+        </p>
+      ) : (
+        <>
+          <ol
+            className="grid gap-px border rule rounded-sm overflow-hidden lg:grid-cols-5"
+            style={{ background: 'var(--rule)' }}
+          >
+            {grammar.cells.map((cell, position) => {
+              const colour = GRAMMAR_TONE_COLOUR[cell.tone];
+              const absent = cell.status === 'NOT_OBSERVED';
+              return (
+                <li
+                  key={cell.stage}
+                  className="min-w-0 p-4 space-y-2"
+                  style={{
+                    background: 'var(--paper-raised)',
+                    borderBlockStart: `2px solid ${absent ? 'var(--rule-strong)' : colour}`,
+                    opacity: absent ? 0.72 : 1,
+                  }}
+                >
+                  <span className="flex items-center gap-2">
+                    <span className="label" style={{ color: 'var(--ink-faint)' }}>
+                      {position + 1}
+                    </span>
+                    <span className="label" style={{ color: absent ? 'var(--ink-faint)' : colour }}>
+                      {cell.heading}
+                    </span>
+                  </span>
+                  <span className="block text-[0.9375rem] leading-snug font-medium" style={{ overflowWrap: 'anywhere' }}>
+                    {cell.headline}
+                  </span>
+                  {cell.technicalName !== null && (
+                    <span
+                      className="instrument block truncate"
+                      style={{ color: 'var(--ink-faint)' }}
+                      title={cell.technicalName}
+                    >
+                      {cell.technicalName}
+                    </span>
+                  )}
+                  <span className="instrument block leading-relaxed" style={{ color: 'var(--ink-muted)' }}>
+                    {cell.detail}
+                  </span>
+                  <span className="flex flex-wrap items-center gap-1.5">
+                    <SourceBadge status={cell.status} />
+                    {cell.executionMode !== null && (
+                      <span
+                        className="badge"
+                        style={
+                          cell.executionMode === 'LIVE'
+                            ? { borderColor: 'var(--ok)', color: 'var(--ok)' }
+                            : { borderColor: 'var(--warn)', color: 'var(--warn)' }
+                        }
+                        title="Read from the record the executor itself wrote, never inferred by this page."
+                      >
+                        {cell.executionMode === 'LIVE' ? 'Left the process' : 'Simulated transport'}
+                      </span>
+                    )}
+                  </span>
+                </li>
+              );
+            })}
+          </ol>
+
+          <details>
+            <summary className="label cursor-pointer hover:opacity-70">
+              How these five were chosen, and every record behind them
+            </summary>
+            <div className="mt-3 border-l-2 pl-4 space-y-4" style={{ borderColor: 'var(--rule-strong)' }}>
+              <p className="instrument leading-relaxed prose-measure" style={{ color: 'var(--ink-muted)' }}>
+                One fixed rule per cell, applied to every case. The journal is non-authoritative
+                and never retries a failed write, so an absent record means the runtime did not
+                observe that stage — never that it did not occur.
+              </p>
+              <dl className="instrument space-y-1.5">
+                {LIVE_SELECTION_RULES.map((rule) => (
+                  <div key={rule.stage} className="flex flex-col sm:flex-row sm:gap-3">
+                    <dt className="label shrink-0 sm:w-24">{rule.stage}</dt>
+                    <dd style={{ color: 'var(--ink-muted)' }}>{rule.rule}</dd>
+                  </div>
+                ))}
+              </dl>
+              {journal.kind === 'READY' && (
+                <pre className="instrument overflow-x-auto" style={{ color: 'var(--ink-faint)' }}>
+                  {JSON.stringify(journal.events, null, 2)}
+                </pre>
+              )}
+            </div>
+          </details>
+        </>
+      )}
+    </div>
+  );
+}
+
+function SourceBadge({ status }: { readonly status: LiveGrammarCell['status'] }) {
+  if (status === 'OBSERVED') {
+    return (
+      <span
+        className="badge"
+        style={{ borderColor: 'var(--prov-evidence)', color: 'var(--prov-evidence)' }}
+        title="Backed by a record the runtime durably wrote and re-read from disk."
+      >
+        Journal record
+      </span>
+    );
+  }
+  if (status === 'FROM_CASE_RECORD') {
+    return (
+      <span
+        className="badge"
+        style={{ borderColor: 'var(--rule-strong)', color: 'var(--ink-muted)' }}
+        title="Read from the persisted case record. No journal event type produces an outcome record."
+      >
+        Case record on disk
+      </span>
+    );
+  }
+  return (
+    <span
+      className="badge"
+      style={{ borderColor: 'var(--rule-strong)', color: 'var(--ink-faint)' }}
+      title="The runtime wrote nothing here. That is a statement about what was observed, not about what happened."
+    >
+      Not observed
+    </span>
+  );
+}
+
+/**
+ * The actor picker. The roster is the runtime's own and each ceiling is read from the business
+ * profile server-side, so the numbers cannot drift from the policy the gate actually enforces.
+ * It deliberately offers low-authority operators: choosing one produces a real refusal, which
+ * is the point of the control.
+ */
+function ActorField({ label, identity }: { readonly label: string; readonly identity: IdentityState }) {
+  if (identity.kind !== 'READY') {
     return (
       <Field label={label}>
-        <select name="actor" defaultValue="client-partner" className="proof-input">
-          {ROLES.map((role) => (
-            <option key={role.id} value={role.id}>
-              {role.label} · {role.hint}
-            </option>
-          ))}
+        <select name="actor" disabled className="proof-input">
+          <option>{identity.kind === 'LOADING' ? 'Reading the operator roster…' : 'No roster available'}</option>
         </select>
       </Field>
     );
   }
 
-  const ranked = [...identity.principals].sort((a, b) => (b.authorityCeiling ?? 0) - (a.authorityCeiling ?? 0));
+  const ranked = [...identity.runtime.principals].sort((a, b) => (b.authorityCeiling ?? 0) - (a.authorityCeiling ?? 0));
   const highest = ranked[0];
 
   return (
@@ -765,7 +1133,7 @@ function ReviewCard({
   readonly incident: IncidentSummary;
   readonly busy: boolean;
   readonly post: Post;
-  readonly identity: IdentityRuntime | null;
+  readonly identity: IdentityState;
 }) {
   return (
     <form
@@ -858,7 +1226,7 @@ function DispatchCard({
   readonly incident: IncidentSummary;
   readonly busy: boolean;
   readonly post: Post;
-  readonly identity: IdentityRuntime | null;
+  readonly identity: IdentityState;
 }) {
   return (
     <form

@@ -137,6 +137,55 @@ describe('the ledger reports configuration, and never improves on it', () => {
     ).toBe('REAL');
   });
 
+  /**
+   * The operator signing key resolves to three modes, and the third is the one worth a test:
+   * a key that was configured but is too short does NOT fall back to the working ephemeral
+   * mode. Reporting it as REAL because a key exists would describe an authenticated boundary on
+   * a runtime that currently answers every operator action with a 503.
+   */
+  it('reports operator authentication from the resolved signing mode, and fails closed on a bad key', () => {
+    const ephemeral = deriveFidelityLedger({ evidence: ABSENT, env: {} }).rows.find(
+      (entry) => entry.id === 'operator-authentication',
+    );
+    expect(ephemeral?.status).toBe('REAL');
+    expect(ephemeral?.whatIsTrue).toContain('never written to disk');
+
+    const configured = deriveFidelityLedger({
+      evidence: ABSENT,
+      env: { LEAD_RESCUE_OPERATOR_SIGNING_KEY: 'k'.repeat(48) },
+    }).rows.find((entry) => entry.id === 'operator-authentication');
+    expect(configured?.status).toBe('REAL');
+    expect(configured?.whatIsTrue).toContain('survives a restart');
+
+    const broken = deriveFidelityLedger({
+      evidence: ABSENT,
+      env: { LEAD_RESCUE_OPERATOR_SIGNING_KEY: 'too-short' },
+    }).rows.find((entry) => entry.id === 'operator-authentication');
+    expect(broken?.status).toBe('UNVERIFIED');
+    expect(broken?.whatIsTrue).toContain('fails closed');
+    expect(broken?.whatIsTrue).not.toContain('survives a restart');
+  });
+
+  /**
+   * The claim this branch shipped before the authenticated boundary landed on main. Left
+   * unchanged it would have been the page's only outright false statement — worse than an
+   * under-claim, because a sceptic who checked it would find the opposite of what it said.
+   */
+  it('no longer claims the operator routes are unauthenticated or the role caller-supplied', () => {
+    const ledger = deriveFidelityLedger({ evidence: ABSENT, env: {} });
+    const authority = ledger.rows.find((entry) => entry.id === 'authority-gate');
+    const httpPath = ledger.rows.find((entry) => entry.id === 'http-operator-path');
+
+    expect(authority?.limit).not.toMatch(/nothing authenticates/i);
+    expect(authority?.limit).not.toMatch(/there is no sign-in/i);
+    expect(httpPath?.limit).not.toMatch(/these routes are unauthenticated/i);
+
+    // And the honest residue is still stated: a credential is not a person.
+    expect(
+      ledger.rows.find((entry) => entry.id === 'operator-authentication')?.limit,
+    ).toMatch(/never that a particular person proved who they were/i);
+  });
+
   it('holds orchestration at unverified until a capture is actually readable', () => {
     const absent = deriveFidelityLedger({ evidence: ABSENT, env: {} });
     expect(absent.rows.find((entry) => entry.id === 'n8n-orchestration')?.status).toBe('UNVERIFIED');
@@ -169,6 +218,7 @@ describe('every ledger row stays falsifiable', () => {
   it('covers each capability the brief asks about', () => {
     for (const id of [
       'http-operator-path',
+      'operator-authentication',
       'persistence',
       'n8n-orchestration',
       'ai-classification',

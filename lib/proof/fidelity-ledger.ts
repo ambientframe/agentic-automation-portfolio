@@ -11,6 +11,7 @@ import {
   resolveSideEffectExecutorSelection,
   type SideEffectExecutorSelection,
 } from '@/lib/config/side-effect-executor-config';
+import { resolveOperatorAuth, type OperatorAuthResolution } from '@/lib/config/operator-auth-config';
 import { evidenceProvesOrchestration, type RuntimeEvidence } from './n8n-evidence';
 
 /**
@@ -135,6 +136,35 @@ function outboundRow(executor: SideEffectExecutorSelection): Pick<FidelityRow, '
   }
 }
 
+/**
+ * The third composition root, resolved the same way and exhausted the same way. Its
+ * MISCONFIGURED branch is the one that matters: a runtime whose signing key is unusable
+ * authenticates nobody and answers every operator action with a 503, which is neither a
+ * working authenticated boundary nor an unauthenticated one. Reporting it as REAL because a
+ * key was configured would describe a guarantee this process cannot currently make.
+ */
+function operatorAuthenticationRow(auth: OperatorAuthResolution): Pick<FidelityRow, 'status' | 'whatIsTrue'> {
+  switch (auth.mode) {
+    case 'CONFIGURED_KEY':
+      return {
+        status: 'REAL',
+        whatIsTrue:
+          'Operator actions require a credential signed with a durable key this runtime was deliberately given, so a token survives a restart. In this mode the prototype principal selector refuses to issue anything at all: a runtime holding a real key must not also expose a faucet that hands an identity to whoever asks.',
+      };
+    case 'EPHEMERAL_KEY':
+      return {
+        status: 'REAL',
+        whatIsTrue:
+          'Operator actions require a credential signed with a key generated inside this process and never written to disk, logged, or returned by any route. A caller cannot mint one, and a request that names its own role is refused by the schema before a handler runs — the role is resolved from the credential instead. Tokens die with the process.',
+      };
+    case 'MISCONFIGURED':
+      return {
+        status: 'UNVERIFIED',
+        whatIsTrue: `A signing key was configured for this runtime but is unusable, so it authenticates nobody: every operator action fails closed rather than quietly accepting a weak key or reverting to an unauthenticated path. Reason given: ${auth.reason}.`,
+      };
+  }
+}
+
 export interface LedgerInputs {
   readonly evidence: RuntimeEvidence;
   /** Defaults to `process.env`. Injectable so tests can assert both configured states. */
@@ -145,6 +175,12 @@ export function deriveFidelityLedger({ evidence, env = process.env }: LedgerInpu
   const provider = resolveDecisionProviderSelection(env);
   const executor = resolveSideEffectExecutorSelection(env);
   const evalGate = resolveLiveEvalGate(env);
+  /**
+   * The generator is overridden because this module must never hold a signing key, not even a
+   * throwaway one: only `mode` and `sessionIssuerEnabled` are read here, and the real key lives
+   * in `lib/auth/lead-rescue-operator-runtime.ts` where exactly two functions can reach it.
+   */
+  const operatorAuth = resolveOperatorAuth(env, () => 'the fidelity ledger never reads a signing key');
   const orchestrationProven = evidenceProvesOrchestration(evidence);
   const floor = numberParam(KESTREL, 'confidenceFloor');
   const reviewWindow = numberParam(KESTREL, 'humanReviewTimeoutHours');
@@ -165,10 +201,10 @@ export function deriveFidelityLedger({ evidence, env = process.env }: LedgerInpu
       capability: 'Authority gate',
       status: 'REAL',
       whatIsTrue:
-        'Authority is attached to each action and checked before it runs. A decision recorded by a role whose ceiling is below the required level is refused and the record is left untouched.',
-      basis: 'lib/engine/reducer.ts · tests/lead-rescue-review-dispatch.test.ts',
+        'Authority is attached to each action and checked before it runs. A decision recorded by a role whose ceiling is below the required level is refused and the record is left untouched, and an offer despatch is gated on the same check before any claim is taken or any transport is called.',
+      basis: 'lib/engine/reducer.ts · lib/engine/wait-resume.ts · tests/lead-rescue-review-dispatch.test.ts',
       limit:
-        'Nothing authenticates the person behind a role. The role is supplied with the request; there is no sign-in binding an identity to it.',
+        'The ceiling comparison is the engine\u2019s and runs everywhere. Where the acting role comes from is not: on the scenario runs it is authored into the event, and only on the operator routes is it bound to an authenticated credential. Neither establishes which human is behind that role.',
     },
     {
       id: 'idempotency',
@@ -198,7 +234,16 @@ export function deriveFidelityLedger({ evidence, env = process.env }: LedgerInpu
         'The operator controls on this page call real route handlers over HTTP. Each one re-reads the persisted store, applies exactly one canonical event through the ordinary handler, and returns the engine\u2019s own result — including refusals.',
       basis: 'app/api/lead-rescue/wait-incidents/**/route.ts',
       limit:
-        'These routes are unauthenticated and intended for demonstration on a local instance. They are not a production operator interface.',
+        'The two consequential routes — recording a decision and despatching an offer — require a signed operator credential. Listing cases and checking deadlines do not. All of them are meant for demonstration on a local instance and are not a production operator interface.',
+    },
+    {
+      id: 'operator-authentication',
+      capability: 'Operator identity and authentication',
+      ...operatorAuthenticationRow(operatorAuth),
+      basis:
+        'lib/auth/operator-identity.ts · lib/service/operator-decision.ts · tests/operator-authentication.test.ts',
+      limit:
+        'The principal selector is not a login. It asks for no password, verifies no human, and contacts no identity provider — so this establishes that authority is bound to a credential only this runtime could have minted, never that a particular person proved who they were.',
     },
     {
       id: 'clock-and-timeout',
