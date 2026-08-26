@@ -308,7 +308,13 @@ describe.skipIf(LIVE_EVAL_GATE.kind !== 'READY')(
 
       const overallAccuracy = outcomes.filter((o) => o.correct).length / outcomes.length;
       expect(overallAccuracy).toBeGreaterThanOrEqual(0.75);
-    });
+      // `evaluateCorpus` deliberately runs the corpus SEQUENTIALLY — one live call at a time,
+      // so a failure is attributable to a single case rather than to concurrent load. Nine real
+      // `claude-opus-5` calls take far longer than vitest's 5s default, which no prior pass
+      // discovered because this suite had never once executed against a real provider. This
+      // bound is transport headroom ONLY: it changes no label, threshold, prompt, or model
+      // setting, and a corpus that fails still fails.
+    }, 180_000);
   },
 );
 

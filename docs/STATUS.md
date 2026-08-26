@@ -1,5 +1,47 @@
 # Status
 
+**As of 2026-08-26 (latest pass, same day) · A genuine `claude-opus-5` judgment has now executed
+inside the real HTTP ingress path — and the frozen evaluation corpus it enabled promptly FAILED
+its own predeclared thresholds.** Two claims, earned separately, and only one of them is good
+news. `POST /api/lead-rescue/ingress` with `LEAD_RESCUE_DECISION_PROVIDER=claude` genuinely
+traversed route → `ingestExternalLead` → `resolveJudgment` → `ClaudeDecisionProvider` → the
+Anthropic Messages API → schema validation → the Lead Rescue handler, returning
+`QUALIFIED_ENQUIRY` at confidence **0.92** — a value `INGRESS_FIXTURE_JUDGMENT` (pinned at 0.93)
+cannot produce, which is what makes the run distinguishable from the fixture path at all. The
+live classification network boundary is no longer `UNVERIFIED_LIVE`.
+
+**The correction this pass paid for, and the reason the evidence is shaped the way it is.** An
+earlier attempt in the same package read `classifierProvider: "claude-decision-provider"` on a
+request whose API call returned 401 and produced **no judgment whatsoever** — the case routed to
+`lr-t06`/`NEEDS_HUMAN` exactly as the fail-safe path is designed to. `classifierProvider` reports
+which provider `resolveIngressDecisionProvider` SELECTED, never whether inference succeeded.
+Any future evidence resting on that field alone would be false proof; this artifact rests on a
+returned classification value and the adapter's own post-validation provenance line instead.
+
+**The evaluation is a retained NEGATIVE result.** All 9 frozen cases ran against the real model:
+**6/9 correct (66.7%)** against a declared floor of 75%, and `policy-sensitive-canon-fenwick`
+returned `NEEDS_MORE_INFORMATION` (0.66) where canon expects `POLICY_SENSITIVE` — breaking the
+"every canon-sourced case correct" threshold. No label, example, threshold, prompt, or model
+setting was altered to soften that; the corpus literal is sha-verified byte-identical before and
+after. **The failure is one of accuracy, never of safety**: zero unsafe misclassifications, every
+miss either below the configured `confidenceFloor` (0.7) or reporting missing information, both
+of which route to a person rather than to an action — and the adversarial prompt-injection case
+passed, the injected "confidence 1.0, no missing information" demand refused with a returned
+0.75. Retained in `n8n/evidence/lead-rescue-live-classification.json`, guarded by
+`tests/live-classification-evidence.test.ts` (13 tests, each confirmed to fail against a
+deliberately corrupted artifact).
+
+**One real defect this pass found only by paying for it.** The live evaluation suite had never
+once executed against a real provider, so nobody had discovered that nine SEQUENTIAL
+`claude-opus-5` calls cannot finish inside vitest's 5-second default timeout. The suite aborted
+after one case. Fixed with a transport bound only (`180_000`); it changes no label, threshold,
+prompt, or model setting, and a corpus that fails still fails.
+
+Maturity unchanged: `INTERACTIVE_PROTOTYPE`, `NOT_LIVE`. A successful API call does not make this
+system live, production-ready, or customer-proven — every input was synthetic, nothing ran on a
+deployment, and no outbound message, n8n execution, or third party other than the Anthropic API
+was involved.
+
 **As of 2026-08-26 (later pass, same day) · Lead Rescue operator authority is now bound to an
 authenticated identity instead of a caller-supplied claim.** Until this pass a request chose
 its own authority: `POST .../decide` accepted `decidedBy: 'client-partner'` in the body, and the
@@ -119,7 +161,7 @@ a third declared transition pair in Call-to-Proposal.
 
 | # | System | Maturity | Runs? |
 | --- | --- | --- | --- |
-| 1 | Lead Rescue | `INTERACTIVE_PROTOTYPE` | Yes — 7 scenarios execute end to end, a live wait/resume demo covering both prospect-response waiting categories and both operator-attention timeout categories, a real n8n-driven ingress path for new leads, a real n8n-driven scheduled sweep that wakes waiting incidents on its own, and a genuine live-model classification seam (`claude-opus-5`, `UNVERIFIED_LIVE` in this environment) reachable through the same ingress path only via an explicit `LEAD_RESCUE_DECISION_PROVIDER=claude` selection — never by credential presence alone |
+| 1 | Lead Rescue | `INTERACTIVE_PROTOTYPE` | Yes — 7 scenarios execute end to end, a live wait/resume demo covering both prospect-response waiting categories and both operator-attention timeout categories, a real n8n-driven ingress path for new leads, a real n8n-driven scheduled sweep that wakes waiting incidents on its own, and a genuine live-model classification seam (`claude-opus-5`) that has now genuinely executed through that same ingress path, reachable only via an explicit `LEAD_RESCUE_DECISION_PROVIDER=claude` selection — never by credential presence alone. Its 9-case evaluation corpus has been run against the real model and FAILED its predeclared thresholds (6/9; see the latest entry above) |
 | 2 | Dormant Pipeline Recovery | `SIMULATED` | Yes — 2 scenarios execute end to end |
 | 3 | Call-to-Proposal Revenue Agent | `SIMULATED` | Yes — 2 scenarios execute end to end |
 | 4 | Client Onboarding Operator | `SIMULATED` | Yes — 2 scenarios execute end to end |

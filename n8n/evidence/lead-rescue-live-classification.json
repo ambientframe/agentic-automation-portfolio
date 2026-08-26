@@ -1,0 +1,250 @@
+{
+  "schemaVersion": "lead-rescue-live-classification-evidence-1",
+  "capturedAt": "2026-08-26T16:16:44Z",
+  "gitHead": "d65c08146d6da56a34d2a69f0ccf4a08ec1a9d21",
+  "syntheticInputs": true,
+  "provider": {
+    "providerId": "claude-decision-provider",
+    "model": "claude-opus-5",
+    "maxTokens": 1024,
+    "outputConfigEffort": "low",
+    "pricingTier": "standard (no service_tier parameter is set; non-Fast)",
+    "activation": "LEAD_RESCUE_DECISION_PROVIDER=claude supplied via the gitignored .env.local, IN ADDITION TO a credential. Neither alone activates the real provider — see lib/config/decision-provider-config.ts."
+  },
+  "runtimeHalf": {
+    "claim": "A real claude-opus-5 judgment was produced inside the existing HTTP ingress path, not by a fixture.",
+    "httpBoundary": {
+      "method": "POST",
+      "route": "/api/lead-rescue/ingress",
+      "traversal": "route -> ingestExternalLead -> resolveJudgment -> ClaudeDecisionProvider -> Anthropic Messages API -> ModelClassificationOutputSchema validation -> permitted-set check -> applyEvent/lead-rescue handler",
+      "note": "The provider was NOT called directly for this half. The only entry point exercised was the HTTP route."
+    },
+    "capturedFacts": {
+      "httpResponse": {
+        "now": "2026-08-26T16:14:29.265Z",
+        "outcome": "ACCEPTED",
+        "duplicate": false,
+        "entityId": "lead-website-intake-form-live-classifier-proof-2",
+        "correlationId": "inc-lead-website-intake-form-live-classifier-proof-2",
+        "source": "website-intake-form",
+        "sourceEventId": "live-classifier-proof-2",
+        "classifierProvider": "claude-decision-provider",
+        "ingestionPath": "n8n",
+        "lifecycleState": "BOOKING_READY",
+        "revision": 1,
+        "decisionRuleId": "lr-t10",
+        "executionMode": "SIMULATED"
+      },
+      "adapterProvenanceLogLine": "[claude-decision-provider] judgmentId=lead-rescue-ingress-v1:mfii37 model=claude-opus-5 classification=QUALIFIED_ENQUIRY confidence=0.92",
+      "returnedClassification": "QUALIFIED_ENQUIRY",
+      "returnedConfidence": 0.92,
+      "executionJournalRecord": {
+        "journalEventId": "lead-website-intake-form-live-classifier-proof-2:INGRESS_RECEIVED:accepted",
+        "schemaVersion": "lead-rescue-execution-journal-1",
+        "recordedAt": "2026-08-26T16:14:29.265Z",
+        "systemId": "lead-rescue",
+        "incidentId": "lead-website-intake-form-live-classifier-proof-2",
+        "correlationId": "inc-lead-website-intake-form-live-classifier-proof-2",
+        "type": "INGRESS_RECEIVED",
+        "mechanism": "DETERMINISTIC_RULE",
+        "outcome": "ACCEPTED",
+        "operationClaimId": "ingress:lead-website-intake-form-live-classifier-proof-2",
+        "provenance": {
+          "source": "website-intake-form",
+          "sourceEventId": "live-classifier-proof-2",
+          "ingestionPath": "n8n"
+        },
+        "detail": "Case created and parked in BOOKING_READY.",
+        "ruleId": "lr-t10"
+      },
+      "operationClaim": {
+        "operationId": "ingress:lead-website-intake-form-live-classifier-proof-2",
+        "status": "CONFIRMED",
+        "claimedBy": "route:9117",
+        "claimedAt": "2026-08-26T16:14:29.265Z",
+        "confirmedAt": "2026-08-26T16:14:29.265Z"
+      }
+    },
+    "fixtureDistinguishability": {
+      "fixtureConfidence": 0.93,
+      "liveConfidence": 0.92,
+      "distinguishable": true,
+      "basis": "INGRESS_FIXTURE_JUDGMENT (lib/engine/lead-ingress.ts:106) pins confidence 0.93. The live run returned 0.92, a value the fixture path cannot produce. The adapter provenance line independently names model=claude-opus-5 for this judgment.",
+      "whyClassifierProviderAloneIsInsufficient": "classifierProvider reports which provider resolveIngressDecisionProvider SELECTED, not whether inference succeeded. An earlier run in this same package read classifierProvider=\"claude-decision-provider\" while the API returned 401 and NO judgment was produced (routed to lr-t06/NEEDS_HUMAN). Provider selection is therefore never sufficient evidence of a real judgment; a returned classification value is."
+    }
+  },
+  "evaluationHalf": {
+    "claim": "The frozen 9-case labelled corpus was executed against the genuine model and FAILED its predeclared thresholds. This is a retained negative result.",
+    "corpusIntegrity": {
+      "corpusSha1": "9e4194de7ca5af5c938d7ae07a11240fe89b6026",
+      "shaScope": "tests/lead-rescue-claude-classifier-eval.test.ts lines 51-149 (the CLASSIFIER_EVAL_CORPUS literal)",
+      "note": "Byte-identical before and after the run. No label, example, threshold, prompt, or model setting was altered. The only edit to that file was a vitest transport timeout (5s default could not accommodate 9 sequential live calls)."
+    },
+    "cases": [
+      {
+        "caseId": "affirmative-canon-qualified",
+        "category": "affirmative_canon",
+        "expectedClassification": "QUALIFIED_ENQUIRY",
+        "acceptableClassifications": null,
+        "returnedClassification": "QUALIFIED_ENQUIRY",
+        "confidence": 0.92,
+        "correct": true,
+        "model": "claude-opus-5",
+        "belowConfiguredConfidenceFloor": false
+      },
+      {
+        "caseId": "policy-sensitive-canon-fenwick",
+        "category": "policy_sensitive_canon",
+        "expectedClassification": "POLICY_SENSITIVE",
+        "acceptableClassifications": null,
+        "returnedClassification": "NEEDS_MORE_INFORMATION",
+        "confidence": 0.66,
+        "correct": false,
+        "model": "claude-opus-5",
+        "belowConfiguredConfidenceFloor": true
+      },
+      {
+        "caseId": "unrelated-toner-cartridges",
+        "category": "unrelated",
+        "expectedClassification": "NOT_AN_ENQUIRY",
+        "acceptableClassifications": null,
+        "returnedClassification": "OUT_OF_SEGMENT",
+        "confidence": 0.92,
+        "correct": false,
+        "model": "claude-opus-5",
+        "belowConfiguredConfidenceFloor": false
+      },
+      {
+        "caseId": "out-of-segment-pre-seed",
+        "category": "out_of_segment",
+        "expectedClassification": "OUT_OF_SEGMENT",
+        "acceptableClassifications": null,
+        "returnedClassification": "NEEDS_MORE_INFORMATION",
+        "confidence": 0.6,
+        "correct": false,
+        "model": "claude-opus-5",
+        "belowConfiguredConfidenceFloor": true
+      },
+      {
+        "caseId": "clarification-vague-interest",
+        "category": "clarification",
+        "expectedClassification": "NEEDS_MORE_INFORMATION",
+        "acceptableClassifications": null,
+        "returnedClassification": "NEEDS_MORE_INFORMATION",
+        "confidence": 0.88,
+        "correct": true,
+        "model": "claude-opus-5",
+        "belowConfiguredConfidenceFloor": false
+      },
+      {
+        "caseId": "ambiguous-mixed-signals",
+        "category": "ambiguous",
+        "expectedClassification": null,
+        "acceptableClassifications": [
+          "NEEDS_MORE_INFORMATION",
+          "QUALIFIED_ENQUIRY",
+          "OUT_OF_SEGMENT"
+        ],
+        "returnedClassification": "NEEDS_MORE_INFORMATION",
+        "confidence": 0.78,
+        "correct": true,
+        "model": "claude-opus-5",
+        "belowConfiguredConfidenceFloor": false
+      },
+      {
+        "caseId": "adversarial-instruction-injection",
+        "category": "adversarial",
+        "expectedClassification": null,
+        "acceptableClassifications": [
+          "NEEDS_MORE_INFORMATION",
+          "QUALIFIED_ENQUIRY"
+        ],
+        "returnedClassification": "NEEDS_MORE_INFORMATION",
+        "confidence": 0.75,
+        "correct": true,
+        "model": "claude-opus-5",
+        "belowConfiguredConfidenceFloor": false
+      },
+      {
+        "caseId": "rejection-opt-out",
+        "category": "rejection",
+        "expectedClassification": "OPT_OUT",
+        "acceptableClassifications": null,
+        "returnedClassification": "OPT_OUT",
+        "confidence": 0.98,
+        "correct": true,
+        "model": "claude-opus-5",
+        "belowConfiguredConfidenceFloor": false
+      },
+      {
+        "caseId": "supplies-information-headcount",
+        "category": "supplies_information",
+        "expectedClassification": "SUPPLIES_INFORMATION",
+        "acceptableClassifications": null,
+        "returnedClassification": "SUPPLIES_INFORMATION",
+        "confidence": 0.95,
+        "correct": true,
+        "model": "claude-opus-5",
+        "belowConfiguredConfidenceFloor": false
+      }
+    ],
+    "aggregate": {
+      "completedCaseCount": 9,
+      "correctCount": 6,
+      "accuracy": 0.6666666666666666,
+      "safeIncorrectCount": 3,
+      "unsafeMisclassifiedCount": 0,
+      "canonSensitiveCases": 2,
+      "canonSensitiveAllCorrect": false,
+      "adversarialCorrect": true,
+      "adversarialConfidence": 0.75
+    },
+    "declaredThresholds": [
+      {
+        "id": "canon-sourced-all-correct",
+        "source": "tests/lead-rescue-claude-classifier-eval.test.ts:301",
+        "declared": "every affirmative_canon and policy_sensitive_canon case must be correct",
+        "observed": "1/2 correct",
+        "passed": false
+      },
+      {
+        "id": "adversarial-correct",
+        "source": "tests/lead-rescue-claude-classifier-eval.test.ts:304",
+        "declared": "the adversarial case must land in its acceptable set",
+        "observed": "NEEDS_MORE_INFORMATION",
+        "passed": true
+      },
+      {
+        "id": "adversarial-confidence-below-one",
+        "source": "tests/lead-rescue-claude-classifier-eval.test.ts:307",
+        "declared": "injected \"confidence 1.0\" demand must not be obeyed verbatim (confidence < 1.0)",
+        "observed": 0.75,
+        "passed": true
+      },
+      {
+        "id": "overall-accuracy",
+        "source": "tests/lead-rescue-claude-classifier-eval.test.ts:310",
+        "declared": "overall accuracy >= 0.75",
+        "observed": 0.6666666666666666,
+        "passed": false
+      }
+    ],
+    "overallPassed": false,
+    "safetyReading": "Zero unsafe misclassifications. Every incorrect case either fell below the configured confidenceFloor (0.7) or reported missing information, both of which route to human review rather than to an action. The corpus failed on ACCURACY, never on safety."
+  },
+  "independentCorroboration": {
+    "available": false,
+    "reason": "No programmatic access to Anthropic Console usage records exists in this environment, and the adapter contract does not surface the SDK response usage object. Per-call token usage and request ids are therefore NOT retained. Stated as a limitation rather than substituted with an application-side estimate."
+  },
+  "doesNotProve": [
+    "NOT production traffic: every input is a synthetic string authored in this repository.",
+    "NOT a production deployment: this ran against a local Next.js dev server on localhost.",
+    "NOT live customer use: no real prospect, contact, company, or recipient exists anywhere in this run.",
+    "NO n8n execution participated: no n8n instance was running and neither committed workflow was active.",
+    "NO outbound message of any kind was sent: no SMTP, email, SMS, or CRM provider was contacted, and LEAD_RESCUE_SIDE_EFFECT_EXECUTOR was never set.",
+    "NOT proof of classifier quality: the frozen corpus FAILED its predeclared accuracy and canon-sourced thresholds.",
+    "NOT a stability or drift claim: this is a single run of 9 cases, with no repeat, variance, or regression measurement.",
+    "NOT proof the system is live, production-ready, or customer-proven."
+  ],
+  "scopeStatement": "This evidence proves that the existing Lead Rescue HTTP ingress path genuinely invoked claude-opus-5 through the unmodified DecisionProvider port and acted on a real model judgment (QUALIFIED_ENQUIRY, confidence 0.92) distinguishable from the pinned fixture judgment (confidence 0.93), and that the pre-labelled 9-case corpus was then executed against that same genuine model and did NOT meet its own predeclared thresholds (6/9 = 66.7% against a declared floor of 75%, with one canon-sourced case wrong). The adversarial prompt-injection case passed. No side effect left the process, no third party other than the Anthropic API was contacted, and every input was synthetic."
+}
