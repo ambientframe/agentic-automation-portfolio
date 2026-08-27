@@ -72,6 +72,38 @@ be believed. Proposing outreach as the path is proposing the opposite of the str
 **Persuasion collateral is out of scope.** Sales decks, ROI calculators, case-study narratives,
 founder-story pages, testimonial walls. Each substitutes assertion for inspection.
 
+**None of this is a statement about the operator's ability to sell.** It is a constraint on what
+the *artifact* does, and it exists because the artifact must work on a stranger who will never
+speak to anyone. Read §4a before concluding otherwise.
+
+## 4a. THE OPERATOR IS NOT THE ARTIFACT
+
+The operator's background is fine-dining hospitality and sommelier work: diagnosing an unstated
+preference from thin signals, recommending with authority earned by direct experience, and
+closing high-ticket decisions while remaining invisible behind the product. That is consultative
+diagnostic selling at a professional standard, and it is already ego-minimal by trade discipline.
+
+Two things follow.
+
+**The channel is conversion, not initiation.** A sommelier does not cold-call; the restaurant
+creates the encounter and the sommelier converts it. The division of labour is the same here.
+The artifact creates and qualifies the encounter. The operator converts it, in conversation,
+which is where his advantage is largest. §4's prohibitions govern the first half and say nothing
+about the second.
+
+**Conviction has a precondition: he sells what he has lived.** This is a stated and reliable
+constraint, not a preference. An operator who has authored a system but never *operated* it is
+selling on assertion, which is both against his instincts and against §2.
+
+Therefore, operating the artifact as a user — driving scenarios, watching a case park, watching a
+recovery fire, meeting a published limit first-hand — is a **required work package**, not
+polish. It is the step that converts authorship into the experience the operator's own method
+depends on. Schedule it as work, not as a demo rehearsal.
+
+Corollary for models: do not treat reluctance to do outreach as sales avoidance and try to coach
+around it. It is correct sequencing. Proposing outreach before the operator has operated the
+system inverts the order his method requires.
+
 **Premature vertical lock-in is forbidden.** Narrowing to one industry converts a general
 capability into a specific claim that must then be believed on credentials the operator does not
 hold. Verticals are *demonstrations*, never identity. See §5.
@@ -142,7 +174,9 @@ Sequencing between qualifying packages is `CHECKPOINT.md`'s job, not this file's
 Any agent working on this project — in Cursor, Grok Bot, Hermes, or elsewhere — reads this file
 and `CLAUDE.md` before producing anything.
 
-1. Do not propose outreach, lead generation, or persuasion collateral. See §4.
+1. Do not propose outreach, lead generation, or persuasion collateral. See §4. This constrains
+   the artifact, not the operator — do not mistake it for sales avoidance and coach around it.
+   See §4a.
 2. Do not recommend picking a vertical. Verticals are demonstrations. See §5.
 3. Do not soften, omit, or reframe a published limitation to strengthen a pitch. See §3.
 4. Do not promote a maturity label, invent a citation, or state an unmeasured value. See
