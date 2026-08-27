@@ -3,7 +3,46 @@
 > One per accepted package (Constitution §14). Repository truth is authoritative; this file
 > is an index, not a source. Append the new checkpoint above the previous one.
 
-## Current — An OUTCOME_UNKNOWN can finally be narrowed, in one direction · 2026-08-27
+## Current — The ledger describes the firm it is rendering · 2026-08-27
+
+**Verified state.** `npm run verify`: 73 files, 1183 passed / 1 skipped, exit 0. `npm run build`:
+compiled successfully, exit 0.
+
+**Proof claim earned.** `deriveFidelityLedger` takes the business it is describing as a required
+input. It read the confidence floor and the review window off an imported `KESTREL` and printed
+them into the prose a visitor reads — invisible while one profile existed, and a fabrication the
+moment a second one did: the ledger would have quoted a 0.70 floor while depicting a firm whose
+stated policy is 0.85. Not a cosmetic mismatch; a false claim about a named policy on the one
+surface that exists to say what is real.
+
+**Required, never defaulted.** A default would rebuild the same bug behind a friendlier
+signature. Every caller now states whose numbers these are, and the page that depicts Kestrel
+says so at the call site.
+
+**A source scan keeps it gone.** `tests/fidelity-ledger-profile.test.ts` fails if the module
+imports from `data/profiles` again, because the next reintroduction would be as quiet as the
+first.
+
+**Falsification and mutation.** 5 tests written RED first — `profile` was not a member of
+`LedgerInputs`. 2 mutations, each separately confirmed to fail: hard-coding the floor back to
+Kestrel's value, and re-adding a direct profile import. Neither survived; the file restored
+byte-for-byte and verified by MD5.
+
+**One reason the test suite needed a wrapper, not seventeen edits.** Every case in
+`tests/lead-rescue-proof-fidelity.test.ts` describes the Lead Rescue page, so the profile is
+supplied once by a local helper rather than repeated at each call. An earlier attempt to patch
+the call sites with a structural regex corrupted the file and was reverted rather than repaired.
+
+**Maturity.** Unchanged. This closes candidate (b) from the previous checkpoint. $0 spent.
+
+**Next package.** NOT SELECTED. `tests/seam.test.ts` still hand-maintains a sixteen-term list of
+Kestrel vocabulary. With a profile register in place, a blacklist somebody has to remember to
+update is the wrong shape: a second profile's vocabulary could leak into `data/systems/**` and no
+test would notice. Deriving the forbidden lexicon from the registered profiles is the natural
+successor. The other open candidate is unchanged: proving the verification lookup against a real
+n8n instance, which needs an owner-supplied endpoint.
+
+## Earlier — An OUTCOME_UNKNOWN can finally be narrowed, in one direction · 2026-08-27
 
 **Verified state.** `npm run verify`: 72 files, 1178 passed / 1 skipped, exit 0. `npm run build`:
 compiled successfully, exit 0.

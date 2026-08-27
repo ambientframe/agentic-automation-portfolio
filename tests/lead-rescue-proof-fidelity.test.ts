@@ -7,7 +7,17 @@ import {
   FIDELITY_STATUS_MEANING,
   deriveFailureRegister,
   deriveFidelityLedger,
+  type LedgerInputs,
 } from '@/lib/proof/fidelity-ledger';
+import { KESTREL } from '@/data/profiles/kestrel/profile';
+
+/**
+ * Every case in this file describes the Lead Rescue page, which depicts Kestrel. The profile is
+ * a required ledger input rather than a default, so it is supplied once here instead of at
+ * seventeen call sites — see tests/fidelity-ledger-profile.test.ts for why it may not default.
+ */
+const ledgerFor = (inputs: Omit<LedgerInputs, 'profile'>) =>
+  deriveFidelityLedger({ ...inputs, profile: KESTREL });
 import {
   evidenceProvesOrchestration,
   readEvaluationEvidence,
@@ -68,21 +78,21 @@ const EVALUATED: Extract<EvaluationEvidence, { kind: 'PRESENT' }> = {
 
 describe('the ledger reports configuration, and never improves on it', () => {
   it('reads a fixture provider as fixture-backed, not as real', () => {
-    const ledger = deriveFidelityLedger({ evidence: ABSENT, evaluation: NO_EVAL, env: {} });
+    const ledger = ledgerFor({ evidence: ABSENT, evaluation: NO_EVAL, env: {} });
     const row = ledger.rows.find((entry) => entry.id === 'ai-classification');
     expect(row?.status).toBe('FIXTURE_BACKED');
     expect(row?.whatIsTrue).toContain('authored');
   });
 
   it('reads a simulated executor as simulated, and says nothing leaves the process', () => {
-    const ledger = deriveFidelityLedger({ evidence: ABSENT, evaluation: NO_EVAL, env: {} });
+    const ledger = ledgerFor({ evidence: ABSENT, evaluation: NO_EVAL, env: {} });
     const row = ledger.rows.find((entry) => entry.id === 'outbound-execution');
     expect(row?.status).toBe('SIMULATED');
     expect(row?.whatIsTrue).toContain('Nothing leaves this process');
   });
 
   it('follows the resolved configuration when a live provider and transport are set', () => {
-    const ledger = deriveFidelityLedger({
+    const ledger = ledgerFor({
       evidence: ABSENT, evaluation: NO_EVAL,
       env: {
         LEAD_RESCUE_DECISION_PROVIDER: 'claude',
@@ -104,7 +114,7 @@ describe('the ledger reports configuration, and never improves on it', () => {
    * describe working stand-in behaviour that is not happening.
    */
   it('reports an explicitly requested but unusable implementation as unverified, not as the stand-in', () => {
-    const ledger = deriveFidelityLedger({
+    const ledger = ledgerFor({
       evidence: ABSENT, evaluation: NO_EVAL,
       env: {
         LEAD_RESCUE_DECISION_PROVIDER: 'claude',
@@ -123,7 +133,7 @@ describe('the ledger reports configuration, and never improves on it', () => {
   });
 
   it('refuses a routable SMTP recipient rather than reporting a real send', () => {
-    const ledger = deriveFidelityLedger({
+    const ledger = ledgerFor({
       evidence: ABSENT, evaluation: NO_EVAL,
       env: {
         LEAD_RESCUE_SIDE_EFFECT_EXECUTOR: 'smtp',
@@ -148,7 +158,7 @@ describe('the ledger reports configuration, and never improves on it', () => {
       { RUN_LIVE_AI_EVAL: '1' },
       { RUN_LIVE_AI_EVAL: '1', ANTHROPIC_API_KEY: 'k' },
     ]) {
-      const row = deriveFidelityLedger({ evidence: ABSENT, evaluation: NO_EVAL, env }).rows.find(
+      const row = ledgerFor({ evidence: ABSENT, evaluation: NO_EVAL, env }).rows.find(
         (entry) => entry.id === 'evaluation',
       );
       expect(row?.status).toBe('UNVERIFIED');
@@ -162,20 +172,20 @@ describe('the ledger reports configuration, and never improves on it', () => {
    * a runtime that currently answers every operator action with a 503.
    */
   it('reports operator authentication from the resolved signing mode, and fails closed on a bad key', () => {
-    const ephemeral = deriveFidelityLedger({ evidence: ABSENT, evaluation: NO_EVAL, env: {} }).rows.find(
+    const ephemeral = ledgerFor({ evidence: ABSENT, evaluation: NO_EVAL, env: {} }).rows.find(
       (entry) => entry.id === 'operator-authentication',
     );
     expect(ephemeral?.status).toBe('REAL');
     expect(ephemeral?.whatIsTrue).toContain('never written to disk');
 
-    const configured = deriveFidelityLedger({
+    const configured = ledgerFor({
       evidence: ABSENT, evaluation: NO_EVAL,
       env: { LEAD_RESCUE_OPERATOR_SIGNING_KEY: 'k'.repeat(48) },
     }).rows.find((entry) => entry.id === 'operator-authentication');
     expect(configured?.status).toBe('REAL');
     expect(configured?.whatIsTrue).toContain('survives a restart');
 
-    const broken = deriveFidelityLedger({
+    const broken = ledgerFor({
       evidence: ABSENT, evaluation: NO_EVAL,
       env: { LEAD_RESCUE_OPERATOR_SIGNING_KEY: 'too-short' },
     }).rows.find((entry) => entry.id === 'operator-authentication');
@@ -190,7 +200,7 @@ describe('the ledger reports configuration, and never improves on it', () => {
    * under-claim, because a sceptic who checked it would find the opposite of what it said.
    */
   it('no longer claims the operator routes are unauthenticated or the role caller-supplied', () => {
-    const ledger = deriveFidelityLedger({ evidence: ABSENT, evaluation: NO_EVAL, env: {} });
+    const ledger = ledgerFor({ evidence: ABSENT, evaluation: NO_EVAL, env: {} });
     const authority = ledger.rows.find((entry) => entry.id === 'authority-gate');
     const httpPath = ledger.rows.find((entry) => entry.id === 'http-operator-path');
 
@@ -205,23 +215,23 @@ describe('the ledger reports configuration, and never improves on it', () => {
   });
 
   it('holds orchestration at unverified until a capture is actually readable', () => {
-    const absent = deriveFidelityLedger({ evidence: ABSENT, evaluation: NO_EVAL, env: {} });
+    const absent = ledgerFor({ evidence: ABSENT, evaluation: NO_EVAL, env: {} });
     expect(absent.rows.find((entry) => entry.id === 'n8n-orchestration')?.status).toBe('UNVERIFIED');
     expect(absent.rows.find((entry) => entry.id === 'n8n-orchestration')?.basis).toContain('definitions only');
 
-    const proven = deriveFidelityLedger({ evidence: PROVEN, evaluation: NO_EVAL, env: {} });
+    const proven = ledgerFor({ evidence: PROVEN, evaluation: NO_EVAL, env: {} });
     expect(proven.rows.find((entry) => entry.id === 'n8n-orchestration')?.status).toBe('REAL');
   });
 
   it('never promotes customer deployment, whatever the configuration', () => {
     for (const env of [{}, { LEAD_RESCUE_DECISION_PROVIDER: 'claude', ANTHROPIC_API_KEY: 'k' }]) {
-      const ledger = deriveFidelityLedger({ evidence: PROVEN, evaluation: NO_EVAL, env });
+      const ledger = ledgerFor({ evidence: PROVEN, evaluation: NO_EVAL, env });
       expect(ledger.rows.find((entry) => entry.id === 'customer-deployment')?.status).toBe('UNVERIFIED');
     }
   });
 
   it('passes the declared maturity through without recomputing it', () => {
-    const ledger = deriveFidelityLedger({
+    const ledger = ledgerFor({
       evidence: PROVEN, evaluation: NO_EVAL,
       env: { LEAD_RESCUE_DECISION_PROVIDER: 'claude', ANTHROPIC_API_KEY: 'k' },
     });
@@ -231,7 +241,7 @@ describe('the ledger reports configuration, and never improves on it', () => {
 });
 
 describe('every ledger row stays falsifiable', () => {
-  const ledger = deriveFidelityLedger({ evidence: ABSENT, evaluation: NO_EVAL, env: {} });
+  const ledger = ledgerFor({ evidence: ABSENT, evaluation: NO_EVAL, env: {} });
 
   it('covers each capability the brief asks about', () => {
     for (const id of [
@@ -315,7 +325,7 @@ describe('the runtime-evidence adapter degrades instead of failing', () => {
   it('treats a parsed capture with no recognisable execution as unproven, not as proof', () => {
     const stale: RuntimeEvidence = { ...PROVEN, executions: [], unrecognisedShape: true };
     expect(evidenceProvesOrchestration(stale)).toBe(false);
-    expect(deriveFidelityLedger({ evidence: stale, evaluation: NO_EVAL, env: {} }).rows.find((row) => row.id === 'n8n-orchestration')?.status).toBe(
+    expect(ledgerFor({ evidence: stale, evaluation: NO_EVAL, env: {} }).rows.find((row) => row.id === 'n8n-orchestration')?.status).toBe(
       'UNVERIFIED',
     );
   });
@@ -335,7 +345,7 @@ describe('the runtime-evidence adapter degrades instead of failing', () => {
  */
 describe('the ledger reports a measured classifier even when the measurement failed', () => {
   const evaluationRow = (evaluation: EvaluationEvidence, env: Record<string, string> = {}) =>
-    deriveFidelityLedger({ evidence: ABSENT, evaluation, env }).rows.find(
+    ledgerFor({ evidence: ABSENT, evaluation, env }).rows.find(
       (row) => row.id === 'evaluation',
     );
 

@@ -1,6 +1,5 @@
 import { LEAD_RESCUE } from '@/data/systems';
-import { KESTREL } from '@/data/profiles/kestrel/profile';
-import { numberParam } from '@/lib/model/profile';
+import { numberParam, type BusinessProfile } from '@/lib/model/profile';
 import { describeRecovery } from '@/lib/model/system';
 import {
   resolveDecisionProviderSelection,
@@ -310,6 +309,17 @@ export interface LedgerInputs {
   readonly observation?: ObservationIntegrityEvidence;
   /** Defaults to `process.env`. Injectable so tests can assert both configured states. */
   readonly env?: Env;
+  /**
+   * The business this ledger is describing. REQUIRED, and deliberately not defaulted.
+   *
+   * Two thresholds — the confidence floor and the review window — are printed into the prose a
+   * visitor reads, and they used to be read off an imported `KESTREL`. That was invisible while
+   * one profile existed and became a fabrication the moment a second one did: the ledger would
+   * have gone on quoting a 0.70 floor while depicting a firm whose stated policy is 0.85. A
+   * default parameter would rebuild exactly that bug behind a friendlier signature, so every
+   * caller is made to say whose numbers these are.
+   */
+  readonly profile: BusinessProfile;
 }
 
 export function deriveFidelityLedger({
@@ -317,6 +327,7 @@ export function deriveFidelityLedger({
   evaluation,
   observation,
   env = process.env,
+  profile,
 }: LedgerInputs): FidelityLedger {
   const provider = resolveDecisionProviderSelection(env);
   const executor = resolveSideEffectExecutorSelection(env);
@@ -328,8 +339,8 @@ export function deriveFidelityLedger({
    */
   const operatorAuth = resolveOperatorAuth(env, () => 'the fidelity ledger never reads a signing key');
   const orchestrationProven = evidenceProvesOrchestration(evidence);
-  const floor = numberParam(KESTREL, 'confidenceFloor');
-  const reviewWindow = numberParam(KESTREL, 'humanReviewTimeoutHours');
+  const floor = numberParam(profile, 'confidenceFloor');
+  const reviewWindow = numberParam(profile, 'humanReviewTimeoutHours');
 
   const rows: FidelityRow[] = [
     {

@@ -99,7 +99,9 @@ export default async function LeadRescueProofPage() {
     readOperationalViewEvidence(),
     readObservationIntegrityEvidence(),
   ]);
-  const ledger = deriveFidelityLedger({ evidence, evaluation, observation });
+  // KESTREL explicitly, because this page depicts Kestrel. The ledger quotes the confidence
+  // floor and review window into its prose, so it must be handed the firm actually on screen.
+  const ledger = deriveFidelityLedger({ evidence, evaluation, observation, profile: KESTREL });
   const failures = deriveFailureRegister();
 
   // Measured by replaying this system's scenarios at build time, never by reading the handlers.
