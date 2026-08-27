@@ -1,0 +1,93 @@
+{
+  "name": "Lead Rescue — Delivery Log",
+  "nodes": [
+    {
+      "id": "5f2a1c90-3d1e-4a77-9c31-2b7d4e5a8f10",
+      "name": "Delivery Received",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [0, 0],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "lead-rescue-delivery-log",
+        "responseMode": "responseNode"
+      },
+      "webhookId": "3c9d7e41-6b28-4f05-9a13-8e6c2d5b7a94"
+    },
+    {
+      "id": "1d8b4f63-9e07-4c52-b3a6-7f1c9d2e5804",
+      "name": "Record Delivery",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [224, 0],
+      "parameters": {
+        "resource": "row",
+        "operation": "insert",
+        "dataTableId": { "__rl": true, "mode": "name", "value": "lead_rescue_deliveries" },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "idempotencyKey": "={{ $json.body.idempotencyKey }}",
+            "attemptId": "={{ $json.body.attemptId }}",
+            "provider": "={{ $json.body.provider }}",
+            "description": "={{ $json.body.description }}",
+            "n8nExecutionId": "={{ $execution.id }}",
+            "recordedAt": "={{ $now.toISO() }}"
+          },
+          "schema": [
+            { "id": "idempotencyKey", "displayName": "idempotencyKey", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true },
+            { "id": "attemptId", "displayName": "attemptId", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true },
+            { "id": "provider", "displayName": "provider", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true },
+            { "id": "description", "displayName": "description", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true },
+            { "id": "n8nExecutionId", "displayName": "n8nExecutionId", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true },
+            { "id": "recordedAt", "displayName": "recordedAt", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true }
+          ]
+        }
+      }
+    },
+    {
+      "id": "9a3e6c17-4b85-42d0-8f79-1c5a3b8e6d22",
+      "name": "Build Receipt",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [448, 0],
+      "parameters": {
+        "mode": "manual",
+        "includeOtherFields": false,
+        "assignments": {
+          "assignments": [
+            { "id": "r1", "name": "receivedIdempotencyKey", "value": "={{ $('Delivery Received').item.json.body.idempotencyKey }}", "type": "string" },
+            { "id": "r2", "name": "receivedAttemptId", "value": "={{ $('Delivery Received').item.json.body.attemptId }}", "type": "string" },
+            { "id": "r3", "name": "n8nExecutionId", "value": "={{ $execution.id }}", "type": "string" },
+            { "id": "r4", "name": "recordedRowId", "value": "={{ $json.id }}", "type": "string" }
+          ]
+        }
+      }
+    },
+    {
+      "id": "7e1f5a92-8c34-4b6e-a05d-9f2b7c4d3e18",
+      "name": "Return Receipt",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [672, 0],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}"
+      }
+    }
+  ],
+  "connections": {
+    "Delivery Received": { "main": [[{ "node": "Record Delivery", "type": "main", "index": 0 }]] },
+    "Record Delivery": { "main": [[{ "node": "Build Receipt", "type": "main", "index": 0 }]] },
+    "Build Receipt": { "main": [[{ "node": "Return Receipt", "type": "main", "index": 0 }]] }
+  },
+  "settings": { "executionOrder": "v1" },
+  "_comment": {
+    "purpose": "Supersedes lead-rescue-notification-sink.json for the one thing that receiver could not do: be asked afterwards whether a specific operation arrived. The sink echoed a receipt and persisted nothing of its own, so WebhookSideEffectExecutor.attemptVerify had no channel to query and refused — honestly, and uselessly. This records every delivery in a data table keyed by idempotency key, which lead-rescue-delivery-lookup.json then reads.",
+    "orderingIsTheWholePoint": "Record Delivery runs BEFORE Return Receipt, and that ordering is load-bearing rather than stylistic. It means any delivery that received a 2xx is in the table, so a later lookup finding a row is evidence the operation genuinely arrived. Responding first and recording afterwards would produce confirmations for rows that might never have been written.",
+    "whatItStillCannotProve": "That a delivery ABSENT from this table never arrived. A request can be accepted at the socket and die before the insert — which is precisely the failure that produces the OUTCOME_UNKNOWN being investigated. attemptVerify therefore treats a missing row as STILL_UNKNOWN and never as CONFIRMED_NOT_EXECUTED, and no assertion this workflow could add would change that, because it cannot observe what it failed to record.",
+    "deliberatelyNot": "It contains NO business logic. Classification, authority, policy, and idempotency decisions all live in the application. A transport seam that starts making decisions stops being a seam.",
+    "blastRadius": "It forwards nothing. No email, SMS, chat, or onward webhook leaves this workflow, so nothing on this path can reach a customer however the application is configured.",
+    "provenance": "AUTHORED IN THIS REPOSITORY AND NEVER DEPLOYED. Unlike lead-rescue-notification-sink.json, this JSON was not read back from a running instance — no n8n instance has imported it, no execution has run it, and the data table it names does not exist anywhere. It is a definition, not evidence. Treat every claim above as unverified until an instance runs it and an artifact is retained under n8n/evidence/."
+  }
+}

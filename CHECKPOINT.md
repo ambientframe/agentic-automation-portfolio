@@ -3,7 +3,51 @@
 > One per accepted package (Constitution §14). Repository truth is authoritative; this file
 > is an index, not a source. Append the new checkpoint above the previous one.
 
-## Current — The seam is exercised, not asserted · 2026-08-27
+## Current — An OUTCOME_UNKNOWN can finally be narrowed, in one direction · 2026-08-27
+
+**Verified state.** `npm run verify`: 72 files, 1178 passed / 1 skipped, exit 0. `npm run build`:
+compiled successfully, exit 0.
+
+**Proof claim earned.** `WebhookSideEffectExecutor.attemptVerify` can close an `OUTCOME_UNKNOWN`
+against the receiver's own record. It has thrown since it was written, because the receiver
+echoed a receipt and persisted nothing, so there was nothing to ask about. That refusal was
+honest and useless in equal measure.
+
+**The asymmetry is the design.** A record found is `CONFIRMED_EXECUTED`. A record absent is
+`STILL_UNKNOWN`, always, never `CONFIRMED_NOT_EXECUTED`. A receiver cannot prove it never
+received something — a request can be accepted at the socket and die before the first write to
+its log, which is exactly the failure that produced the unknown. A receiver that volunteers that
+its log is complete is not believed either; it cannot observe what it failed to record. This is
+`CLAUDE.md`'s absence-of-evidence rule applied to an external provider's answer for the first
+time.
+
+**Half is the useful half.** The dangerous error is sending twice, and confirming an effect DID
+happen prevents it. Confirming one did not merely grants retry permission, and an unpermitted
+retry is safe.
+
+**Falsification and mutation.** 33 tests written RED first — `attemptVerify` threw
+unconditionally. 6 targeted mutations, each separately confirmed to fail; none survived; the file
+restored byte-for-byte and verified by MD5. A seventh finding came from the tests themselves: two
+cases were passing `undefined` to a defaulted parameter, which selects the default, so they had
+been building an executor WITH a lookup channel and asserting nothing.
+
+**Maturity. Unchanged, and deliberately so.** The capability is code-complete and **unproven**.
+Both n8n workflow JSONs are authored here and have never been deployed — no instance has imported
+them, no execution has run them, and the data table they name does not exist.
+`LEAD_RESCUE_WEBHOOK_LOOKUP_ENDPOINT` is unset. No artifact exists under `n8n/evidence/` for this
+path and none may be claimed until one does. $0 spent, no provider crossed.
+
+**Pattern earned.** #27 — a verification channel may confirm an effect, never its absence.
+
+**Next package.** NOT SELECTED. Two candidates. (a) Prove this path: import both workflows into a
+real instance, set `LEAD_RESCUE_WEBHOOK_LOOKUP_ENDPOINT`, drive a send whose outcome is unknown,
+and retain an artifact for both a present and an absent key — this is the only way the `found`
+expression, the `alwaysOutputData` miss behaviour, and the header casing stop being unverified,
+and it needs an owner-supplied endpoint. (b) Decide what `lib/proof/fidelity-ledger.ts` says under
+a profile that is not Kestrel, which #26 exposed and left open. (a) closes a gap this package
+opened; (b) is a prerequisite for ever rendering a second profile.
+
+## Earlier — The seam is exercised, not asserted · 2026-08-27
 
 **Verified state.** `npm run verify`: 70 files, 1129 passed / 1 skipped, exit 0. `npm run build`:
 compiled successfully, exit 0.

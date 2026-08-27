@@ -1,0 +1,94 @@
+{
+  "name": "Lead Rescue — Delivery Lookup",
+  "nodes": [
+    {
+      "id": "2b6c9d84-1a37-4e50-b8f2-6d3e7a9c5104",
+      "name": "Lookup Requested",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [0, 0],
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "lead-rescue-delivery-lookup",
+        "responseMode": "responseNode"
+      },
+      "webhookId": "8d4a2f70-5c69-41b3-9e07-2a8b6c1d4f35"
+    },
+    {
+      "id": "4f7e1b58-9d02-4c86-a3b1-7e5c8f2a6d90",
+      "name": "Find Delivery",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [224, 0],
+      "alwaysOutputData": true,
+      "parameters": {
+        "resource": "row",
+        "operation": "get",
+        "dataTableId": { "__rl": true, "mode": "name", "value": "lead_rescue_deliveries" },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "idempotencyKey",
+              "condition": "eq",
+              "keyValue": "={{ $json.headers['idempotency-key'] }}"
+            }
+          ]
+        },
+        "returnAll": false,
+        "limit": 1
+      }
+    },
+    {
+      "id": "6a9c3e21-7b48-4d15-8f60-3c2e9a7b5d84",
+      "name": "Build Answer",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [448, 0],
+      "parameters": {
+        "mode": "manual",
+        "includeOtherFields": false,
+        "assignments": {
+          "assignments": [
+            {
+              "id": "a1",
+              "name": "idempotencyKey",
+              "value": "={{ $('Lookup Requested').item.json.headers['idempotency-key'] }}",
+              "type": "string"
+            },
+            { "id": "a2", "name": "found", "value": "={{ $json.idempotencyKey != null }}", "type": "boolean" },
+            { "id": "a3", "name": "recordedAt", "value": "={{ $json.recordedAt }}", "type": "string" },
+            { "id": "a4", "name": "n8nExecutionId", "value": "={{ $json.n8nExecutionId }}", "type": "string" }
+          ]
+        }
+      }
+    },
+    {
+      "id": "3e8b5d16-2c74-4a09-9b53-1f6d4c8e7a20",
+      "name": "Return Answer",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [672, 0],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}"
+      }
+    }
+  ],
+  "connections": {
+    "Lookup Requested": { "main": [[{ "node": "Find Delivery", "type": "main", "index": 0 }]] },
+    "Find Delivery": { "main": [[{ "node": "Build Answer", "type": "main", "index": 0 }]] },
+    "Build Answer": { "main": [[{ "node": "Return Answer", "type": "main", "index": 0 }]] }
+  },
+  "settings": { "executionOrder": "v1" },
+  "_comment": {
+    "purpose": "The read-only half of the execution boundary. WebhookSideEffectExecutor.attemptVerify GETs this endpoint with the operation's idempotency key in an `idempotency-key` header, and this answers whether lead-rescue-delivery-log.json recorded it.",
+    "answerShape": "{ idempotencyKey, found, recordedAt?, n8nExecutionId? }. The executor requires `found === true` strictly and requires `idempotencyKey` to equal the key it asked about — an answer about a different operation is discarded rather than acted on, because confirming the wrong send is worse than confirming nothing.",
+    "whyTheKeyIsEchoedFromTheRequest": "idempotencyKey is read from the webhook node rather than from the matched row, so the answer names the operation asked about even when no row was found. Reading it from the row would leave the field absent on a miss, and the executor would then reject its own answer as being about an unknown operation.",
+    "readOnly": "GET, and it writes nothing. attemptVerify may never cause an effect of its own; a lookup that could mutate state would make verification part of the thing it is verifying.",
+    "keyIsNotInTheUrl": "The key travels in a header rather than a query string so that operation identifiers are not deposited into every proxy and access log between the application and this instance.",
+    "whyAlwaysOutputData": "Without it, a miss produces no item, Build Answer never runs, and the request hangs until it times out — which the executor would classify as UNAVAILABLE rather than as the honest 'no record' this is meant to express.",
+    "whatItCannotProve": "That an operation absent from the table never arrived. This endpoint reports only what was recorded; it cannot observe a delivery that died before the insert. The executor treats every miss as STILL_UNKNOWN for exactly that reason.",
+    "provenance": "AUTHORED IN THIS REPOSITORY AND NEVER DEPLOYED. No n8n instance has imported it, no execution has run it, and the data table it reads does not exist anywhere. It is a definition, not evidence. In particular the `found` expression, the alwaysOutputData behaviour on a miss, and the header casing are UNVERIFIED against a running instance — verify by importing it, POSTing one delivery, and GETting the lookup for both a present and an absent key."
+  }
+}

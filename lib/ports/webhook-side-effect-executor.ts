@@ -93,6 +93,15 @@ export function isRemoteProofSafeEndpoint(endpoint: string): boolean {
 
 export interface WebhookExecutorConfig {
   readonly endpoint: string;
+  /**
+   * A read-only channel that answers "do you hold a record of this idempotency key?".
+   *
+   * Optional, and its absence is not a degraded mode: without it `attemptVerify` refuses
+   * exactly as it always did, because a verification channel that does not exist must never be
+   * simulated by one that guesses. Held to the same endpoint guard as `endpoint` — a lookup
+   * this machine could answer for itself would make a confirmation meaningless.
+   */
+  readonly lookupEndpoint?: string;
   /** Injected in tests so the failure taxonomy is exercised without a network. */
   readonly fetchImpl?: typeof fetch;
 }
@@ -112,6 +121,7 @@ export class WebhookSideEffectExecutor implements SideEffectExecutor {
   readonly mode: ExecutionMode = 'LIVE';
   readonly description: string;
   readonly endpoint: string;
+  readonly lookupEndpoint: string | undefined;
 
   private readonly fetchImpl: typeof fetch;
 
@@ -121,7 +131,11 @@ export class WebhookSideEffectExecutor implements SideEffectExecutor {
     if (!isRemoteProofSafeEndpoint(config.endpoint)) {
       throw new UnsafeWebhookEndpointError(config.endpoint);
     }
+    if (config.lookupEndpoint !== undefined && !isRemoteProofSafeEndpoint(config.lookupEndpoint)) {
+      throw new UnsafeWebhookEndpointError(config.lookupEndpoint);
+    }
     this.endpoint = config.endpoint;
+    this.lookupEndpoint = config.lookupEndpoint;
     this.fetchImpl = config.fetchImpl ?? fetch;
     this.description =
       `Real HTTPS delivery of an authorized notification to a third-party automation endpoint at ` +
@@ -222,16 +236,130 @@ export class WebhookSideEffectExecutor implements SideEffectExecutor {
   }
 
   /**
-   * No verification channel exists for this receiver yet: it records deliveries but exposes no
-   * lookup by idempotency key. Rather than invent certainty — the one thing `attemptVerify` may
-   * never do — this throws the same typed error a genuine provider outage produces, which
-   * `resolveVerify` turns into `UNAVAILABLE` and the engine already routes to its uncertain
-   * path. `SmtpSideEffectExecutor` refuses in exactly the same way, for exactly the same reason.
+   * NARROWS AN OUTCOME_UNKNOWN AGAINST THE RECEIVER'S OWN RECORD — IN ONE DIRECTION ONLY.
+   *
+   *   a record exists → CONFIRMED_EXECUTED
+   *   no record       → STILL_UNKNOWN. Always. Never CONFIRMED_NOT_EXECUTED.
+   *
+   * The asymmetry is the design, not a gap in it. A receiver cannot prove it never received
+   * something: a request can be accepted at the socket and die before the first write to its
+   * log, which is precisely the failure that produces the `OUTCOME_UNKNOWN` being investigated.
+   * An empty answer is therefore consistent with both "never arrived" and "arrived and was
+   * lost", and `CLAUDE.md` is explicit that absence of evidence never renders as evidence of
+   * absence. A receiver volunteering that its log is complete does not change this — it cannot
+   * observe what it failed to record, so the claim is not evidence and is not honoured.
+   *
+   * This is still the half worth having. The dangerous error is sending twice, and confirming
+   * that an effect DID happen is what prevents it. Confirming one did not merely grants retry
+   * permission, and a retry left unpermitted is safe.
+   *
+   * A lookup that could not RUN throws, exactly as before, because "the check failed" and "the
+   * check was inconclusive" are different facts: `resolveVerify` turns the throw into
+   * `UNAVAILABLE`, while `STILL_UNKNOWN` records that the receiver answered and the answer
+   * settled nothing.
    */
   async attemptVerify(request: VerifyRequest): Promise<VerifyOutcome> {
-    throw new AttemptUnavailableError(
-      request.attemptId,
-      'The remote webhook receiver records deliveries but exposes no lookup by idempotency key, so no independent verification is available. An OUTCOME_UNKNOWN cannot be narrowed on this path.',
-    );
+    const lookup = this.lookupEndpoint;
+    if (lookup === undefined) {
+      throw new AttemptUnavailableError(
+        request.attemptId,
+        'No lookup endpoint is configured for this receiver, so no independent verification is available. An OUTCOME_UNKNOWN cannot be narrowed on this path.',
+      );
+    }
+
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+
+    let response: Response;
+    try {
+      response = await this.fetchImpl(lookup, {
+        method: 'GET',
+        headers: {
+          accept: 'application/json',
+          // In a header rather than the URL: a verification query should not deposit operation
+          // identifiers into every proxy and access log between here and the receiver.
+          'idempotency-key': request.targetIdempotencyKey,
+        },
+        signal: controller.signal,
+      });
+    } catch (error) {
+      const code = causeCode(error);
+      const detail = error instanceof Error ? error.message : String(error);
+      throw new AttemptUnavailableError(
+        request.attemptId,
+        `The verification lookup could not be performed (${code ?? 'no code'}): ${detail}`,
+      );
+    } finally {
+      clearTimeout(timer);
+    }
+
+    if (response.status >= 500) {
+      throw new AttemptUnavailableError(
+        request.attemptId,
+        `The verification lookup answered HTTP ${response.status}; the receiver's record could not be read.`,
+      );
+    }
+
+    if (!response.ok) {
+      return {
+        kind: 'STILL_UNKNOWN',
+        reason: `Lookup answered HTTP ${response.status}. A missing route and a missing record are indistinguishable at this status, so nothing is concluded.`,
+      };
+    }
+
+    const body = await this.readJsonObject(response);
+    if (body === undefined) {
+      return {
+        kind: 'STILL_UNKNOWN',
+        reason: 'The lookup returned a body that could not be read as a JSON object.',
+      };
+    }
+
+    // An answer about another operation is worse than no answer: acting on it would confirm the
+    // wrong send. Checked before `found`, so a mismatched key can never reach the confirming path.
+    if (body.idempotencyKey !== request.targetIdempotencyKey) {
+      return {
+        kind: 'STILL_UNKNOWN',
+        reason:
+          typeof body.idempotencyKey === 'string'
+            ? `The lookup answered about "${body.idempotencyKey}" rather than the operation asked about.`
+            : 'The lookup did not state which operation it was answering about.',
+      };
+    }
+
+    // Strict identity, not truthiness. "yes", 1, and a present-but-null field are all unusable,
+    // and unusable resolves toward unknown rather than toward a confirmation.
+    if (body.found !== true) {
+      return {
+        kind: 'STILL_UNKNOWN',
+        reason:
+          'The receiver holds no record of this operation. That is consistent with the request never arriving AND with it arriving and being lost before the record was written, so it is not evidence that nothing happened.',
+      };
+    }
+
+    const externalId =
+      typeof body.n8nExecutionId === 'string' && body.n8nExecutionId.length > 0
+        ? body.n8nExecutionId
+        : undefined;
+    const reason = `The receiver holds a record of this operation in its own execution log${
+      typeof body.recordedAt === 'string' ? `, recorded at ${body.recordedAt}` : ''
+    }.`;
+
+    return externalId === undefined
+      ? { kind: 'CONFIRMED_EXECUTED', reason }
+      : { kind: 'CONFIRMED_EXECUTED', reason, externalId };
+  }
+
+  /** A body that is not a readable JSON object is reported as unreadable, never as an empty one. */
+  private async readJsonObject(
+    response: Response,
+  ): Promise<Record<string, unknown> | undefined> {
+    try {
+      const parsed: unknown = await response.json();
+      if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) return undefined;
+      return parsed as Record<string, unknown>;
+    } catch {
+      return undefined;
+    }
   }
 }

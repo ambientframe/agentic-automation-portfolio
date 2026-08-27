@@ -38,6 +38,15 @@ export const SMTP_PORT_ENV_VAR = 'LEAD_RESCUE_SMTP_PORT';
 export const SMTP_FROM_ENV_VAR = 'LEAD_RESCUE_SMTP_FROM';
 export const SMTP_TO_ENV_VAR = 'LEAD_RESCUE_SMTP_TO';
 export const WEBHOOK_ENDPOINT_ENV_VAR = 'LEAD_RESCUE_WEBHOOK_ENDPOINT';
+/**
+ * Optional. Its absence is a working configuration, not a broken one: without it
+ * `attemptVerify` refuses and an `OUTCOME_UNKNOWN` simply stays unknown, which is where the
+ * boundary stood before a lookup existed at all. Set, it must clear the same endpoint guard as
+ * the send endpoint — a lookup this machine could answer for itself would make a confirmation
+ * worthless, and a misconfigured one fails the whole selection closed rather than silently
+ * degrading to unverifiable sends.
+ */
+export const WEBHOOK_LOOKUP_ENDPOINT_ENV_VAR = 'LEAD_RESCUE_WEBHOOK_LOOKUP_ENDPOINT';
 
 export const SIDE_EFFECT_EXECUTOR_MODES = ['simulated', 'smtp', 'webhook'] as const;
 export type SideEffectExecutorMode = (typeof SIDE_EFFECT_EXECUTOR_MODES)[number];
@@ -63,6 +72,8 @@ export interface SmtpSettings {
 
 export interface WebhookSettings {
   readonly endpoint: string;
+  /** Absent means verification is unavailable and says so, never that it silently passes. */
+  readonly lookupEndpoint?: string;
 }
 
 export type SideEffectExecutorSelection =
@@ -94,6 +105,20 @@ export function resolveSideEffectExecutorSelection(env: Env): SideEffectExecutor
         reason: `${WEBHOOK_ENDPOINT_ENV_VAR}="${endpoint}" is not a public HTTPS endpoint. Remote execution proof mode refuses loopback, private-range, credentialled, and plaintext endpoints — an executor that can be pointed at this machine cannot be evidence that anything left it.`,
       };
     }
+    // Optional, but not optionally validated. A lookup endpoint that is set and unsafe fails the
+    // selection rather than being dropped: quietly discarding it would leave sends running with
+    // verification the operator believes is configured and which is not there.
+    const lookupEndpoint = env[WEBHOOK_LOOKUP_ENDPOINT_ENV_VAR]?.trim();
+    if (lookupEndpoint !== undefined && lookupEndpoint.length > 0) {
+      if (!isRemoteProofSafeEndpoint(lookupEndpoint)) {
+        return {
+          kind: 'WEBHOOK_MISCONFIGURED',
+          reason: `${WEBHOOK_LOOKUP_ENDPOINT_ENV_VAR}="${lookupEndpoint}" is not a public HTTPS endpoint. A verification lookup this machine could answer for itself would make a confirmation worthless.`,
+        };
+      }
+      return { kind: 'WEBHOOK', settings: { endpoint, lookupEndpoint } };
+    }
+
     return { kind: 'WEBHOOK', settings: { endpoint } };
   }
 
@@ -197,7 +222,11 @@ export function resolveLeadRescueSideEffectExecutor(
       return { executor, executorId: executor.id, selectionKind: selection.kind };
     }
     case 'WEBHOOK': {
-      const executor = new WebhookSideEffectExecutor({ endpoint: selection.settings.endpoint });
+      const { endpoint, lookupEndpoint } = selection.settings;
+      const executor = new WebhookSideEffectExecutor({
+        endpoint,
+        ...(lookupEndpoint === undefined ? {} : { lookupEndpoint }),
+      });
       return { executor, executorId: executor.id, selectionKind: selection.kind };
     }
     case 'WEBHOOK_MISCONFIGURED': {
