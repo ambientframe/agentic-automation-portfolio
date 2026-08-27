@@ -3,7 +3,58 @@
 > One per accepted package (Constitution §14). Repository truth is authoritative; this file
 > is an index, not a source. Append the new checkpoint above the previous one.
 
-## Current — Two of the four published gaps, closed · 2026-08-27
+## Current — The seam is exercised, not asserted · 2026-08-27
+
+**Verified state.** `npm run verify`: 70 files, 1129 passed / 1 skipped, exit 0. `npm run build`:
+compiled successfully, exit 0.
+
+**Proof claim earned.** A second business profile runs all six systems, all twenty-two
+scenarios, on the same engine through the same handlers. `lib/model/profile.ts` has claimed
+since it was written that retargeting "should be a matter of authoring a second profile";
+`tests/seam.test.ts` guarded that with a sixteen-term blacklist over `data/systems/**`. A
+blacklist proves the vocabulary somebody remembered is absent. It cannot prove a second
+profile is possible. One now exists and the claim is exercised.
+
+**The engine was already generic. The wiring is not.** No handler or reducer changed, which is
+exactly what the seam promised. The coupling lives in the surfaces: `lib/proof/fidelity-ledger.ts`
+reads `KESTREL` directly, and `RUNNABLE_SYSTEMS` names it six times. Recorded rather than fixed —
+what the buyer-facing ledger should *say* under a second profile is a canon decision.
+
+**The contract was enforced but undeclared.** `numberParam` throws on a missing key, correctly,
+but the seventeen demands existed only as scattered call sites — discoverable only by authoring a
+profile and crashing into them one at a time, and impossible to hand to anyone else.
+`PROFILE_ENGINE_CONTRACT` states it once; a source scan fails if it drifts in either direction.
+
+**A published threshold governed nothing.** `dormantCoolingOffDays` carried a policy link and
+rendered into `docs/RESEARCH_LEDGER.md` as a governing number that no code reads. Removed rather
+than justified by inventing an engine rule to honour it. `docs.test.ts` caught the stale canon,
+which is the mechanism working.
+
+**Falsification and mutation.** 62 tests written RED first — the suite failed to import a profile
+that did not exist. 4 targeted mutations, each separately confirmed to fail the suite; none
+survived; all files restored byte-for-byte and verified by MD5. The hard-coded-threshold mutation
+survived the aggregate divergence assertion and was caught only by the per-threshold isolation
+cases, which is why those exist.
+
+**Attribution was measured and was wrong twice.** The owner-intelligence divergence was credited
+first to `exceptionVarianceThresholdPct`, then to `inputStalenessToleranceHours`. It is driven by
+`confidenceFloor`.
+
+**Maturity.** Unchanged. Meridian is a structural fixture, absent from `RUNNABLE_SYSTEMS` and
+every rendered surface; nothing in it is grounded in how localisation firms operate, and
+`COMMERCIAL_THESIS.md` §6 requires that grounding of any profile a visitor is shown. $0 spent, no
+provider crossed.
+
+**Pattern earned.** #26 — a seam is proven by a second instance, never by a blacklist.
+
+**Next package.** NOT SELECTED. Two candidates, in order of my preference: (a) the remote
+receiver's idempotency-key lookup, so `attemptVerify` stops throwing and an `OUTCOME_UNKNOWN` can
+be narrowed — still the last structural hole in the execution boundary, and unchanged by this
+package; (b) decide what `lib/proof/fidelity-ledger.ts` says under a profile that is not Kestrel,
+which this package exposed and deliberately left open. (b) is a prerequisite for ever rendering a
+second profile; (a) is the deeper gap.
+
+## Earlier — Two of the four published gaps, closed · 2026-08-27
 
 **Verified state.** `npm run verify`: 69 files, 1067 passed / 1 skipped, exit 0. `npm run build`:
 exit 0.

@@ -636,7 +636,6 @@ const RAW = {
     { key: 'dispatchTimeoutHours', label: 'Ready-but-undespatched attention timeout', value: 8, unit: 'hours', policyId: 'kestrel-dispatch-timeout-window' },
     { key: 'dormantMaxAttempts', label: 'Maximum reactivation attempts', value: 3, unit: 'attempts', policyId: 'kestrel-outreach-cadence' },
     { key: 'dormantWindowDays', label: 'Reactivation sequence window', value: 21, unit: 'days', policyId: 'kestrel-outreach-cadence' },
-    { key: 'dormantCoolingOffDays', label: 'Cooling-off before re-entry', value: 90, unit: 'days', policyId: 'kestrel-outreach-cadence' },
     { key: 'entityMatchThreshold', label: 'Minimum confidence to accept an entity match', value: 0.9, unit: 'probability', policyId: 'kestrel-entity-resolution' },
     { key: 'collectionEscalationDays', label: 'Escalation to founder past due', value: 45, unit: 'days past due', policyId: 'kestrel-collection-cadence' },
     { key: 'proposalAuthorityCeiling', label: 'Maximum authority for outbound commercial documents', value: 2, unit: 'authority level', policyId: 'kestrel-proposal-authority' },

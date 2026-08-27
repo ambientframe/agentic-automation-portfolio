@@ -224,6 +224,44 @@ export const BusinessProfileSchema = z.strictObject({
 
 export type BusinessProfile = z.infer<typeof BusinessProfileSchema>;
 
+/**
+ * WHAT THE ENGINE DEMANDS OF ANY PROFILE.
+ *
+ * `numberParam` throws on a missing key, which is right — a threshold the engine invents is
+ * the exact failure this layer exists to prevent. But every demand lived at its own call
+ * site and nowhere else, so the full set could only be discovered by authoring a profile and
+ * crashing into the gaps one at a time. That is a poor way to learn a contract, and an
+ * impossible one to hand to somebody else.
+ *
+ * This is that contract, stated once. `tests/profile-seam-swap.test.ts` scans `lib/` and
+ * fails if the engine reads a key this list omits, or if this list requires one nothing
+ * reads — so the contract can neither drift ahead of the code nor lag behind it.
+ *
+ * Being on this list means the engine COMPARES AGAINST the value. A number that only wants
+ * to be published belongs in `policies` as prose: `scripts/generate-docs.ts` renders every
+ * entry here into canon as a governing threshold, and a reader is entitled to assume
+ * something honours it.
+ */
+export const PROFILE_ENGINE_CONTRACT: readonly string[] = [
+  'acknowledgementTargetSeconds',
+  'bookingOfferWindowHours',
+  'collectionEscalationDays',
+  'confidenceFloor',
+  'dispatchTimeoutHours',
+  'dormantMaxAttempts',
+  'dormantWindowDays',
+  'entityMatchThreshold',
+  'exceptionVarianceThresholdPct',
+  'humanReviewTimeoutHours',
+  'inputStalenessToleranceHours',
+  'malformedRetryBudget',
+  'maxInformationQuestions',
+  'proposalApprovalTimeoutHours',
+  'proposalAuthorityCeiling',
+  'replyWaitWindowHours',
+  'routingTargetMinutes',
+];
+
 // ---------------------------------------------------------------------------
 // Internal consistency
 // ---------------------------------------------------------------------------
