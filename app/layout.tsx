@@ -4,7 +4,7 @@ import { Inter, Newsreader, IBM_Plex_Mono } from 'next/font/google';
 import './globals.css';
 import { KESTREL } from '@/data/profiles/kestrel/profile';
 import { ALL_SYSTEMS } from '@/data/systems';
-import { isLive } from '@/lib/model/system';
+import { MATURITY_LEVELS } from '@/lib/model/system';
 
 const inter = Inter({ variable: '--font-inter', subsets: ['latin'], display: 'swap' });
 const newsreader = Newsreader({ variable: '--font-newsreader', subsets: ['latin'], display: 'swap' });
@@ -64,9 +64,19 @@ function SimulationBanner() {
 
 /** N6 · Newspaper masthead. A technical bulletin, not a product nav. */
 function Masthead() {
-  const simulated = ALL_SYSTEMS.filter((s) => s.maturity === 'SIMULATED').length;
-  const concept = ALL_SYSTEMS.filter((s) => s.maturity === 'CONCEPT').length;
-  const live = ALL_SYSTEMS.filter((s) => isLive(s.maturity)).length;
+  /**
+   * Tallied over the levels actually present, never over a hardcoded subset.
+   *
+   * This previously counted only SIMULATED, CONCEPT, and live — three buckets that between
+   * them do not cover `MATURITY_LEVELS`. INTERACTIVE_PROTOTYPE fell through every one of
+   * them, so the masthead on every page read "6 systems · 5 simulated · 0 concept · 0 live"
+   * and the most advanced system in the portfolio was missing from the portfolio's own
+   * headline. Deriving the tally makes that class of omission impossible rather than fixed.
+   */
+  const byLevel = MATURITY_LEVELS.map((level) => ({
+    level,
+    count: ALL_SYSTEMS.filter((s) => s.maturity === level).length,
+  })).filter((entry) => entry.count > 0);
 
   return (
     <header className="masthead">
@@ -75,8 +85,11 @@ function Masthead() {
           Portfolio Flight Simulator
         </Link>
         <p className="label mt-3">
-          {ALL_SYSTEMS.length} systems · {simulated} simulated · {concept} concept · {live} live ·
-          Edition v0.1
+          {ALL_SYSTEMS.length} systems ·{' '}
+          {byLevel
+            .map(({ level, count }) => `${count} ${level.replace(/_/g, ' ').toLowerCase()}`)
+            .join(' · ')}{' '}
+          · Edition v0.1
         </p>
       </div>
     </header>
@@ -89,7 +102,8 @@ function Colophon() {
     <footer className="border-t rule mt-24">
       <div className="mx-auto max-w-6xl px-6 py-12 space-y-6">
         <p className="display text-lg" style={{ maxWidth: '38ch' }}>
-          Every run on this site is a deterministic simulation. Nothing leaves the process.
+          Every scenario here replays deterministically. Nothing reaches a real customer,
+          provider, or third party.
         </p>
         <div className="border-t rule pt-5 space-y-2">
           <p className="instrument" style={{ color: 'var(--ink-muted)' }}>
@@ -97,7 +111,10 @@ function Colophon() {
           </p>
           <p className="instrument" style={{ color: 'var(--ink-faint)' }}>
             Operating standards are labelled by where they come from and how well they are
-            supported. No model is called. No message, record write, or notification is sent.
+            supported. By default no model is called and no message leaves this process; each
+            requires its own explicit opt-in, never a credential alone. Lead Rescue&rsquo;s operator
+            console does write durable records to local disk — that is what makes its run history
+            a record rather than a rehearsal.
           </p>
         </div>
       </div>

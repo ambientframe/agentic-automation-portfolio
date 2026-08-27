@@ -1,13 +1,31 @@
 # Agentic Automation Portfolio — Flight Simulator
 
-An interactive systems-engineering laboratory. Six small-business operating systems,
-modelled so that a visitor can watch a real business incident move through state,
-decisions, policy, bounded AI judgment, human authority, actions, verification, and
-recovery — and then open it up and check the wiring.
+Six small-business operating systems, modelled so that a visitor can watch a real business
+incident move through state, decisions, policy, bounded AI judgment, human authority,
+actions, verification, and recovery — and then open it up and check the wiring.
 
-**Everything here is simulated.** No model is called. No message, record write, or
-notification leaves the process. The demonstration business is fictional. That claim is
-enforced by the test suite, not just asserted in prose.
+**Start here: [`/lead-rescue`](app/lead-rescue/page.tsx).** It is the reference
+implementation and the only one built to full depth. It answers a buyer's four questions in
+the order they actually arrive: what expensive thing does this prevent, what happened to one
+specific lead, what can an operator actually do, and which parts of this are real. That last
+one is a capability-by-capability ledger that states its own limits — including the ones
+that are still unproven.
+
+## What is and is not real
+
+Maturity is descriptive, never aspirational. Nothing here is live, deployed, or
+customer-proven; every input is synthetic and the demonstration business is fictional.
+
+| | |
+| --- | --- |
+| Lead Rescue | `INTERACTIVE_PROTOTYPE` — 8 scenarios, 8 HTTP routes, durable persistence, an execution journal, HMAC operator authentication, 2 real n8n workflows, and a genuine `claude-opus-5` classification that has executed through the real ingress path |
+| The other five | `SIMULATED` — 2 scenarios each, executing the same shared engine against authored fixtures |
+
+Lead Rescue's live classification evaluation is a **retained negative result**: all 9 frozen
+corpus cases ran against the real model and scored **6/9 (66.7%)** against a declared floor
+of 75%. No label, threshold, prompt, or model setting was altered to soften it. Every miss
+routed to a person rather than to an action, so the failure is one of accuracy and never of
+safety. See [STATUS.md](docs/STATUS.md).
 
 ## Run it
 
@@ -16,70 +34,41 @@ npm install
 npm run dev
 ```
 
-Then open the printed URL. Thirteen incidents across five systems replay through the engine:
+Then open the printed URL. **18 incidents across 6 systems** replay through the engine. Each
+one executes the real engine — same input, same result, every time.
 
-- `/simulator/after-hours-enquiry` — an incomplete enquiry at 20:47, worked to a booking
-- `/simulator/duplicate-delivery` — the same event delivered twice, refused twice
-- `/simulator/ambiguous-high-risk` — a 0.52-confidence case that reaches a person instead
-  of an inbox
-- `/simulator/restricted-contact-review` — a high-confidence, well-qualified enquiry, still
-  blocked at the policy gate because the contact carries restricted consent state
-- `/simulator/uncertain-downstream-outcome` — an acknowledgement whose outcome comes back
-  unknown; a naive retry is refused, and exactly one send succeeds after verification
-- `/simulator/eligible-reactivation` — a dormant opportunity's stated timing objection
-  expires and a named human accepts it back into the active pipeline
-- `/simulator/suppressed-recovery` — a textbook re-entry trigger, correctly overridden by
-  suppression before any candidate action is ever computed
-- `/simulator/discovery-to-approved-proposal` — a discovery call whose every material fact
-  is cited, sourced, or derived reaches an approved, despatched proposal
-- `/simulator/unsupported-scope-claim-blocked` — a candidate claim expands scope with zero
-  supporting citation and is refused before a draft can exist, regardless of its confidence
-- `/simulator/signed-client-to-first-value` — a signed engagement carries context forward
-  from Call-to-Proposal's own opportunity, requests only what is genuinely missing,
-  provisions its resources once, and reaches a first-value milestone with one task still open
-- `/simulator/duplicate-provisioning-reconciled` — a redelivered access confirmation
-  reconciles its resources instead of duplicating them, while the engine core separately
-  refuses the redelivery's illegal lifecycle transition
-- `/simulator/overdue-reply-changes-policy` — an overdue invoice reply mentions a dispute
-  on a different, already-resolved invoice while genuinely promising to pay this one; the
-  bounded judgment reads it correctly, a second judgment extracts the committed date, and
-  payment on that date settles the invoice
-- `/simulator/dispute-halts-cadence` — a clear dispute halts the collection cadence
-  immediately regardless of ageing, a stale delayed evaluation is safely absorbed once the
-  invoice leaves the ageing ladder, and a person resolves the dispute back onto it
+**Lead Rescue (8)** — `/simulator/after-hours-enquiry` · `duplicate-delivery` ·
+`ambiguous-high-risk` · `restricted-contact-review` · `uncertain-downstream-outcome`, plus
+three wait/resume incidents reachable from `/lead-rescue`.
+
+**The other five (2 each)** — `eligible-reactivation` · `suppressed-recovery` ·
+`discovery-to-approved-proposal` · `unsupported-scope-claim-blocked` ·
+`signed-client-to-first-value` · `duplicate-provisioning-reconciled` ·
+`overdue-reply-changes-policy` · `dispute-halts-cadence` · plus two owner-revenue paths.
 
 ## Verify it
 
 ```bash
-npm run verify
+npm run verify     # typecheck + lint + 836 tests across 54 files
+npm run build      # 30 pages prerender — the engine executes at build time
+npm run docs       # regenerate the canon documents from the typed model
 ```
 
-Typecheck, lint, and 310 tests. The interesting ones are not smoke tests:
+The interesting tests are not smoke tests:
 
 | Test | Asserts |
 | --- | --- |
 | `tests/lead-rescue.test.ts` | A replayed duplicate produces **zero** duplicate external actions; a low-confidence judgment sends **nothing**; a restricted contact's candidate action is blocked regardless of classification confidence; an uncertain send outcome permits exactly **one** customer-facing effect across the whole run |
-| `tests/dormant-pipeline-recovery.test.ts` | The re-entry reason is a genuine date comparison, never a narrated yes; suppression is evaluated before any re-entry reason and produces zero side effects when it applies |
-| `tests/call-to-proposal.test.ts` | Every admitted buyer fact cites a real transcript passage; a claim asserting scope with **zero** citations is refused before a draft can exist; a stale approval does not authorise a revised artifact; a claim stating a prohibited commitment is blocked regardless of source |
-| `tests/extraction-provider.test.ts` | A citation pointing at a segment the transcript never supplied is refused at the port boundary — a malformed evidence reference cannot silently validate a buyer claim |
-| `tests/client-onboarding.test.ts` | A field already known from the signed handoff is never re-requested; a reserved secret sentinel submitted through an ordinary intake field *or* as an access-grant channel reference never persists, renders, or gets marked confirmed/complete; an existing resource with a different desired state is never overwritten; a same-rank contradiction routes to a person, never resolved by recency |
-| `tests/handoff-boundary.test.ts` | The System 3 → 4 handoff translator reproduces exactly the fixture Client Onboarding consumes when re-run live against Call-to-Proposal's own scenario, and changes when an admitted claim changes; a proposal blocked at `NEEDS_HUMAN` or a stale approval produces **no** handoff at all; a translated handoff cannot expand signed scope and still authorises onboarding through to first value end to end |
-| `tests/resource-provisioner.test.ts` | `ensure()` genuinely compares desired-state fingerprints rather than reciting a scripted outcome; no external id is ever fabricated |
-| `tests/receivables-recovery.test.ts` | A reply mentioning "dispute" about a different invoice is read as a promise to pay, not a dispute; a promise with no extractable date records nothing; a stale or out-of-order evaluation never regresses the ageing bucket; a dispute halts every reminder immediately; payment halts collection from any state |
-| `tests/engine.test.ts` | An undeclared transition is rejected and the state does not move; no transition can leave a terminal state; a naive retry on an unresolved uncertain outcome is refused by the core; a PROVISION effect never claims the single-shot idempotency ledger a SEND effect does |
-| `tests/side-effect-executor.test.ts` | The provider port never fabricates an external id, and converts every provider failure into data rather than throwing |
+| `tests/live-classification-evidence.test.ts` | The retained real-model run is intact — 13 tests, each confirmed to fail against a deliberately corrupted artifact |
+| `tests/observation-integrity-evidence.test.ts` | The system can say what it failed to write down — 20 tests over a capture containing a real `EACCES` drop, a real `550` refusal, and a real process kill mid-send |
+| `tests/lead-rescue-wait-resume-execution-boundary.test.ts` | The durable claim gates the actual observable execution boundary, not merely a status label |
+| `tests/operator-authentication.test.ts` | Authority is bound to a verified identity; a body naming its own role is rejected outright |
+| `tests/handoff-boundary.test.ts` | The System 3 → 4 handoff reproduces exactly the fixture Client Onboarding consumes when re-run live against Call-to-Proposal's own scenario |
+| `tests/engine.test.ts` | An undeclared transition is rejected and the state does not move; no transition can leave a terminal state; a naive retry on an unresolved uncertain outcome is refused by the core |
 | `tests/replay.test.ts` | Two runs of the same scenario are byte-identical, and every timestamp traces to an authored fixture |
 | `tests/seam.test.ts` | No business vocabulary has leaked into a vertical-agnostic system definition |
 | `tests/provenance.test.ts` | An uncited evidence claim fails validation; an unverified claim can never render as settled fact |
-| `tests/profile.test.ts` | The fictional business is internally coherent — revenue, funnel, and headcount reconcile |
 | `tests/docs.test.ts` | The canon documents are not stale relative to the model |
-
-Other commands:
-
-```bash
-npm run build      # 23 pages prerender — the engine executes at build time
-npm run docs       # regenerate the canon documents from the typed model
-```
 
 ## How it is put together
 
@@ -87,11 +76,15 @@ npm run docs       # regenerate the canon documents from the typed model
 docs/           canon (normative) + source/ (historical inputs, byte-preserved)
 lib/model/      provenance, system, runtime, profile — the typed vocabulary
 lib/engine/     pure reducer, idempotency + event + execution ledgers, two-phase runner
-lib/ports/      DecisionProvider + SideEffectExecutor + ExtractionProvider + ResourceProvisioner, fixture-backed
+lib/ports/      DecisionProvider + SideEffectExecutor + ExtractionProvider + ResourceProvisioner
+lib/persistence/ durable wait incidents, operation claims, execution journal
+lib/proof/      the buyer-facing proof surface — journey, grammar, fidelity ledger
+lib/observability/ aggregate operational view, observation integrity, alerting
 data/systems/   the six systems — vertical-agnostic, no business vocabulary
 data/profiles/  Kestrel Compliance Group — the swappable fictional business
-data/research/  the source ledger
-app/            portfolio index, system dossiers, flight simulator
+n8n/workflows/  2 real Lead Rescue workflows
+n8n/evidence/   9 retained runtime artifacts, each guarded by a falsification suite
+app/            portfolio index, system dossiers, flight simulator, Lead Rescue proof surface
 tokens.css      OKLCH design tokens, contrast-verified
 ```
 
@@ -110,9 +103,9 @@ feed a pure synchronous reducer:
 adapter → CanonicalEvent[] → reduce(state, event, judgments) → TimelineEntry[] → UI
 ```
 
-The reducer reads no clock and no random source, so replay is exact. Real integrations
-replace simulation behind these contracts without the business model or the portfolio
-experience being rewritten.
+The reducer reads no clock and no random source, so replay is exact. Lead Rescue has now
+demonstrated the payoff: a real `claude-opus-5` provider replaced the fixture one behind
+`DecisionProvider` with no change to the business model or the portfolio experience.
 
 ### What actually executes
 
@@ -124,8 +117,22 @@ so no handler can opt out of them.
 
 Only **bounded AI judgment** — interpretation of free text — is replayed from fixtures,
 through a typed port whose contract validates the returned classification against a closed
-permitted set. That validation is the part that must survive when a live provider replaces
-the fixture one.
+permitted set. In Lead Rescue that port has been driven by a real provider; everywhere else
+it is still fixture-backed.
+
+### A credential is not an activation
+
+Real providers are reached only by an explicit environment opt-in, **never by credential
+presence alone**, and each boundary has its own switch:
+
+| Boundary | Opt-in | Default |
+| --- | --- | --- |
+| Model classification | `LEAD_RESCUE_DECISION_PROVIDER=claude` | fixture |
+| Outbound messaging | `LEAD_RESCUE_SIDE_EFFECT_EXECUTOR=smtp` | simulated |
+
+Both fail **closed**, not silently: an explicitly requested real path that is misconfigured
+raises the same typed failure a genuine transport error produces, rather than quietly
+substituting a fake success.
 
 ### How to read a claim
 
@@ -148,14 +155,25 @@ makes an uncited evidence claim a validation failure rather than a style problem
 | [RESEARCH_LEDGER.md](docs/RESEARCH_LEDGER.md) | Every claim, its provenance, its verification state, and every source's limitations. Generated. |
 | [STATUS.md](docs/STATUS.md) | What is real, what is simulated, what is unverified, and the next fidelity gap. |
 | [CANON_DIVERGENCES.md](docs/CANON_DIVERGENCES.md) | Where the canon deliberately departs from the original brief, and why. |
+| [AGENTS.md](AGENTS.md) | Operating guidance for agents working in this repository. |
 
 The first three are **rendered from the typed model**, so the definitions are the canon and
 the documents cannot drift from them. `docs/source/` holds the original project inputs
 byte-for-byte; they are provenance, not instruction.
 
-## Not built yet, on purpose
+## Not built yet
 
-No live integrations, no production credentials, no outbound communication, no database, no
-vector store, no multi-agent orchestration, no graph framework, and no n8n workflows. Those
-are later fidelity upgrades, and the next one should be chosen from evidence this build
-produced rather than assumed in advance. See [STATUS.md](docs/STATUS.md).
+Deliberately, and stated precisely — this section is easy to leave stale, so it names only
+what is genuinely absent as of the current `STATUS.md`.
+
+- **No deployment.** Nothing is hosted. The build prerenders and serves locally.
+- **No real outbound customer messaging.** SMTP execution has run only against a
+  purpose-built receiver bound to loopback with no relay. Wiring a routable provider is the
+  highest-stakes remaining boundary and requires an explicit decision, not a config change.
+- **No production credentials, no database, no vector store, no multi-agent orchestration,
+  no graph framework.**
+- **No live fidelity beyond Lead Rescue.** Systems 2–6 have no HTTP surface, no persistence,
+  no n8n workflows, and no retained runtime artifacts. They share the engine, not the depth.
+
+The next fidelity gap should be chosen from evidence this build produced rather than assumed
+in advance. See [STATUS.md](docs/STATUS.md).
