@@ -3,7 +3,45 @@
 > One per accepted package (Constitution §14). Repository truth is authoritative; this file
 > is an index, not a source. Append the new checkpoint above the previous one.
 
-## Current — A state you can enter and never be forced out of · 2026-08-27
+## Current — The parked-state gap reaches the buyer · 2026-08-27
+
+**Verified state.** `npm run verify`: 63 files, 977 passed / 1 skipped, exit 0. `npm run build`:
+exit 0, 39 static pages.
+
+**Proof claim earned.** The audit from the previous package now renders as `Two · c` on all five
+`/proof/<slug>` pages, computed at build time from each system's own lifecycle. It sits directly
+under the coverage panel and answers the question that panel provokes: those runs end with a
+person holding the case, so what happens when the person does not act?
+
+**The zero case is the one that had to be got right.** Receivables Recovery reads *"This system
+declares what happens when nobody acts, for all 5 of the states work parks in"* — never
+"complete", never "fully covered". A test forbids those words in the headline by name, because
+rendering an empty finding as an absence of risk is precisely the move the integrity rule
+forbids. The caveats say the rest: this reads what a system declares about itself, never what
+its code does.
+
+**Mutations found the sort was decorative.** Removing it survived, because no system currently
+exposes more than one state, so ordering was unreachable from the real model. Driven directly
+with a fixture rather than deleted — the second time this pass that an unreachable rule was
+pinned instead of explained.
+
+**A limit taken deliberately.** The panel is NOT on `/lead-rescue`. That page's nine walkthrough
+frames are captured against its current layout, and adding a section invalidates them; a
+re-capture is its own pass. Lead Rescue's list is empty, so the unmade claim is the affirmative
+one — recorded here rather than quietly skipped.
+
+**Maturity.** Unchanged. $0 spent, no provider crossed, no gated variable set.
+
+**Pattern earned.** None — this renders #22 rather than adding residue, the same relationship
+"the coverage figure reaches the buyer" had to #20.
+
+**Next package.** NOT SELECTED. The published list is now a backlog four entries long, and the
+repository has already demonstrated once that a published gap gets used as one. Closing any of
+the four means ADDING a failure mode to canon, which is a modelling decision I have deliberately
+declined twice now and which is the owner's. Separately and larger: Execution 2 → 3 remains the
+only reference-exit blocker and is gated on explicit go-ahead.
+
+## Earlier — A state you can enter and never be forced out of · 2026-08-27
 
 **Verified state.** `npm run verify`: 62 files, 971 passed / 1 skipped, exit 0. `npm run build`:
 exit 0, 39 static pages. Four abandonable parked states published in

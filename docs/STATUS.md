@@ -1,6 +1,30 @@
 # Status
 
-**As of 2026-08-27 (latest pass, same day) · Four places where work can be parked and canon
+**As of 2026-08-27 (latest pass, same day) · The parked-state gap reaches the buyer.** The audit
+from the pass below now renders as `Two · c` on all five `/proof/<slug>` pages, computed at build
+time from each system's own lifecycle, directly under the coverage panel. It answers the
+question that panel provokes: those runs end with a person holding the case, so what happens
+when the person does not act?
+
+**The zero case had to be got right, and a test enforces it by name.** Receivables Recovery
+reads *"This system declares what happens when nobody acts, for all 5 of the states work parks
+in"*. The headline may not contain "complete", "fully covered", "no risk", or "safe" — an
+assertion lists those words explicitly — because rendering an empty finding as an absence of
+risk is exactly the move the integrity rule forbids. What an empty list means is stated in the
+caveats: neglect has somewhere declared to go, not that cases cannot be neglected.
+
+**A limit taken deliberately.** The panel is not on `/lead-rescue`. That page's nine walkthrough
+frames are captured against its current layout and adding a section invalidates them; re-capture
+is its own pass. Lead Rescue's list is empty, so the claim not being made there is the
+affirmative one.
+
+`npm run verify`: 63 files, 977 passed / 1 skipped, exit 0. `npm run build`: exit 0, 39 static
+pages. 6 tests; 5 targeted mutations, one survivor — the row sort, unreachable from the real
+model because no system exposes more than one state — repaired by driving it with a fixture.
+
+---
+
+**As of 2026-08-27 (earlier pass, same day) · Four places where work can be parked and canon
 says nothing about it.** `validateLifecycle` has always refused a `DEAD_END_STATE` — a
 non-terminal state with no way out. It passes cleanly over the sibling condition: a state with
 several declared exits, every one of which requires a `HUMAN_DECISION`. On the graph that is not

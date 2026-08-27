@@ -19,6 +19,8 @@ import { ActHeading, HeaderStat, ProblemCard } from '@/components/proof/proof-ch
 import { CoveragePanel } from '@/components/proof/coverage-panel';
 import { computeScenarioTransitionCoverage } from '@/lib/proof/transition-coverage';
 import { deriveCoverageView } from '@/lib/proof/coverage-view';
+import { AttentionPanel } from '@/components/proof/attention-panel';
+import { deriveAttentionView } from '@/lib/proof/attention-view';
 import { MaturityBadge } from '@/components/badges';
 
 /**
@@ -107,6 +109,7 @@ export default async function SystemProofPage({ params }: PageProps<'/proof/[slu
   const [systemCoverage] = await computeScenarioTransitionCoverage([system.id]);
   if (systemCoverage === undefined) throw new Error(`${system.id} is not a runnable system`);
   const coverage = deriveCoverageView(system, systemCoverage);
+  const attention = deriveAttentionView(system);
 
   /**
    * The third problem card on Lead Rescue's page is authored prose. Here it is derived from the
@@ -223,6 +226,18 @@ export default async function SystemProofPage({ params }: PageProps<'/proof/[slu
           body="Two incidents, out of how many possible paths? Measured by replaying every scenario rather than estimated, and the moves nothing drives yet are listed by name rather than summarised — a number asks to be trusted, a list asks to be checked."
         />
         <CoveragePanel view={coverage} />
+      </section>
+
+      {/* ================================================================== */}
+      {/* B.2 · WHERE THE MAP STOPS PROMISING ANYTHING                        */}
+      {/* ================================================================== */}
+      <section className="space-y-8">
+        <ActHeading
+          act="Two · c"
+          title="Where a case can be parked and nobody is obliged to come back"
+          body="The runs above end with a person holding the case whenever the work exceeds the system's authority. That is only reassuring if something happens when the person does not act. This asks the lifecycle directly: which parked states can be left only by the party the case is already waiting on, and of those, which have nothing declared about being abandoned."
+        />
+        <AttentionPanel view={attention} />
       </section>
 
       {/* ================================================================== */}
