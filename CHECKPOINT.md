@@ -3,7 +3,47 @@
 > One per accepted package (Constitution §14). Repository truth is authoritative; this file
 > is an index, not a source. Append the new checkpoint above the previous one.
 
-## Current — Deployed and publicly reachable · 2026-08-26
+## Current — The portfolio survives a reader who will not click · 2026-08-26
+
+**Verified state.** `npm run verify`: 55 files, 889 passed / 1 skipped, exit 0. `npm run build`:
+exit 0. 21 new tests, 19 RED before any artifact existed; 13 targeted mutations each confirmed to
+fail the suite, none survived.
+
+**Proof claim earned.** The last open P0 item is closed. `docs/WALKTHROUGH.md` carries eight
+frames captured from a real production build, keyed to a beat table that totals 90 seconds, and
+the README leads with one of them. A stranger can now judge the work with no clone, no browser,
+and a dead link.
+
+**The guard is the package, not the prose.** `tests/walkthrough.test.ts` recomputes every figure
+the walkthrough states — incidents, lifecycle states, declared moves, confidence floor, operator
+name — from `data/` at test time. It caught three live defects on its first run: the README
+claimed 18 runnable incidents against a registry serving 19, 836 tests against 868, and 20 tests
+in `observation-integrity-evidence.test.ts` against 21. All three post-date `1e24806`, the commit
+that fixed this exact class of defect. **The drift came back inside one working day.**
+
+**Numbers engineered to drift were deleted rather than guarded.** Suite and route totals are gone
+from the README and a test fails if one returns. Counts that describe the product rather than the
+workshop stay, recomputed from `ALL_RUNNABLE_SCENARIOS`.
+
+**Truthfulness is asserted positively.** The suite requires the walkthrough to state the fiction,
+carry the retained 6-of-9 evaluation failure, name the `UNVERIFIED` row bounding the other
+thirteen, and say plainly that nothing has run for a paying customer. Two frames exist only for
+that: the standing SIMULATED banner and the ledger's last row. A tour assembled entirely from
+true frames can still read as live by cropping the ones that bound it.
+
+**Maturity.** Unchanged: Lead Rescue `INTERACTIVE_PROTOTYPE`, the other five `SIMULATED`, all
+`NOT_LIVE`. A walkthrough is not a capability. $0 spent, no provider crossed, no env var set.
+
+**Pattern earned.** #17 — collateral guarded by recomputation, not proofreading.
+
+**Not delivered.** A recorded screen capture. The frames and a timed script are committed; the
+recording itself needs a voice and is the owner's.
+
+**Next package.** NOT SELECTED. The open Track D item with the clearest shape is unchanged:
+make `terminalState` structured so `validateLifecycle` can check failure-mode recoveries against
+the transition graph (STATUS gap 0).
+
+## Earlier — Deployed and publicly reachable · 2026-08-26
 
 **Verified state.** Live at https://agentic-automation-portfolio.vercel.app, public, no
 deployment protection. All page routes and both probed API routes return 200 against the deployed

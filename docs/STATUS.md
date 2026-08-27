@@ -1,6 +1,65 @@
 # Status
 
-**As of 2026-08-26 (latest pass, same day) · The portfolio is reachable by someone who has not
+**As of 2026-08-26 (latest pass, same day) · The portfolio survives a reader who will not click,
+and the collateral that carries it is now guarded by arithmetic rather than by proofreading.**
+[`docs/WALKTHROUGH.md`](WALKTHROUGH.md) carries eight frames captured from a real production
+build, keyed to a beat table that totals 90 seconds, with the README leading on one of them. That
+closes the last open P0 item. A stranger can now judge this work with no clone, no browser, and a
+dead link — the three failure modes a hosted URL alone does not survive.
+
+**The guard is the package; the prose is the artifact it protects.**
+`tests/walkthrough.test.ts` recomputes every figure the walkthrough states — incident count,
+lifecycle states, declared moves, confidence floor, operator name — from `data/` at test time
+rather than proofreading them. Add a ninth scenario and the sentence claiming eight goes RED in
+that file rather than in a reader's browser.
+
+**It caught three live defects on its first run, which is the whole argument for it.** The README
+claimed **18** runnable incidents against a registry serving **19**, claimed **836** tests against
+**868**, and credited `tests/observation-integrity-evidence.test.ts` with **20** tests against
+**21**. Every one of those post-dates `1e24806` — the commit that fixed exactly this class of
+defect earlier the same day. The drift returned inside one working day, which says the previous
+fix was a correction and not a mechanism.
+
+**The remedy for a number engineered to drift is not a tighter guard.** Suite and route totals
+are now absent from the README entirely, and a test fails if one reappears: the gates report
+their own sizes and nothing needs to restate them. Counts that are claims about the *product*
+rather than about the workshop — runnable incidents — stay, and are recomputed from
+`ALL_RUNNABLE_SCENARIOS` rather than typed.
+
+**Truthfulness is asserted positively, never as an absence.** The suite requires the walkthrough
+to state that the business and every incident in it are fictional, to carry the retained 6-of-9
+live-evaluation failure, to name the `UNVERIFIED` `Customer deployment` row that bounds the other
+thirteen, and to say plainly that nothing has run for a paying customer. Two of the eight frames
+exist for that reason alone — the standing `SIMULATED` banner at the page top, and the ledger's
+last row — because **a tour assembled entirely from true frames can still read as live by
+cropping the ones that bound it.** That is the failure mode a screenshot tour has and a page
+does not.
+
+**Frames are captured, never composed.** `scripts/capture-walkthrough.ts` drives a real
+production build at a pinned viewport, device scale, and colour scheme, so two captures of an
+unchanged page differ only where the page differs. It is deliberately not an application
+dependency — Playwright is installed on demand and the script fails with instructions if it is
+absent — because this repository's README promises a stranger that `npm install` is cheap.
+
+**What this deliberately does not cover.** The suite guards the walkthrough's arithmetic and its
+disclaimers, never its argument: prose that is accurate and misleading in emphasis passes every
+assertion. It also cannot tell whether a frame still depicts the current page — only that the
+file exists — so re-capturing after a visual change remains a human step. And a *recorded*
+screen capture is not delivered: the frames and a timed script are committed, but the recording
+needs a voice and is the owner's to make.
+
+`npm run verify`: 55 files, 889 passed / 1 skipped, exit 0. `npm run build`: exit 0. 19 of the 21
+new tests were RED before any artifact existed, and 13 targeted mutations — a deleted frame, a
+deleted capture script, stripped alt text, a broken README link, beat timings that stop totalling
+90s, four figures drifting from the model, an edited-away failed evaluation, a removed
+no-customer disclaimer, a build described as live, and a stale suite size returning to the README
+— were each confirmed to fail the suite. None survived.
+
+Maturity unchanged: Lead Rescue `INTERACTIVE_PROTOTYPE`, the other five `SIMULATED`, everything
+`NOT_LIVE`. A walkthrough is not a capability. $0 spent, no provider crossed, no environment
+variable set on any host.
+
+**As of 2026-08-26 (earlier pass, same day) · The portfolio is reachable by someone who has not
 cloned it.** It is deployed at
 [agentic-automation-portfolio.vercel.app](https://agentic-automation-portfolio.vercel.app),
 publicly, with no deployment protection. Until now every claim in this document was true of a

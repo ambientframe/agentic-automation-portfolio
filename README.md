@@ -14,10 +14,18 @@ specific lead, what can an operator actually do, and which parts of this are rea
 one is a capability-by-capability ledger that states its own limits — including the ones
 that are still unproven.
 
+[![The Lead Rescue proof page: a standing SIMULATED banner reading "Nothing here is connected to a live system. All businesses, people, and incidents are fictional", the Portfolio Flight Simulator masthead counting 6 systems as 5 simulated and 1 interactive prototype, and the headline "Every enquiry ends somewhere you can point at."](docs/walkthrough/01-banner.png)](docs/WALKTHROUGH.md)
+
+**Not clicking? [Read it in 90 seconds instead.](docs/WALKTHROUGH.md)** Eight captured frames
+walking one enquiry from arrival to a labelled ledger of what is and is not real — enough to
+judge the work without a browser, and enough to survive this link going dead.
+
 ## What is and is not real
 
-Maturity is descriptive, never aspirational. Nothing here is live, deployed, or
-customer-proven; every input is synthetic and the demonstration business is fictional.
+Maturity is descriptive, never aspirational. The site above is hosted, which is not the same
+as live: nothing here has run for a customer, no trigger is connected to a real channel, and
+there is no production scheduler. Every input is synthetic and the demonstration business is
+fictional. **Reachable is a demonstration surface; it is not operation.**
 
 | | |
 | --- | --- |
@@ -37,7 +45,7 @@ npm install
 npm run dev
 ```
 
-Then open the printed URL. **18 incidents across 6 systems** replay through the engine. Each
+Then open the printed URL. **19 incidents across 6 systems** replay through the engine. Each
 one executes the real engine — same input, same result, every time.
 
 **Lead Rescue (8)** — `/simulator/after-hours-enquiry` · `duplicate-delivery` ·
@@ -52,18 +60,23 @@ three wait/resume incidents reachable from `/lead-rescue`.
 ## Verify it
 
 ```bash
-npm run verify     # typecheck + lint + 836 tests across 54 files
-npm run build      # 30 pages prerender — the engine executes at build time
+npm run verify     # typecheck + lint + the full test suite
+npm run build      # every route prerenders — the engine executes at build time
 npm run docs       # regenerate the canon documents from the typed model
 ```
+
+Suite and route totals are deliberately not quoted here. This file has twice carried a count
+that was wrong by the time anyone read it; the gates above report their own, and
+`tests/walkthrough.test.ts` fails if a stale one reappears.
 
 The interesting tests are not smoke tests:
 
 | Test | Asserts |
 | --- | --- |
 | `tests/lead-rescue.test.ts` | A replayed duplicate produces **zero** duplicate external actions; a low-confidence judgment sends **nothing**; a restricted contact's candidate action is blocked regardless of classification confidence; an uncertain send outcome permits exactly **one** customer-facing effect across the whole run |
-| `tests/live-classification-evidence.test.ts` | The retained real-model run is intact — 13 tests, each confirmed to fail against a deliberately corrupted artifact |
-| `tests/observation-integrity-evidence.test.ts` | The system can say what it failed to write down — 20 tests over a capture containing a real `EACCES` drop, a real `550` refusal, and a real process kill mid-send |
+| `tests/live-classification-evidence.test.ts` | The retained real-model run is intact — every assertion confirmed to fail against a deliberately corrupted artifact |
+| `tests/observation-integrity-evidence.test.ts` | The system can say what it failed to write down — a capture containing a real `EACCES` drop, a real `550` refusal, and a real process kill mid-send |
+| `tests/walkthrough.test.ts` | The walkthrough's figures are recomputed from the model, its frames exist, and its limits travel with it |
 | `tests/lead-rescue-wait-resume-execution-boundary.test.ts` | The durable claim gates the actual observable execution boundary, not merely a status label |
 | `tests/operator-authentication.test.ts` | Authority is bound to a verified identity; a body naming its own role is rejected outright |
 | `tests/handoff-boundary.test.ts` | The System 3 → 4 handoff reproduces exactly the fixture Client Onboarding consumes when re-run live against Call-to-Proposal's own scenario |
