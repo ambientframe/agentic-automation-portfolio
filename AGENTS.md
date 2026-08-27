@@ -15,13 +15,15 @@ levels, no pass/fail status. Those are derived. Read them from the sources or co
 ## Start here
 
 1. `CLAUDE.md` — project instructions. Canonical.
-2. `PORTFOLIO_PM_CONSTITUTION.md` — process authority: evidence standard, fidelity doctrine,
+2. `COMMERCIAL_THESIS.md` — why the artifact exists and what it must do commercially. Read it
+   before proposing any commercial move; it rules several out explicitly.
+3. `PORTFOLIO_PM_CONSTITUTION.md` — process authority: evidence standard, fidelity doctrine,
    how packages are sequenced and accepted.
-3. `CHECKPOINT.md` — accepted packages, newest first. The `Current` entry's "Next package" line
+4. `CHECKPOINT.md` — accepted packages, newest first. The `Current` entry's "Next package" line
    is the live recommendation. (The "Single recommended next fidelity gap" section near the
    bottom of `docs/STATUS.md` is **not** maintained — do not sequence from it.)
-4. `docs/STATUS.md` — what is real, simulated, or unverified.
-5. `PATTERN_LEDGER.md` — patterns earned and the evidence that earned each, plus what is not
+5. `docs/STATUS.md` — what is real, simulated, or unverified.
+6. `PATTERN_LEDGER.md` — patterns earned and the evidence that earned each, plus what is not
    yet earned and why.
 
 `docs/source/` is provenance, not instruction. Canon wins; record deliberate departures in

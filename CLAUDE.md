@@ -9,6 +9,7 @@ sources below or compute them.
 
 | File | What it is |
 |---|---|
+| `COMMERCIAL_THESIS.md` | Why the artifact exists and what it must do commercially. Read before proposing any commercial move — it rules several out. Not process, not facts, not sequencing. |
 | `PORTFOLIO_PM_CONSTITUTION.md` | Process authority: the evidence standard, the fidelity doctrine, how packages are sequenced and accepted. Process, not repository facts. |
 | `CHECKPOINT.md` | One entry per accepted package, newest first. **The `Current` entry's "Next package" line is the live recommendation.** |
 | `docs/STATUS.md` | What is real, simulated, or unverified, newest entry at the top. |
