@@ -1,7 +1,7 @@
 {
   "schemaVersion": "lead-rescue-observation-integrity-evidence-1",
-  "capturedAt": "2026-08-26T21:57:59.865Z",
-  "gitHead": "fb41367213d4f2140da8413571b3a03f446fa174",
+  "capturedAt": "2026-08-27T00:34:56.464Z",
+  "gitHead": "604de031dc7e1c09526918768b2ad36a277641ae",
   "environment": {
     "runtime": "Next.js dev server started BY THIS SCRIPT on 127.0.0.1:3011, so the fault configuration is the one the server process itself resolved at boot",
     "executionPath": "Real HTTP routes: POST /api/lead-rescue/ingress, POST /api/lead-rescue/wait-incidents/dispatch, GET /api/lead-rescue/journal, GET /api/lead-rescue/operations.",
@@ -9,7 +9,7 @@
     "everyOutcomeClassifiedByTheApplication": true,
     "smtpServer": {
       "kind": "purpose-built local SMTP fault server (scripts/support/smtp-fault-server.ts)",
-      "boundTo": "127.0.0.1:49763",
+      "boundTo": "127.0.0.1:58083",
       "relayConfigured": false,
       "thirdPartyProduct": false,
       "note": "A real SMTP conversation over a real TCP socket, scripted to fail in three specific ways. It is NOT a third-party product; n8n/evidence/lead-rescue-smtp-execution.json remains the capture where a real Mailpit instance issued the receipt."
@@ -20,11 +20,11 @@
     "syntheticData": true
   },
   "casesCreatedByThisRun": {
-    "caseADelivered": "lead-website-intake-form-observation-proof-1787781469724-delivered",
-    "caseBFailedBeforeEffect": "lead-website-intake-form-observation-proof-1787781469724-failed",
-    "caseCCrashedMidSend": "lead-website-intake-form-observation-proof-1787781469724-crashed",
-    "caseDVanishedAfterData": "lead-website-intake-form-observation-proof-1787781469724-vanished",
-    "caseEUnobserved": "lead-website-intake-form-observation-proof-1787781469724-unobserved"
+    "caseADelivered": "lead-website-intake-form-observation-proof-1787790885706-delivered",
+    "caseBFailedBeforeEffect": "lead-website-intake-form-observation-proof-1787790885706-failed",
+    "caseCCrashedMidSend": "lead-website-intake-form-observation-proof-1787790885706-crashed",
+    "caseDVanishedAfterData": "lead-website-intake-form-observation-proof-1787790885706-vanished",
+    "caseEUnobserved": "lead-website-intake-form-observation-proof-1787790885706-unobserved"
   },
   "steps": [
     {
@@ -124,14 +124,14 @@
   },
   "abnormalDeliveryEvidence": {
     "failedBeforeEffect": {
-      "incidentId": "lead-website-intake-form-observation-proof-1787781469724-failed",
+      "incidentId": "lead-website-intake-form-observation-proof-1787790885706-failed",
       "journalRecord": {
-        "journalEventId": "lead-website-intake-form-observation-proof-1787781469724-failed:DISPATCH_ATTEMPTED:FAILED_BEFORE_EFFECT:offer:lead-website-intake-form-observation-proof-1787781469724-failed:2026-08-26T21:57:50.799Z@rev1",
+        "journalEventId": "lead-website-intake-form-observation-proof-1787790885706-failed:DISPATCH_ATTEMPTED:FAILED_BEFORE_EFFECT:offer:lead-website-intake-form-observation-proof-1787790885706-failed:2026-08-27T00:34:47.046Z@rev1",
         "schemaVersion": "lead-rescue-execution-journal-1",
-        "recordedAt": "2026-08-26T21:57:50.810Z",
+        "recordedAt": "2026-08-27T00:34:47.058Z",
         "systemId": "lead-rescue",
-        "incidentId": "lead-website-intake-form-observation-proof-1787781469724-failed",
-        "correlationId": "inc-lead-website-intake-form-observation-proof-1787781469724-failed",
+        "incidentId": "lead-website-intake-form-observation-proof-1787790885706-failed",
+        "correlationId": "inc-lead-website-intake-form-observation-proof-1787790885706-failed",
         "revision": 1,
         "type": "DISPATCH_ATTEMPTED",
         "mechanism": "EXECUTION",
@@ -139,7 +139,7 @@
         "failureClass": "DOWNSTREAM_API_FAILURE",
         "executionMode": "LIVE",
         "actorId": "lead-rescue-local-smtp-executor",
-        "operationClaimId": "offer:lead-website-intake-form-observation-proof-1787781469724-failed:2026-08-26T21:57:50.799Z@rev1",
+        "operationClaimId": "offer:lead-website-intake-form-observation-proof-1787790885706-failed:2026-08-27T00:34:47.046Z@rev1",
         "detail": "The executor confirmed nothing was sent. The case is still held UNCERTAIN: the durable claim was already taken and nothing here can independently verify non-execution.",
         "stage": "ACTION"
       },
@@ -153,24 +153,23 @@
       }
     },
     "vanishedAfterData": {
-      "incidentId": "lead-website-intake-form-observation-proof-1787781469724-vanished",
+      "incidentId": "lead-website-intake-form-observation-proof-1787790885706-vanished",
       "journalRecords": [
         {
-          "journalEventId": "lead-website-intake-form-observation-proof-1787781469724-vanished:DISPATCH_ATTEMPTED:FAILED_BEFORE_EFFECT:offer:lead-website-intake-form-observation-proof-1787781469724-vanished:2026-08-26T21:57:50.823Z@rev1",
+          "journalEventId": "lead-website-intake-form-observation-proof-1787790885706-vanished:DISPATCH_ATTEMPTED:OUTCOME_UNKNOWN:offer:lead-website-intake-form-observation-proof-1787790885706-vanished:2026-08-27T00:34:47.072Z@rev1",
           "schemaVersion": "lead-rescue-execution-journal-1",
-          "recordedAt": "2026-08-26T21:57:50.833Z",
+          "recordedAt": "2026-08-27T00:34:47.083Z",
           "systemId": "lead-rescue",
-          "incidentId": "lead-website-intake-form-observation-proof-1787781469724-vanished",
-          "correlationId": "inc-lead-website-intake-form-observation-proof-1787781469724-vanished",
+          "incidentId": "lead-website-intake-form-observation-proof-1787790885706-vanished",
+          "correlationId": "inc-lead-website-intake-form-observation-proof-1787790885706-vanished",
           "revision": 1,
           "type": "DISPATCH_ATTEMPTED",
           "mechanism": "EXECUTION",
-          "outcome": "FAILED_BEFORE_EFFECT",
-          "failureClass": "DOWNSTREAM_API_FAILURE",
+          "outcome": "OUTCOME_UNKNOWN",
           "executionMode": "LIVE",
           "actorId": "lead-rescue-local-smtp-executor",
-          "operationClaimId": "offer:lead-website-intake-form-observation-proof-1787781469724-vanished:2026-08-26T21:57:50.823Z@rev1",
-          "detail": "The executor confirmed nothing was sent. The case is still held UNCERTAIN: the durable claim was already taken and nothing here can independently verify non-execution.",
+          "operationClaimId": "offer:lead-website-intake-form-observation-proof-1787790885706-vanished:2026-08-27T00:34:47.072Z@rev1",
+          "detail": "The executor gave no confirmation either way. Whether the offer reached the prospect is genuinely unknown.",
           "stage": "ACTION"
         }
       ],
@@ -184,22 +183,22 @@
       }
     },
     "outcomeUnknownAfterCrash": {
-      "incidentId": "lead-website-intake-form-observation-proof-1787781469724-crashed",
+      "incidentId": "lead-website-intake-form-observation-proof-1787790885706-crashed",
       "journalRecord": {
-        "journalEventId": "lead-website-intake-form-observation-proof-1787781469724-crashed:DISPATCH_ATTEMPTED:OUTCOME_UNKNOWN:offer:lead-website-intake-form-observation-proof-1787781469724-crashed:2026-08-26T21:57:50.845Z@rev1",
+        "journalEventId": "lead-website-intake-form-observation-proof-1787790885706-crashed:DISPATCH_ATTEMPTED:OUTCOME_UNKNOWN:offer:lead-website-intake-form-observation-proof-1787790885706-crashed:2026-08-27T00:34:47.096Z@rev1",
         "schemaVersion": "lead-rescue-execution-journal-1",
-        "recordedAt": "2026-08-26T21:57:59.755Z",
+        "recordedAt": "2026-08-27T00:34:56.185Z",
         "systemId": "lead-rescue",
-        "incidentId": "lead-website-intake-form-observation-proof-1787781469724-crashed",
-        "correlationId": "inc-lead-website-intake-form-observation-proof-1787781469724-crashed",
+        "incidentId": "lead-website-intake-form-observation-proof-1787790885706-crashed",
+        "correlationId": "inc-lead-website-intake-form-observation-proof-1787790885706-crashed",
         "revision": 1,
         "type": "DISPATCH_ATTEMPTED",
         "mechanism": "EXECUTION",
         "outcome": "OUTCOME_UNKNOWN",
         "executionMode": "LIVE",
         "actorId": "lead-rescue-local-smtp-executor",
-        "operationClaimId": "offer:lead-website-intake-form-observation-proof-1787781469724-crashed:2026-08-26T21:57:50.845Z@rev1",
-        "detail": "An unconfirmed claim by route:2326 already exists. Whether the offer despatched is genuinely unknown from here.",
+        "operationClaimId": "offer:lead-website-intake-form-observation-proof-1787790885706-crashed:2026-08-27T00:34:47.096Z@rev1",
+        "detail": "An unconfirmed claim by route:40844 already exists. Whether the offer despatched is genuinely unknown from here.",
         "stage": "ACTION"
       },
       "independentReceiverState": {
@@ -213,21 +212,21 @@
       "note": "The receiver holds the body and never acknowledged it; the sending process was killed with its durable claim taken. A freshly started process then refused to re-send rather than guess."
     },
     "delivered": {
-      "incidentId": "lead-website-intake-form-observation-proof-1787781469724-delivered",
+      "incidentId": "lead-website-intake-form-observation-proof-1787790885706-delivered",
       "journalRecord": {
-        "journalEventId": "lead-website-intake-form-observation-proof-1787781469724-delivered:DISPATCH_ATTEMPTED:EXECUTED:offer:lead-website-intake-form-observation-proof-1787781469724-delivered:2026-08-26T21:57:50.744Z@rev1",
+        "journalEventId": "lead-website-intake-form-observation-proof-1787790885706-delivered:DISPATCH_ATTEMPTED:EXECUTED:offer:lead-website-intake-form-observation-proof-1787790885706-delivered:2026-08-27T00:34:46.929Z@rev1",
         "schemaVersion": "lead-rescue-execution-journal-1",
-        "recordedAt": "2026-08-26T21:57:50.778Z",
+        "recordedAt": "2026-08-27T00:34:47.025Z",
         "systemId": "lead-rescue",
-        "incidentId": "lead-website-intake-form-observation-proof-1787781469724-delivered",
-        "correlationId": "inc-lead-website-intake-form-observation-proof-1787781469724-delivered",
+        "incidentId": "lead-website-intake-form-observation-proof-1787790885706-delivered",
+        "correlationId": "inc-lead-website-intake-form-observation-proof-1787790885706-delivered",
         "revision": 1,
         "type": "DISPATCH_ATTEMPTED",
         "mechanism": "EXECUTION",
         "outcome": "EXECUTED",
         "executionMode": "LIVE",
         "actorId": "lead-rescue-local-smtp-executor",
-        "operationClaimId": "offer:lead-website-intake-form-observation-proof-1787781469724-delivered:2026-08-26T21:57:50.744Z@rev1",
+        "operationClaimId": "offer:lead-website-intake-form-observation-proof-1787790885706-delivered:2026-08-27T00:34:46.929Z@rev1",
         "detail": "The executor confirmed the send succeeded.",
         "stage": "ACTION"
       },
@@ -242,26 +241,26 @@
     }
   },
   "observationDegradationEvidence": {
-    "incidentId": "lead-website-intake-form-observation-proof-1787781469724-unobserved",
+    "incidentId": "lead-website-intake-form-observation-proof-1787790885706-unobserved",
     "fault": "the journal directory was made unwritable (0555) for exactly one ingress, then restored",
     "businessWorkSucceeded": true,
     "journalRecordsForThatCase": [],
     "integrityLoss": {
       "kind": "CONFIRMED_DROP",
-      "journalEventId": "lead-website-intake-form-observation-proof-1787781469724-unobserved:INGRESS_RECEIVED:accepted",
-      "incidentId": "lead-website-intake-form-observation-proof-1787781469724-unobserved",
-      "correlationId": "inc-lead-website-intake-form-observation-proof-1787781469724-unobserved",
+      "journalEventId": "lead-website-intake-form-observation-proof-1787790885706-unobserved:INGRESS_RECEIVED:accepted",
+      "incidentId": "lead-website-intake-form-observation-proof-1787790885706-unobserved",
+      "correlationId": "inc-lead-website-intake-form-observation-proof-1787790885706-unobserved",
       "systemId": "lead-rescue",
       "type": "INGRESS_RECEIVED",
       "outcome": "ACCEPTED",
-      "intendedAt": "2026-08-26T21:57:59.807Z",
-      "reason": "EACCES: permission denied, mkdir '/Users/tophermichael/Desktop/agentic-automation-portfolio/.data/lead-rescue-execution-journal/lead-website-intake-form-observation-proof-1787781469724-unobserved'"
+      "intendedAt": "2026-08-27T00:34:56.372Z",
+      "reason": "EACCES: permission denied, mkdir '/Users/tophermichael/Desktop/agentic-automation-portfolio/.data/lead-rescue-execution-journal/lead-website-intake-form-observation-proof-1787790885706-unobserved'"
     }
   },
   "executionClassificationCheckedAgainstTheReceiver": [
     {
       "subject": "case B (envelope refused)",
-      "incidentId": "lead-website-intake-form-observation-proof-1787781469724-failed",
+      "incidentId": "lead-website-intake-form-observation-proof-1787790885706-failed",
       "applicationOutcome": "FAILED_BEFORE_EFFECT",
       "applicationDetail": "The executor confirmed nothing was sent. The case is still held UNCERTAIN: the durable claim was already taken and nothing here can independently verify non-execution.",
       "receiverBodyBytesReceived": 0,
@@ -272,14 +271,14 @@
     },
     {
       "subject": "case D (body stored, then the socket died before the acknowledgement)",
-      "incidentId": "lead-website-intake-form-observation-proof-1787781469724-vanished",
-      "applicationOutcome": "FAILED_BEFORE_EFFECT",
-      "applicationDetail": "The executor confirmed nothing was sent. The case is still held UNCERTAIN: the durable claim was already taken and nothing here can independently verify non-execution.",
+      "incidentId": "lead-website-intake-form-observation-proof-1787790885706-vanished",
+      "applicationOutcome": "OUTCOME_UNKNOWN",
+      "applicationDetail": "The executor gave no confirmation either way. Whether the offer reached the prospect is genuinely unknown.",
       "receiverBodyBytesReceived": 979,
       "receiverStoredMessageId": "fault-3@example.invalid",
       "receiverAcknowledgedToClient": false,
-      "agreement": "CONTRADICTED",
-      "finding": "The application recorded confirmed non-execution while the receiver genuinely holds the message. The journal is a faithful record of what the executor reported; what is unsound is the executor classifying a post-DATA socket failure as FAILED_BEFORE_EFFECT, and this capture is the first evidence of it. An execution-boundary defect, found by observing a real run rather than by a test written to expect it."
+      "agreement": "DECLINED_TO_CLAIM",
+      "finding": "The receiver genuinely holds the message, and the application did NOT claim non-execution: it recorded OUTCOME_UNKNOWN and parked the case for a person rather than authorising a retry that would have delivered a second copy. This is the corrected execution-boundary classification, observed against a real socket rather than asserted by a unit test."
     }
   ],
   "integrity": {
@@ -287,14 +286,14 @@
     "losses": [
       {
         "kind": "CONFIRMED_DROP",
-        "journalEventId": "lead-website-intake-form-observation-proof-1787781469724-unobserved:INGRESS_RECEIVED:accepted",
-        "incidentId": "lead-website-intake-form-observation-proof-1787781469724-unobserved",
-        "correlationId": "inc-lead-website-intake-form-observation-proof-1787781469724-unobserved",
+        "journalEventId": "lead-website-intake-form-observation-proof-1787790885706-unobserved:INGRESS_RECEIVED:accepted",
+        "incidentId": "lead-website-intake-form-observation-proof-1787790885706-unobserved",
+        "correlationId": "inc-lead-website-intake-form-observation-proof-1787790885706-unobserved",
         "systemId": "lead-rescue",
         "type": "INGRESS_RECEIVED",
         "outcome": "ACCEPTED",
-        "intendedAt": "2026-08-26T21:57:59.807Z",
-        "reason": "EACCES: permission denied, mkdir '/Users/tophermichael/Desktop/agentic-automation-portfolio/.data/lead-rescue-execution-journal/lead-website-intake-form-observation-proof-1787781469724-unobserved'"
+        "intendedAt": "2026-08-27T00:34:56.372Z",
+        "reason": "EACCES: permission denied, mkdir '/Users/tophermichael/Desktop/agentic-automation-portfolio/.data/lead-rescue-execution-journal/lead-website-intake-form-observation-proof-1787790885706-unobserved'"
       }
     ],
     "intentsReconciled": 0,
@@ -302,39 +301,39 @@
   },
   "alerts": [
     {
-      "alertId": "UNRESOLVED_DELIVERY:lead-website-intake-form-observation-proof-1787781469724-crashed",
+      "alertId": "UNRESOLVED_DELIVERY:lead-website-intake-form-observation-proof-1787790885706-crashed",
       "condition": "UNRESOLVED_DELIVERY",
       "severity": "CRITICAL",
-      "incidentId": "lead-website-intake-form-observation-proof-1787781469724-crashed",
+      "incidentId": "lead-website-intake-form-observation-proof-1787790885706-crashed",
       "reason": "An action was attempted and the executor never confirmed either way, so whether it reached its recipient is genuinely unknown. It will not be retried automatically.",
       "operatorAction": "Check the receiving system directly to establish whether the action happened, then either clear the durable claim so it can be re-attempted or record it as delivered.",
       "status": "ACTIVE",
       "evidenceJournalEventIds": [
-        "lead-website-intake-form-observation-proof-1787781469724-crashed:DISPATCH_ATTEMPTED:OUTCOME_UNKNOWN:offer:lead-website-intake-form-observation-proof-1787781469724-crashed:2026-08-26T21:57:50.845Z@rev1"
+        "lead-website-intake-form-observation-proof-1787790885706-crashed:DISPATCH_ATTEMPTED:OUTCOME_UNKNOWN:offer:lead-website-intake-form-observation-proof-1787790885706-crashed:2026-08-27T00:34:47.096Z@rev1"
       ]
     },
     {
-      "alertId": "FAILED_DELIVERY:lead-website-intake-form-observation-proof-1787781469724-failed",
+      "alertId": "UNRESOLVED_DELIVERY:lead-website-intake-form-observation-proof-1787790885706-vanished",
+      "condition": "UNRESOLVED_DELIVERY",
+      "severity": "CRITICAL",
+      "incidentId": "lead-website-intake-form-observation-proof-1787790885706-vanished",
+      "reason": "An action was attempted and the executor never confirmed either way, so whether it reached its recipient is genuinely unknown. It will not be retried automatically.",
+      "operatorAction": "Check the receiving system directly to establish whether the action happened, then either clear the durable claim so it can be re-attempted or record it as delivered.",
+      "status": "ACTIVE",
+      "evidenceJournalEventIds": [
+        "lead-website-intake-form-observation-proof-1787790885706-vanished:DISPATCH_ATTEMPTED:OUTCOME_UNKNOWN:offer:lead-website-intake-form-observation-proof-1787790885706-vanished:2026-08-27T00:34:47.072Z@rev1"
+      ]
+    },
+    {
+      "alertId": "FAILED_DELIVERY:lead-website-intake-form-observation-proof-1787790885706-failed",
       "condition": "FAILED_DELIVERY",
       "severity": "ATTENTION",
-      "incidentId": "lead-website-intake-form-observation-proof-1787781469724-failed",
+      "incidentId": "lead-website-intake-form-observation-proof-1787790885706-failed",
       "reason": "An action confirmably did not happen. Nothing reached the recipient and no later attempt on this case succeeded.",
       "operatorAction": "Re-attempt the action once the underlying transport failure is understood; confirmed non-execution means a retry is safe.",
       "status": "ACTIVE",
       "evidenceJournalEventIds": [
-        "lead-website-intake-form-observation-proof-1787781469724-failed:DISPATCH_ATTEMPTED:FAILED_BEFORE_EFFECT:offer:lead-website-intake-form-observation-proof-1787781469724-failed:2026-08-26T21:57:50.799Z@rev1"
-      ]
-    },
-    {
-      "alertId": "FAILED_DELIVERY:lead-website-intake-form-observation-proof-1787781469724-vanished",
-      "condition": "FAILED_DELIVERY",
-      "severity": "ATTENTION",
-      "incidentId": "lead-website-intake-form-observation-proof-1787781469724-vanished",
-      "reason": "An action confirmably did not happen. Nothing reached the recipient and no later attempt on this case succeeded.",
-      "operatorAction": "Re-attempt the action once the underlying transport failure is understood; confirmed non-execution means a retry is safe.",
-      "status": "ACTIVE",
-      "evidenceJournalEventIds": [
-        "lead-website-intake-form-observation-proof-1787781469724-vanished:DISPATCH_ATTEMPTED:FAILED_BEFORE_EFFECT:offer:lead-website-intake-form-observation-proof-1787781469724-vanished:2026-08-26T21:57:50.823Z@rev1"
+        "lead-website-intake-form-observation-proof-1787790885706-failed:DISPATCH_ATTEMPTED:FAILED_BEFORE_EFFECT:offer:lead-website-intake-form-observation-proof-1787790885706-failed:2026-08-27T00:34:47.046Z@rev1"
       ]
     },
     {
@@ -346,7 +345,7 @@
       "operatorAction": "Open each named record to see what was lost and why, and re-run the affected boundary if the underlying work needs re-observing.",
       "status": "ACTIVE",
       "evidenceJournalEventIds": [
-        "lead-website-intake-form-observation-proof-1787781469724-unobserved:INGRESS_RECEIVED:accepted"
+        "lead-website-intake-form-observation-proof-1787790885706-unobserved:INGRESS_RECEIVED:accepted"
       ]
     }
   ],
@@ -357,16 +356,16 @@
     "correlationCount": 4,
     "incidents": [
       {
-        "incidentId": "lead-website-intake-form-observation-proof-1787781469724-crashed",
+        "incidentId": "lead-website-intake-form-observation-proof-1787790885706-crashed",
         "correlationIds": [
-          "inc-lead-website-intake-form-observation-proof-1787781469724-crashed"
+          "inc-lead-website-intake-form-observation-proof-1787790885706-crashed"
         ],
         "eventCount": 2,
-        "firstObservedAt": "2026-08-26T21:57:50.845Z",
-        "lastObservedAt": "2026-08-26T21:57:59.755Z",
+        "firstObservedAt": "2026-08-27T00:34:47.096Z",
+        "lastObservedAt": "2026-08-27T00:34:56.185Z",
         "observedIntervalMs": {
           "kind": "AVAILABLE",
-          "value": 8910
+          "value": 9089
         },
         "outcomes": [
           "ACCEPTED",
@@ -381,21 +380,21 @@
         "hadOperatorIntervention": false,
         "failureClasses": [],
         "journalEventIds": [
-          "lead-website-intake-form-observation-proof-1787781469724-crashed:INGRESS_RECEIVED:accepted",
-          "lead-website-intake-form-observation-proof-1787781469724-crashed:DISPATCH_ATTEMPTED:OUTCOME_UNKNOWN:offer:lead-website-intake-form-observation-proof-1787781469724-crashed:2026-08-26T21:57:50.845Z@rev1"
+          "lead-website-intake-form-observation-proof-1787790885706-crashed:INGRESS_RECEIVED:accepted",
+          "lead-website-intake-form-observation-proof-1787790885706-crashed:DISPATCH_ATTEMPTED:OUTCOME_UNKNOWN:offer:lead-website-intake-form-observation-proof-1787790885706-crashed:2026-08-27T00:34:47.096Z@rev1"
         ]
       },
       {
-        "incidentId": "lead-website-intake-form-observation-proof-1787781469724-delivered",
+        "incidentId": "lead-website-intake-form-observation-proof-1787790885706-delivered",
         "correlationIds": [
-          "inc-lead-website-intake-form-observation-proof-1787781469724-delivered"
+          "inc-lead-website-intake-form-observation-proof-1787790885706-delivered"
         ],
         "eventCount": 2,
-        "firstObservedAt": "2026-08-26T21:57:50.744Z",
-        "lastObservedAt": "2026-08-26T21:57:50.778Z",
+        "firstObservedAt": "2026-08-27T00:34:46.929Z",
+        "lastObservedAt": "2026-08-27T00:34:47.025Z",
         "observedIntervalMs": {
           "kind": "AVAILABLE",
-          "value": 34
+          "value": 96
         },
         "outcomes": [
           "ACCEPTED",
@@ -410,70 +409,68 @@
         "hadOperatorIntervention": false,
         "failureClasses": [],
         "journalEventIds": [
-          "lead-website-intake-form-observation-proof-1787781469724-delivered:INGRESS_RECEIVED:accepted",
-          "lead-website-intake-form-observation-proof-1787781469724-delivered:DISPATCH_ATTEMPTED:EXECUTED:offer:lead-website-intake-form-observation-proof-1787781469724-delivered:2026-08-26T21:57:50.744Z@rev1"
+          "lead-website-intake-form-observation-proof-1787790885706-delivered:INGRESS_RECEIVED:accepted",
+          "lead-website-intake-form-observation-proof-1787790885706-delivered:DISPATCH_ATTEMPTED:EXECUTED:offer:lead-website-intake-form-observation-proof-1787790885706-delivered:2026-08-27T00:34:46.929Z@rev1"
         ]
       },
       {
-        "incidentId": "lead-website-intake-form-observation-proof-1787781469724-failed",
+        "incidentId": "lead-website-intake-form-observation-proof-1787790885706-failed",
         "correlationIds": [
-          "inc-lead-website-intake-form-observation-proof-1787781469724-failed"
+          "inc-lead-website-intake-form-observation-proof-1787790885706-failed"
         ],
         "eventCount": 2,
-        "firstObservedAt": "2026-08-26T21:57:50.799Z",
-        "lastObservedAt": "2026-08-26T21:57:50.810Z",
+        "firstObservedAt": "2026-08-27T00:34:47.046Z",
+        "lastObservedAt": "2026-08-27T00:34:47.058Z",
+        "observedIntervalMs": {
+          "kind": "AVAILABLE",
+          "value": 12
+        },
+        "outcomes": [
+          "ACCEPTED",
+          "FAILED_BEFORE_EFFECT"
+        ],
+        "stages": [
+          "TRIGGER",
+          "ACTION"
+        ],
+        "hadConfirmedDelivery": false,
+        "hadUnresolvedDelivery": false,
+        "hadOperatorIntervention": false,
+        "failureClasses": [
+          "DOWNSTREAM_API_FAILURE"
+        ],
+        "journalEventIds": [
+          "lead-website-intake-form-observation-proof-1787790885706-failed:INGRESS_RECEIVED:accepted",
+          "lead-website-intake-form-observation-proof-1787790885706-failed:DISPATCH_ATTEMPTED:FAILED_BEFORE_EFFECT:offer:lead-website-intake-form-observation-proof-1787790885706-failed:2026-08-27T00:34:47.046Z@rev1"
+        ]
+      },
+      {
+        "incidentId": "lead-website-intake-form-observation-proof-1787790885706-vanished",
+        "correlationIds": [
+          "inc-lead-website-intake-form-observation-proof-1787790885706-vanished"
+        ],
+        "eventCount": 2,
+        "firstObservedAt": "2026-08-27T00:34:47.072Z",
+        "lastObservedAt": "2026-08-27T00:34:47.083Z",
         "observedIntervalMs": {
           "kind": "AVAILABLE",
           "value": 11
         },
         "outcomes": [
           "ACCEPTED",
-          "FAILED_BEFORE_EFFECT"
+          "OUTCOME_UNKNOWN"
         ],
         "stages": [
           "TRIGGER",
           "ACTION"
         ],
         "hadConfirmedDelivery": false,
-        "hadUnresolvedDelivery": false,
+        "hadUnresolvedDelivery": true,
         "hadOperatorIntervention": false,
-        "failureClasses": [
-          "DOWNSTREAM_API_FAILURE"
-        ],
+        "failureClasses": [],
         "journalEventIds": [
-          "lead-website-intake-form-observation-proof-1787781469724-failed:INGRESS_RECEIVED:accepted",
-          "lead-website-intake-form-observation-proof-1787781469724-failed:DISPATCH_ATTEMPTED:FAILED_BEFORE_EFFECT:offer:lead-website-intake-form-observation-proof-1787781469724-failed:2026-08-26T21:57:50.799Z@rev1"
-        ]
-      },
-      {
-        "incidentId": "lead-website-intake-form-observation-proof-1787781469724-vanished",
-        "correlationIds": [
-          "inc-lead-website-intake-form-observation-proof-1787781469724-vanished"
-        ],
-        "eventCount": 2,
-        "firstObservedAt": "2026-08-26T21:57:50.823Z",
-        "lastObservedAt": "2026-08-26T21:57:50.833Z",
-        "observedIntervalMs": {
-          "kind": "AVAILABLE",
-          "value": 10
-        },
-        "outcomes": [
-          "ACCEPTED",
-          "FAILED_BEFORE_EFFECT"
-        ],
-        "stages": [
-          "TRIGGER",
-          "ACTION"
-        ],
-        "hadConfirmedDelivery": false,
-        "hadUnresolvedDelivery": false,
-        "hadOperatorIntervention": false,
-        "failureClasses": [
-          "DOWNSTREAM_API_FAILURE"
-        ],
-        "journalEventIds": [
-          "lead-website-intake-form-observation-proof-1787781469724-vanished:INGRESS_RECEIVED:accepted",
-          "lead-website-intake-form-observation-proof-1787781469724-vanished:DISPATCH_ATTEMPTED:FAILED_BEFORE_EFFECT:offer:lead-website-intake-form-observation-proof-1787781469724-vanished:2026-08-26T21:57:50.823Z@rev1"
+          "lead-website-intake-form-observation-proof-1787790885706-vanished:INGRESS_RECEIVED:accepted",
+          "lead-website-intake-form-observation-proof-1787790885706-vanished:DISPATCH_ATTEMPTED:OUTCOME_UNKNOWN:offer:lead-website-intake-form-observation-proof-1787790885706-vanished:2026-08-27T00:34:47.072Z@rev1"
         ]
       }
     ],
@@ -482,32 +479,32 @@
         "outcome": "ACCEPTED",
         "count": 4,
         "journalEventIds": [
-          "lead-website-intake-form-observation-proof-1787781469724-delivered:INGRESS_RECEIVED:accepted",
-          "lead-website-intake-form-observation-proof-1787781469724-failed:INGRESS_RECEIVED:accepted",
-          "lead-website-intake-form-observation-proof-1787781469724-vanished:INGRESS_RECEIVED:accepted",
-          "lead-website-intake-form-observation-proof-1787781469724-crashed:INGRESS_RECEIVED:accepted"
+          "lead-website-intake-form-observation-proof-1787790885706-delivered:INGRESS_RECEIVED:accepted",
+          "lead-website-intake-form-observation-proof-1787790885706-failed:INGRESS_RECEIVED:accepted",
+          "lead-website-intake-form-observation-proof-1787790885706-vanished:INGRESS_RECEIVED:accepted",
+          "lead-website-intake-form-observation-proof-1787790885706-crashed:INGRESS_RECEIVED:accepted"
         ]
       },
       {
-        "outcome": "FAILED_BEFORE_EFFECT",
+        "outcome": "OUTCOME_UNKNOWN",
         "count": 2,
         "journalEventIds": [
-          "lead-website-intake-form-observation-proof-1787781469724-failed:DISPATCH_ATTEMPTED:FAILED_BEFORE_EFFECT:offer:lead-website-intake-form-observation-proof-1787781469724-failed:2026-08-26T21:57:50.799Z@rev1",
-          "lead-website-intake-form-observation-proof-1787781469724-vanished:DISPATCH_ATTEMPTED:FAILED_BEFORE_EFFECT:offer:lead-website-intake-form-observation-proof-1787781469724-vanished:2026-08-26T21:57:50.823Z@rev1"
+          "lead-website-intake-form-observation-proof-1787790885706-vanished:DISPATCH_ATTEMPTED:OUTCOME_UNKNOWN:offer:lead-website-intake-form-observation-proof-1787790885706-vanished:2026-08-27T00:34:47.072Z@rev1",
+          "lead-website-intake-form-observation-proof-1787790885706-crashed:DISPATCH_ATTEMPTED:OUTCOME_UNKNOWN:offer:lead-website-intake-form-observation-proof-1787790885706-crashed:2026-08-27T00:34:47.096Z@rev1"
         ]
       },
       {
         "outcome": "EXECUTED",
         "count": 1,
         "journalEventIds": [
-          "lead-website-intake-form-observation-proof-1787781469724-delivered:DISPATCH_ATTEMPTED:EXECUTED:offer:lead-website-intake-form-observation-proof-1787781469724-delivered:2026-08-26T21:57:50.744Z@rev1"
+          "lead-website-intake-form-observation-proof-1787790885706-delivered:DISPATCH_ATTEMPTED:EXECUTED:offer:lead-website-intake-form-observation-proof-1787790885706-delivered:2026-08-27T00:34:46.929Z@rev1"
         ]
       },
       {
-        "outcome": "OUTCOME_UNKNOWN",
+        "outcome": "FAILED_BEFORE_EFFECT",
         "count": 1,
         "journalEventIds": [
-          "lead-website-intake-form-observation-proof-1787781469724-crashed:DISPATCH_ATTEMPTED:OUTCOME_UNKNOWN:offer:lead-website-intake-form-observation-proof-1787781469724-crashed:2026-08-26T21:57:50.845Z@rev1"
+          "lead-website-intake-form-observation-proof-1787790885706-failed:DISPATCH_ATTEMPTED:FAILED_BEFORE_EFFECT:offer:lead-website-intake-form-observation-proof-1787790885706-failed:2026-08-27T00:34:47.046Z@rev1"
         ]
       }
     ],
@@ -515,20 +512,20 @@
       "attempts": 4,
       "executed": 1,
       "suppressedDuplicate": 0,
-      "failedBeforeEffect": 2,
-      "outcomeUnknown": 1,
+      "failedBeforeEffect": 1,
+      "outcomeUnknown": 2,
       "otherOutcomes": 0,
       "incidentsWithConfirmedDelivery": 1,
-      "incidentsWithUnresolvedDelivery": 1
+      "incidentsWithUnresolvedDelivery": 2
     },
     "timing": {
       "observedIntervals": {
         "kind": "AVAILABLE",
         "value": {
           "incidentsMeasured": 4,
-          "minMs": 10,
-          "medianMs": 11,
-          "maxMs": 8910
+          "minMs": 11,
+          "medianMs": 12,
+          "maxMs": 9089
         }
       },
       "stageTransitions": [
@@ -536,12 +533,12 @@
           "from": "TRIGGER",
           "to": "ACTION",
           "count": 4,
-          "totalMs": 8965,
+          "totalMs": 9208,
           "incidentIds": [
-            "lead-website-intake-form-observation-proof-1787781469724-crashed",
-            "lead-website-intake-form-observation-proof-1787781469724-delivered",
-            "lead-website-intake-form-observation-proof-1787781469724-failed",
-            "lead-website-intake-form-observation-proof-1787781469724-vanished"
+            "lead-website-intake-form-observation-proof-1787790885706-crashed",
+            "lead-website-intake-form-observation-proof-1787790885706-delivered",
+            "lead-website-intake-form-observation-proof-1787790885706-failed",
+            "lead-website-intake-form-observation-proof-1787790885706-vanished"
           ]
         }
       ],
@@ -550,10 +547,9 @@
     "failures": [
       {
         "failureClass": "DOWNSTREAM_API_FAILURE",
-        "count": 2,
+        "count": 1,
         "journalEventIds": [
-          "lead-website-intake-form-observation-proof-1787781469724-failed:DISPATCH_ATTEMPTED:FAILED_BEFORE_EFFECT:offer:lead-website-intake-form-observation-proof-1787781469724-failed:2026-08-26T21:57:50.799Z@rev1",
-          "lead-website-intake-form-observation-proof-1787781469724-vanished:DISPATCH_ATTEMPTED:FAILED_BEFORE_EFFECT:offer:lead-website-intake-form-observation-proof-1787781469724-vanished:2026-08-26T21:57:50.823Z@rev1"
+          "lead-website-intake-form-observation-proof-1787790885706-failed:DISPATCH_ATTEMPTED:FAILED_BEFORE_EFFECT:offer:lead-website-intake-form-observation-proof-1787790885706-failed:2026-08-27T00:34:47.046Z@rev1"
         ]
       }
     ],

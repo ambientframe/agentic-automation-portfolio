@@ -5,7 +5,7 @@
 
 ## Current — Execution-boundary classification corrected · 2026-08-26
 
-**Verified state.** `main` clean at time of commit. `npm run verify`: 54 files, 858 passed /
+**Verified state.** `main` clean at time of commit. `npm run verify`: 54 files, 860 passed /
 1 skipped, exit 0. `npm run build`: exit 0. Five tests were RED before implementation; five
 targeted mutations of the shipped fix were each confirmed to fail the suite, none survived.
 
@@ -16,18 +16,31 @@ established resolves to `OUTCOME_UNKNOWN` and parks for a person. The previous b
 authorise a retry of a message the receiver already held, which is how a system promising exactly
 one customer-facing send delivers two.
 
-**Precision, not just safety.** The first attempt routed all socket codes to uncertainty and
-broke a genuine connection-refusal test, because nodemailer reports a real `ECONNREFUSED` as
-`ESOCKET`. The shipped fix reads `err.command` / `err.syscall`, so a refused connection keeps its
-retry permission and a post-DATA failure does not.
+**Precision, not just safety.** A first attempt routed all socket codes to uncertainty and broke a
+genuine connection-refusal test, because nodemailer reports a real `ECONNREFUSED` as `ESOCKET`.
+The shipped fix reads `err.command` / `err.syscall`, so a refused connection keeps its retry
+permission and a post-DATA failure does not.
+
+**The second attempt was also wrong, and only the evidence caught it.** `CONN` was included in the
+pre-DATA command set on the assumption that it meant "still connecting." nodemailer tags **every**
+connection-level error `CONN` whenever it happens: a live probe against a server that takes the
+whole body and then destroys the socket returns `{code:'ECONNECTION', command:'CONN'}`, identical
+in shape to a greeting failure. So that version re-issued retry permission for exactly the
+post-DATA case it existed to stop — and **39 green unit tests did not notice.** The re-capture
+caught it on the first run. `CONN` is excluded; a genuine refusal is recognised by its `connect`
+syscall, which a mid-conversation close never carries.
+
+**Evidence re-captured against a cleared store.** Case B (envelope refused, 0 bytes received)
+reads `FAILED_BEFORE_EFFECT` / `CORROBORATED`. Case D (body stored, 979 bytes genuinely held,
+socket destroyed before the acknowledgement) now reads `OUTCOME_UNKNOWN` / `DECLINED_TO_CLAIM` —
+the system looking at a message the receiver holds and refusing to say it was never sent. The
+capture's vocabulary was extended to express that third verdict rather than collapsing it into
+`CORROBORATED`. `lead-rescue-operational-view.json` was re-captured from the same journal so the
+aggregate and the capture describe one runtime state. Test 9b added, tying each verdict to the
+bytes the receiver actually observed; four targeted artifact corruptions each confirmed to fail it.
 
 **Maturity.** Unchanged: proof `INTERACTIVE_PROTOTYPE`, operational `NOT_LIVE`. $0 spent, no
 provider crossed, nothing left the machine.
-
-**Finding retained, not fixed.** The abnormal-delivery artifact under `n8n/evidence/` still
-records the pre-fix classification. It is a historical capture and was not edited. Re-capturing it
-against the corrected classifier is the next package; until then the proof surface's
-receiver-disagreement panel describes a defect no longer present in code.
 
 **Also this pass, outside the package.** Three legibility defects fixed in `1e24806`: the masthead
 counted 3 of 9 maturity levels and hid Lead Rescue entirely; the footer asserted "no record write
@@ -39,7 +52,8 @@ conflict-duplicates build output as `* 2.*`. 543 such files inside gitignored `.
 `npm run verify` fail while `git status` reported clean. Cleared by rebuilding, but it will recur
 until the repo moves off iCloud. See spine `LAUNCH_PLAN.md`.
 
-**Next package.** Re-capture abnormal-delivery evidence against the corrected classifier.
+**Next package.** NOT SELECTED — PM sequences from the §6 scorecard. Track L (a reachable URL)
+awaits an owner decision; see spine `LAUNCH_PLAN.md`.
 
 ## Previous — Observation integrity, deterministic alerting, abnormal-delivery evidence · 2026-08-26
 

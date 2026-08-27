@@ -1,7 +1,7 @@
 {
   "schemaVersion": "lead-rescue-operational-view-evidence-1",
-  "capturedAt": "2026-08-26T21:58:25.845Z",
-  "gitHead": "fb41367213d4f2140da8413571b3a03f446fa174",
+  "capturedAt": "2026-08-27T00:36:38.133Z",
+  "gitHead": "604de031dc7e1c09526918768b2ad36a277641ae",
   "environment": {
     "runtime": "Next.js dev server (npm run dev) on 127.0.0.1:3000",
     "executionPath": "Real HTTP routes: POST /api/lead-rescue/ingress, POST /api/lead-rescue/wait-incidents/dispatch, POST /api/lead-rescue/wait-incidents/decide, GET /api/lead-rescue/operations.",
@@ -15,9 +15,9 @@
     "scope": "The view covers every case retained in this machine’s journal, not only the cases this run created."
   },
   "casesCreatedByThisRun": {
-    "caseOne": "lead-website-intake-form-operations-proof-1787781505537-case-1",
-    "caseTwo": "lead-website-intake-form-operations-proof-1787781505537-case-2",
-    "caseThreeSingleObservation": "lead-website-intake-form-operations-proof-1787781505537-case-3"
+    "caseOne": "lead-website-intake-form-operations-proof-1787790997577-case-1",
+    "caseTwo": "lead-website-intake-form-operations-proof-1787790997577-case-2",
+    "caseThreeSingleObservation": "lead-website-intake-form-operations-proof-1787790997577-case-3"
   },
   "steps": [
     {
@@ -70,16 +70,16 @@
     "correlationCount": 7,
     "incidents": [
       {
-        "incidentId": "lead-website-intake-form-observation-proof-1787781469724-crashed",
+        "incidentId": "lead-website-intake-form-observation-proof-1787790885706-crashed",
         "correlationIds": [
-          "inc-lead-website-intake-form-observation-proof-1787781469724-crashed"
+          "inc-lead-website-intake-form-observation-proof-1787790885706-crashed"
         ],
         "eventCount": 2,
-        "firstObservedAt": "2026-08-26T21:57:50.845Z",
-        "lastObservedAt": "2026-08-26T21:57:59.755Z",
+        "firstObservedAt": "2026-08-27T00:34:47.096Z",
+        "lastObservedAt": "2026-08-27T00:34:56.185Z",
         "observedIntervalMs": {
           "kind": "AVAILABLE",
-          "value": 8910
+          "value": 9089
         },
         "outcomes": [
           "ACCEPTED",
@@ -94,21 +94,21 @@
         "hadOperatorIntervention": false,
         "failureClasses": [],
         "journalEventIds": [
-          "lead-website-intake-form-observation-proof-1787781469724-crashed:INGRESS_RECEIVED:accepted",
-          "lead-website-intake-form-observation-proof-1787781469724-crashed:DISPATCH_ATTEMPTED:OUTCOME_UNKNOWN:offer:lead-website-intake-form-observation-proof-1787781469724-crashed:2026-08-26T21:57:50.845Z@rev1"
+          "lead-website-intake-form-observation-proof-1787790885706-crashed:INGRESS_RECEIVED:accepted",
+          "lead-website-intake-form-observation-proof-1787790885706-crashed:DISPATCH_ATTEMPTED:OUTCOME_UNKNOWN:offer:lead-website-intake-form-observation-proof-1787790885706-crashed:2026-08-27T00:34:47.096Z@rev1"
         ]
       },
       {
-        "incidentId": "lead-website-intake-form-observation-proof-1787781469724-delivered",
+        "incidentId": "lead-website-intake-form-observation-proof-1787790885706-delivered",
         "correlationIds": [
-          "inc-lead-website-intake-form-observation-proof-1787781469724-delivered"
+          "inc-lead-website-intake-form-observation-proof-1787790885706-delivered"
         ],
         "eventCount": 2,
-        "firstObservedAt": "2026-08-26T21:57:50.744Z",
-        "lastObservedAt": "2026-08-26T21:57:50.778Z",
+        "firstObservedAt": "2026-08-27T00:34:46.929Z",
+        "lastObservedAt": "2026-08-27T00:34:47.025Z",
         "observedIntervalMs": {
           "kind": "AVAILABLE",
-          "value": 34
+          "value": 96
         },
         "outcomes": [
           "ACCEPTED",
@@ -123,83 +123,81 @@
         "hadOperatorIntervention": false,
         "failureClasses": [],
         "journalEventIds": [
-          "lead-website-intake-form-observation-proof-1787781469724-delivered:INGRESS_RECEIVED:accepted",
-          "lead-website-intake-form-observation-proof-1787781469724-delivered:DISPATCH_ATTEMPTED:EXECUTED:offer:lead-website-intake-form-observation-proof-1787781469724-delivered:2026-08-26T21:57:50.744Z@rev1"
+          "lead-website-intake-form-observation-proof-1787790885706-delivered:INGRESS_RECEIVED:accepted",
+          "lead-website-intake-form-observation-proof-1787790885706-delivered:DISPATCH_ATTEMPTED:EXECUTED:offer:lead-website-intake-form-observation-proof-1787790885706-delivered:2026-08-27T00:34:46.929Z@rev1"
         ]
       },
       {
-        "incidentId": "lead-website-intake-form-observation-proof-1787781469724-failed",
+        "incidentId": "lead-website-intake-form-observation-proof-1787790885706-failed",
         "correlationIds": [
-          "inc-lead-website-intake-form-observation-proof-1787781469724-failed"
+          "inc-lead-website-intake-form-observation-proof-1787790885706-failed"
         ],
         "eventCount": 2,
-        "firstObservedAt": "2026-08-26T21:57:50.799Z",
-        "lastObservedAt": "2026-08-26T21:57:50.810Z",
+        "firstObservedAt": "2026-08-27T00:34:47.046Z",
+        "lastObservedAt": "2026-08-27T00:34:47.058Z",
+        "observedIntervalMs": {
+          "kind": "AVAILABLE",
+          "value": 12
+        },
+        "outcomes": [
+          "ACCEPTED",
+          "FAILED_BEFORE_EFFECT"
+        ],
+        "stages": [
+          "TRIGGER",
+          "ACTION"
+        ],
+        "hadConfirmedDelivery": false,
+        "hadUnresolvedDelivery": false,
+        "hadOperatorIntervention": false,
+        "failureClasses": [
+          "DOWNSTREAM_API_FAILURE"
+        ],
+        "journalEventIds": [
+          "lead-website-intake-form-observation-proof-1787790885706-failed:INGRESS_RECEIVED:accepted",
+          "lead-website-intake-form-observation-proof-1787790885706-failed:DISPATCH_ATTEMPTED:FAILED_BEFORE_EFFECT:offer:lead-website-intake-form-observation-proof-1787790885706-failed:2026-08-27T00:34:47.046Z@rev1"
+        ]
+      },
+      {
+        "incidentId": "lead-website-intake-form-observation-proof-1787790885706-vanished",
+        "correlationIds": [
+          "inc-lead-website-intake-form-observation-proof-1787790885706-vanished"
+        ],
+        "eventCount": 2,
+        "firstObservedAt": "2026-08-27T00:34:47.072Z",
+        "lastObservedAt": "2026-08-27T00:34:47.083Z",
         "observedIntervalMs": {
           "kind": "AVAILABLE",
           "value": 11
         },
         "outcomes": [
           "ACCEPTED",
-          "FAILED_BEFORE_EFFECT"
+          "OUTCOME_UNKNOWN"
         ],
         "stages": [
           "TRIGGER",
           "ACTION"
         ],
         "hadConfirmedDelivery": false,
-        "hadUnresolvedDelivery": false,
+        "hadUnresolvedDelivery": true,
         "hadOperatorIntervention": false,
-        "failureClasses": [
-          "DOWNSTREAM_API_FAILURE"
-        ],
+        "failureClasses": [],
         "journalEventIds": [
-          "lead-website-intake-form-observation-proof-1787781469724-failed:INGRESS_RECEIVED:accepted",
-          "lead-website-intake-form-observation-proof-1787781469724-failed:DISPATCH_ATTEMPTED:FAILED_BEFORE_EFFECT:offer:lead-website-intake-form-observation-proof-1787781469724-failed:2026-08-26T21:57:50.799Z@rev1"
+          "lead-website-intake-form-observation-proof-1787790885706-vanished:INGRESS_RECEIVED:accepted",
+          "lead-website-intake-form-observation-proof-1787790885706-vanished:DISPATCH_ATTEMPTED:OUTCOME_UNKNOWN:offer:lead-website-intake-form-observation-proof-1787790885706-vanished:2026-08-27T00:34:47.072Z@rev1"
         ]
       },
       {
-        "incidentId": "lead-website-intake-form-observation-proof-1787781469724-vanished",
+        "incidentId": "lead-website-intake-form-operations-proof-1787790997577-case-1",
         "correlationIds": [
-          "inc-lead-website-intake-form-observation-proof-1787781469724-vanished"
-        ],
-        "eventCount": 2,
-        "firstObservedAt": "2026-08-26T21:57:50.823Z",
-        "lastObservedAt": "2026-08-26T21:57:50.833Z",
-        "observedIntervalMs": {
-          "kind": "AVAILABLE",
-          "value": 10
-        },
-        "outcomes": [
-          "ACCEPTED",
-          "FAILED_BEFORE_EFFECT"
-        ],
-        "stages": [
-          "TRIGGER",
-          "ACTION"
-        ],
-        "hadConfirmedDelivery": false,
-        "hadUnresolvedDelivery": false,
-        "hadOperatorIntervention": false,
-        "failureClasses": [
-          "DOWNSTREAM_API_FAILURE"
-        ],
-        "journalEventIds": [
-          "lead-website-intake-form-observation-proof-1787781469724-vanished:INGRESS_RECEIVED:accepted",
-          "lead-website-intake-form-observation-proof-1787781469724-vanished:DISPATCH_ATTEMPTED:FAILED_BEFORE_EFFECT:offer:lead-website-intake-form-observation-proof-1787781469724-vanished:2026-08-26T21:57:50.823Z@rev1"
-        ]
-      },
-      {
-        "incidentId": "lead-website-intake-form-operations-proof-1787781505537-case-1",
-        "correlationIds": [
-          "inc-lead-website-intake-form-operations-proof-1787781505537-case-1"
+          "inc-lead-website-intake-form-operations-proof-1787790997577-case-1"
         ],
         "eventCount": 3,
-        "firstObservedAt": "2026-08-26T21:58:25.704Z",
-        "lastObservedAt": "2026-08-26T21:58:25.745Z",
+        "firstObservedAt": "2026-08-27T00:36:37.905Z",
+        "lastObservedAt": "2026-08-27T00:36:38.005Z",
         "observedIntervalMs": {
           "kind": "AVAILABLE",
-          "value": 41
+          "value": 100
         },
         "outcomes": [
           "ACCEPTED",
@@ -215,22 +213,22 @@
         "hadOperatorIntervention": false,
         "failureClasses": [],
         "journalEventIds": [
-          "lead-website-intake-form-operations-proof-1787781505537-case-1:INGRESS_RECEIVED:accepted",
-          "lead-website-intake-form-operations-proof-1787781505537-case-1:INGRESS_RECEIVED:duplicate:2026-08-26T21:58:25.718Z",
-          "lead-website-intake-form-operations-proof-1787781505537-case-1:DISPATCH_ATTEMPTED:EXECUTED:offer:lead-website-intake-form-operations-proof-1787781505537-case-1:2026-08-26T21:58:25.704Z@rev1"
+          "lead-website-intake-form-operations-proof-1787790997577-case-1:INGRESS_RECEIVED:accepted",
+          "lead-website-intake-form-operations-proof-1787790997577-case-1:INGRESS_RECEIVED:duplicate:2026-08-27T00:36:37.922Z",
+          "lead-website-intake-form-operations-proof-1787790997577-case-1:DISPATCH_ATTEMPTED:EXECUTED:offer:lead-website-intake-form-operations-proof-1787790997577-case-1:2026-08-27T00:36:37.905Z@rev1"
         ]
       },
       {
-        "incidentId": "lead-website-intake-form-operations-proof-1787781505537-case-2",
+        "incidentId": "lead-website-intake-form-operations-proof-1787790997577-case-2",
         "correlationIds": [
-          "inc-lead-website-intake-form-operations-proof-1787781505537-case-2"
+          "inc-lead-website-intake-form-operations-proof-1787790997577-case-2"
         ],
         "eventCount": 3,
-        "firstObservedAt": "2026-08-26T21:58:25.763Z",
-        "lastObservedAt": "2026-08-26T21:58:25.799Z",
+        "firstObservedAt": "2026-08-27T00:36:38.018Z",
+        "lastObservedAt": "2026-08-27T00:36:38.102Z",
         "observedIntervalMs": {
           "kind": "AVAILABLE",
-          "value": 36
+          "value": 84
         },
         "outcomes": [
           "ACCEPTED",
@@ -248,19 +246,19 @@
           "STATE_TRANSITION_CONFLICT"
         ],
         "journalEventIds": [
-          "lead-website-intake-form-operations-proof-1787781505537-case-2:INGRESS_RECEIVED:accepted",
-          "lead-website-intake-form-operations-proof-1787781505537-case-2:OPERATOR_AUTHENTICATION:REFUSED:MISSING_CREDENTIAL:2026-08-26T21:58:25.773Z",
-          "lead-website-intake-form-operations-proof-1787781505537-case-2:HUMAN_DECISION_RECORDED:REFUSED:decide:lead-website-intake-form-operations-proof-1787781505537-case-2:op-tobias-lindqvist:2026-08-26T21:58:25.799Z"
+          "lead-website-intake-form-operations-proof-1787790997577-case-2:INGRESS_RECEIVED:accepted",
+          "lead-website-intake-form-operations-proof-1787790997577-case-2:OPERATOR_AUTHENTICATION:REFUSED:MISSING_CREDENTIAL:2026-08-27T00:36:38.029Z",
+          "lead-website-intake-form-operations-proof-1787790997577-case-2:HUMAN_DECISION_RECORDED:REFUSED:decide:lead-website-intake-form-operations-proof-1787790997577-case-2:op-tobias-lindqvist:2026-08-27T00:36:38.102Z"
         ]
       },
       {
-        "incidentId": "lead-website-intake-form-operations-proof-1787781505537-case-3",
+        "incidentId": "lead-website-intake-form-operations-proof-1787790997577-case-3",
         "correlationIds": [
-          "inc-lead-website-intake-form-operations-proof-1787781505537-case-3"
+          "inc-lead-website-intake-form-operations-proof-1787790997577-case-3"
         ],
         "eventCount": 1,
-        "firstObservedAt": "2026-08-26T21:58:25.808Z",
-        "lastObservedAt": "2026-08-26T21:58:25.808Z",
+        "firstObservedAt": "2026-08-27T00:36:38.112Z",
+        "lastObservedAt": "2026-08-27T00:36:38.112Z",
         "observedIntervalMs": {
           "kind": "UNAVAILABLE",
           "reason": "a single observation has no interval to measure"
@@ -276,7 +274,7 @@
         "hadOperatorIntervention": false,
         "failureClasses": [],
         "journalEventIds": [
-          "lead-website-intake-form-operations-proof-1787781505537-case-3:INGRESS_RECEIVED:accepted"
+          "lead-website-intake-form-operations-proof-1787790997577-case-3:INGRESS_RECEIVED:accepted"
         ]
       }
     ],
@@ -285,51 +283,51 @@
         "outcome": "ACCEPTED",
         "count": 7,
         "journalEventIds": [
-          "lead-website-intake-form-observation-proof-1787781469724-delivered:INGRESS_RECEIVED:accepted",
-          "lead-website-intake-form-observation-proof-1787781469724-failed:INGRESS_RECEIVED:accepted",
-          "lead-website-intake-form-observation-proof-1787781469724-vanished:INGRESS_RECEIVED:accepted",
-          "lead-website-intake-form-observation-proof-1787781469724-crashed:INGRESS_RECEIVED:accepted",
-          "lead-website-intake-form-operations-proof-1787781505537-case-1:INGRESS_RECEIVED:accepted",
-          "lead-website-intake-form-operations-proof-1787781505537-case-2:INGRESS_RECEIVED:accepted",
-          "lead-website-intake-form-operations-proof-1787781505537-case-3:INGRESS_RECEIVED:accepted"
+          "lead-website-intake-form-observation-proof-1787790885706-delivered:INGRESS_RECEIVED:accepted",
+          "lead-website-intake-form-observation-proof-1787790885706-failed:INGRESS_RECEIVED:accepted",
+          "lead-website-intake-form-observation-proof-1787790885706-vanished:INGRESS_RECEIVED:accepted",
+          "lead-website-intake-form-observation-proof-1787790885706-crashed:INGRESS_RECEIVED:accepted",
+          "lead-website-intake-form-operations-proof-1787790997577-case-1:INGRESS_RECEIVED:accepted",
+          "lead-website-intake-form-operations-proof-1787790997577-case-2:INGRESS_RECEIVED:accepted",
+          "lead-website-intake-form-operations-proof-1787790997577-case-3:INGRESS_RECEIVED:accepted"
         ]
       },
       {
         "outcome": "EXECUTED",
         "count": 2,
         "journalEventIds": [
-          "lead-website-intake-form-observation-proof-1787781469724-delivered:DISPATCH_ATTEMPTED:EXECUTED:offer:lead-website-intake-form-observation-proof-1787781469724-delivered:2026-08-26T21:57:50.744Z@rev1",
-          "lead-website-intake-form-operations-proof-1787781505537-case-1:DISPATCH_ATTEMPTED:EXECUTED:offer:lead-website-intake-form-operations-proof-1787781505537-case-1:2026-08-26T21:58:25.704Z@rev1"
+          "lead-website-intake-form-observation-proof-1787790885706-delivered:DISPATCH_ATTEMPTED:EXECUTED:offer:lead-website-intake-form-observation-proof-1787790885706-delivered:2026-08-27T00:34:46.929Z@rev1",
+          "lead-website-intake-form-operations-proof-1787790997577-case-1:DISPATCH_ATTEMPTED:EXECUTED:offer:lead-website-intake-form-operations-proof-1787790997577-case-1:2026-08-27T00:36:37.905Z@rev1"
         ]
       },
       {
-        "outcome": "FAILED_BEFORE_EFFECT",
+        "outcome": "OUTCOME_UNKNOWN",
         "count": 2,
         "journalEventIds": [
-          "lead-website-intake-form-observation-proof-1787781469724-failed:DISPATCH_ATTEMPTED:FAILED_BEFORE_EFFECT:offer:lead-website-intake-form-observation-proof-1787781469724-failed:2026-08-26T21:57:50.799Z@rev1",
-          "lead-website-intake-form-observation-proof-1787781469724-vanished:DISPATCH_ATTEMPTED:FAILED_BEFORE_EFFECT:offer:lead-website-intake-form-observation-proof-1787781469724-vanished:2026-08-26T21:57:50.823Z@rev1"
+          "lead-website-intake-form-observation-proof-1787790885706-vanished:DISPATCH_ATTEMPTED:OUTCOME_UNKNOWN:offer:lead-website-intake-form-observation-proof-1787790885706-vanished:2026-08-27T00:34:47.072Z@rev1",
+          "lead-website-intake-form-observation-proof-1787790885706-crashed:DISPATCH_ATTEMPTED:OUTCOME_UNKNOWN:offer:lead-website-intake-form-observation-proof-1787790885706-crashed:2026-08-27T00:34:47.096Z@rev1"
         ]
       },
       {
         "outcome": "REFUSED",
         "count": 2,
         "journalEventIds": [
-          "lead-website-intake-form-operations-proof-1787781505537-case-2:OPERATOR_AUTHENTICATION:REFUSED:MISSING_CREDENTIAL:2026-08-26T21:58:25.773Z",
-          "lead-website-intake-form-operations-proof-1787781505537-case-2:HUMAN_DECISION_RECORDED:REFUSED:decide:lead-website-intake-form-operations-proof-1787781505537-case-2:op-tobias-lindqvist:2026-08-26T21:58:25.799Z"
+          "lead-website-intake-form-operations-proof-1787790997577-case-2:OPERATOR_AUTHENTICATION:REFUSED:MISSING_CREDENTIAL:2026-08-27T00:36:38.029Z",
+          "lead-website-intake-form-operations-proof-1787790997577-case-2:HUMAN_DECISION_RECORDED:REFUSED:decide:lead-website-intake-form-operations-proof-1787790997577-case-2:op-tobias-lindqvist:2026-08-27T00:36:38.102Z"
         ]
       },
       {
-        "outcome": "OUTCOME_UNKNOWN",
+        "outcome": "FAILED_BEFORE_EFFECT",
         "count": 1,
         "journalEventIds": [
-          "lead-website-intake-form-observation-proof-1787781469724-crashed:DISPATCH_ATTEMPTED:OUTCOME_UNKNOWN:offer:lead-website-intake-form-observation-proof-1787781469724-crashed:2026-08-26T21:57:50.845Z@rev1"
+          "lead-website-intake-form-observation-proof-1787790885706-failed:DISPATCH_ATTEMPTED:FAILED_BEFORE_EFFECT:offer:lead-website-intake-form-observation-proof-1787790885706-failed:2026-08-27T00:34:47.046Z@rev1"
         ]
       },
       {
         "outcome": "SUPPRESSED_DUPLICATE",
         "count": 1,
         "journalEventIds": [
-          "lead-website-intake-form-operations-proof-1787781505537-case-1:INGRESS_RECEIVED:duplicate:2026-08-26T21:58:25.718Z"
+          "lead-website-intake-form-operations-proof-1787790997577-case-1:INGRESS_RECEIVED:duplicate:2026-08-27T00:36:37.922Z"
         ]
       }
     ],
@@ -337,20 +335,20 @@
       "attempts": 5,
       "executed": 2,
       "suppressedDuplicate": 0,
-      "failedBeforeEffect": 2,
-      "outcomeUnknown": 1,
+      "failedBeforeEffect": 1,
+      "outcomeUnknown": 2,
       "otherOutcomes": 0,
       "incidentsWithConfirmedDelivery": 2,
-      "incidentsWithUnresolvedDelivery": 1
+      "incidentsWithUnresolvedDelivery": 2
     },
     "timing": {
       "observedIntervals": {
         "kind": "AVAILABLE",
         "value": {
           "incidentsMeasured": 6,
-          "minMs": 10,
-          "medianMs": 34,
-          "maxMs": 8910
+          "minMs": 11,
+          "medianMs": 84,
+          "maxMs": 9089
         }
       },
       "stageTransitions": [
@@ -358,46 +356,46 @@
           "from": "TRIGGER",
           "to": "ACTION",
           "count": 5,
-          "totalMs": 8992,
+          "totalMs": 9291,
           "incidentIds": [
-            "lead-website-intake-form-observation-proof-1787781469724-crashed",
-            "lead-website-intake-form-observation-proof-1787781469724-delivered",
-            "lead-website-intake-form-observation-proof-1787781469724-failed",
-            "lead-website-intake-form-observation-proof-1787781469724-vanished",
-            "lead-website-intake-form-operations-proof-1787781505537-case-1"
+            "lead-website-intake-form-observation-proof-1787790885706-crashed",
+            "lead-website-intake-form-observation-proof-1787790885706-delivered",
+            "lead-website-intake-form-observation-proof-1787790885706-failed",
+            "lead-website-intake-form-observation-proof-1787790885706-vanished",
+            "lead-website-intake-form-operations-proof-1787790997577-case-1"
           ]
         },
         {
           "from": "AUTHORITY",
           "to": "AUTHORITY",
           "count": 1,
-          "totalMs": 26,
+          "totalMs": 73,
           "incidentIds": [
-            "lead-website-intake-form-operations-proof-1787781505537-case-2"
+            "lead-website-intake-form-operations-proof-1787790997577-case-2"
           ]
         },
         {
           "from": "TRIGGER",
           "to": "TRIGGER",
           "count": 1,
-          "totalMs": 14,
+          "totalMs": 17,
           "incidentIds": [
-            "lead-website-intake-form-operations-proof-1787781505537-case-1"
+            "lead-website-intake-form-operations-proof-1787790997577-case-1"
           ]
         },
         {
           "from": "TRIGGER",
           "to": "AUTHORITY",
           "count": 1,
-          "totalMs": 10,
+          "totalMs": 11,
           "incidentIds": [
-            "lead-website-intake-form-operations-proof-1787781505537-case-2"
+            "lead-website-intake-form-operations-proof-1787790997577-case-2"
           ]
         }
       ],
       "unmeasurableIncidents": [
         {
-          "incidentId": "lead-website-intake-form-operations-proof-1787781505537-case-3",
+          "incidentId": "lead-website-intake-form-operations-proof-1787790997577-case-3",
           "reason": "a single observation has no interval to measure"
         }
       ]
@@ -405,24 +403,23 @@
     "failures": [
       {
         "failureClass": "DOWNSTREAM_API_FAILURE",
-        "count": 2,
+        "count": 1,
         "journalEventIds": [
-          "lead-website-intake-form-observation-proof-1787781469724-failed:DISPATCH_ATTEMPTED:FAILED_BEFORE_EFFECT:offer:lead-website-intake-form-observation-proof-1787781469724-failed:2026-08-26T21:57:50.799Z@rev1",
-          "lead-website-intake-form-observation-proof-1787781469724-vanished:DISPATCH_ATTEMPTED:FAILED_BEFORE_EFFECT:offer:lead-website-intake-form-observation-proof-1787781469724-vanished:2026-08-26T21:57:50.823Z@rev1"
+          "lead-website-intake-form-observation-proof-1787790885706-failed:DISPATCH_ATTEMPTED:FAILED_BEFORE_EFFECT:offer:lead-website-intake-form-observation-proof-1787790885706-failed:2026-08-27T00:34:47.046Z@rev1"
         ]
       },
       {
         "failureClass": "POLICY_VIOLATION",
         "count": 1,
         "journalEventIds": [
-          "lead-website-intake-form-operations-proof-1787781505537-case-2:OPERATOR_AUTHENTICATION:REFUSED:MISSING_CREDENTIAL:2026-08-26T21:58:25.773Z"
+          "lead-website-intake-form-operations-proof-1787790997577-case-2:OPERATOR_AUTHENTICATION:REFUSED:MISSING_CREDENTIAL:2026-08-27T00:36:38.029Z"
         ]
       },
       {
         "failureClass": "STATE_TRANSITION_CONFLICT",
         "count": 1,
         "journalEventIds": [
-          "lead-website-intake-form-operations-proof-1787781505537-case-2:HUMAN_DECISION_RECORDED:REFUSED:decide:lead-website-intake-form-operations-proof-1787781505537-case-2:op-tobias-lindqvist:2026-08-26T21:58:25.799Z"
+          "lead-website-intake-form-operations-proof-1787790997577-case-2:HUMAN_DECISION_RECORDED:REFUSED:decide:lead-website-intake-form-operations-proof-1787790997577-case-2:op-tobias-lindqvist:2026-08-27T00:36:38.102Z"
         ]
       }
     ],
@@ -432,8 +429,8 @@
       "authorityRefusals": 1,
       "incidentsWithIntervention": 1,
       "journalEventIds": [
-        "lead-website-intake-form-operations-proof-1787781505537-case-2:OPERATOR_AUTHENTICATION:REFUSED:MISSING_CREDENTIAL:2026-08-26T21:58:25.773Z",
-        "lead-website-intake-form-operations-proof-1787781505537-case-2:HUMAN_DECISION_RECORDED:REFUSED:decide:lead-website-intake-form-operations-proof-1787781505537-case-2:op-tobias-lindqvist:2026-08-26T21:58:25.799Z"
+        "lead-website-intake-form-operations-proof-1787790997577-case-2:OPERATOR_AUTHENTICATION:REFUSED:MISSING_CREDENTIAL:2026-08-27T00:36:38.029Z",
+        "lead-website-intake-form-operations-proof-1787790997577-case-2:HUMAN_DECISION_RECORDED:REFUSED:decide:lead-website-intake-form-operations-proof-1787790997577-case-2:op-tobias-lindqvist:2026-08-27T00:36:38.102Z"
       ]
     },
     "completeness": {

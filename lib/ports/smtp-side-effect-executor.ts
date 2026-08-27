@@ -92,7 +92,14 @@ export interface SmtpExecutorConfig {
  * acceptance can no longer be ruled out from this side of the socket.
  */
 const SMTP_COMMANDS_BEFORE_DATA: ReadonlySet<string> = new Set([
-  'CONN',
+  // 'CONN' is deliberately ABSENT, and this is the whole subtlety of the taxonomy.
+  // nodemailer tags every CONNECTION-level error `command: 'CONN'` regardless of when the
+  // connection died — a server that takes the full body and then destroys the socket before
+  // its 250 reports `{code: 'ECONNECTION', command: 'CONN'}`, identical in shape to a failure
+  // during the greeting. A first version of this fix trusted 'CONN' as a phase and re-issued
+  // retry permission for exactly the post-DATA case it was written to stop; the retained
+  // capture caught it while 39 green unit tests did not. A genuine connect failure is
+  // recognised instead by its `connect` syscall, which a mid-conversation close never has.
   'EHLO',
   'HELO',
   'STARTTLS',

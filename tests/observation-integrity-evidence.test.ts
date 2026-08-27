@@ -118,12 +118,53 @@ describe('observation-integrity capture — the second observer is doing real wo
     >[];
     expect(checks.length, 'no classification was checked against the receiver at all').toBeGreaterThan(0);
     for (const check of checks) {
-      expect(['CORROBORATED', 'CONTRADICTED']).toContain(check['agreement']);
+      // Three verdicts, because there are three genuinely different things the pairing can
+      // find. CONTRADICTED was the original defect: the application claimed non-execution for a
+      // message the receiver held. DECLINED_TO_CLAIM is the corrected behaviour against that
+      // same fault — the receiver holds the message and the application refuses to say it was
+      // never sent. Admitting the third verdict is not a relaxation; test 9b below is what
+      // stops it becoming one.
+      expect(['CORROBORATED', 'CONTRADICTED', 'DECLINED_TO_CLAIM']).toContain(check['agreement']);
       // Whichever way it went, the reasoning has to be stated. A verdict with no finding is an
       // assertion, and an artifact that only ever agreed with itself would prove nothing.
       expect(String(check['finding'] ?? '').length).toBeGreaterThan(60);
     }
     expect(checks.some((check) => check['agreement'] === 'CORROBORATED')).toBe(true);
+  });
+
+  it('9b. a verdict is consistent with what the receiver actually observed — the label cannot drift from the bytes', () => {
+    const checks = (artifact['executionClassificationCheckedAgainstTheReceiver'] ?? []) as readonly Record<
+      string,
+      unknown
+    >[];
+    expect(checks.length).toBeGreaterThan(0);
+
+    for (const check of checks) {
+      const receiverHolds = check['receiverStoredMessageId'] !== null && check['receiverStoredMessageId'] !== undefined;
+      const bytes = Number(check['receiverBodyBytesReceived'] ?? 0);
+      const outcome = check['applicationOutcome'];
+      const agreement = check['agreement'];
+
+      if (agreement === 'CORROBORATED') {
+        // Corroboration is only available when the receiver genuinely has nothing.
+        expect(receiverHolds, 'a corroborated non-execution against a receiver holding the message').toBe(false);
+        expect(bytes).toBe(0);
+        expect(outcome).toBe('FAILED_BEFORE_EFFECT');
+      }
+      if (agreement === 'DECLINED_TO_CLAIM') {
+        // The corrected path: the receiver has the message AND the application refused to
+        // claim non-execution. If this ever reports FAILED_BEFORE_EFFECT again, the
+        // execution-boundary defect has returned and this artifact must fail.
+        expect(receiverHolds, 'declined-to-claim against a receiver holding nothing').toBe(true);
+        expect(bytes).toBeGreaterThan(0);
+        expect(outcome).toBe('OUTCOME_UNKNOWN');
+        expect(outcome).not.toBe('FAILED_BEFORE_EFFECT');
+      }
+      if (agreement === 'CONTRADICTED') {
+        expect(receiverHolds).toBe(true);
+        expect(outcome).toBe('FAILED_BEFORE_EFFECT');
+      }
+    }
   });
 });
 

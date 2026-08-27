@@ -185,7 +185,47 @@ describe('SMTP execution boundary — a failure after DATA is never called a non
     };
   }
 
-  for (const command of ['CONN', 'EHLO', 'STARTTLS', 'AUTH', 'MAIL FROM', 'RCPT TO']) {
+  /**
+   * THE SHAPE THE REAL TRANSPORT PRODUCES, taken from a live probe against a server that
+   * accepts the whole body and then destroys the socket before its 250:
+   *
+   *   { code: 'ECONNECTION', command: 'CONN', message: 'Connection closed unexpectedly' }
+   *
+   * `command: 'CONN'` here does NOT mean "we were still connecting" — nodemailer tags every
+   * connection-level error that way, whenever it happens. A first version of this fix treated
+   * 'CONN' as a pre-DATA phase and handed back retry permission for precisely the case the fix
+   * existed to stop. The unit suite was green; the re-captured runtime evidence was not. This
+   * test is that regression, pinned.
+   */
+  it('9j. a connection closed after the body was sent is OUTCOME_UNKNOWN, even though nodemailer labels it CONN', async () => {
+    const executor = smtpExecutor({
+      transport: phasedTransport('CONN', { code: 'ECONNECTION' }),
+    });
+    const outcome = await executor.attemptSend({
+      attemptId: 'attempt-vanish',
+      idempotencyKey: 'key-vanish',
+      provider: executor.id,
+      description: 'acknowledgement',
+    });
+
+    expect(outcome.kind).toBe('OUTCOME_UNKNOWN');
+  });
+
+  it('9k. a genuine connection refusal is still before-effect — it carries a connect syscall, which a mid-conversation close never does', async () => {
+    const executor = smtpExecutor({
+      transport: phasedTransport('CONN', { code: 'ESOCKET', syscall: 'connect', errno: -61 }),
+    });
+    const outcome = await executor.attemptSend({
+      attemptId: 'attempt-refused',
+      idempotencyKey: 'key-refused',
+      provider: executor.id,
+      description: 'acknowledgement',
+    });
+
+    expect(outcome.kind).toBe('FAILED_BEFORE_EFFECT');
+  });
+
+  for (const command of ['EHLO', 'STARTTLS', 'AUTH', 'MAIL FROM', 'RCPT TO']) {
     it(`9f. ESOCKET raised at ${command} keeps FAILED_BEFORE_EFFECT — that command precedes DATA`, async () => {
       const executor = smtpExecutor({ transport: phasedTransport(command) });
       const outcome = await executor.attemptSend({

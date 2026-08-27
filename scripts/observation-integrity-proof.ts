@@ -327,23 +327,52 @@ async function main(): Promise<void> {
 
   const classificationChecks = claimedNonExecution.map((subject) => {
     const events = subject.incidentId === caseB.incidentId ? journalB : journalD;
-    const record = dispatchRecord(events, 'FAILED_BEFORE_EFFECT');
+    const nonExecutionRecord = dispatchRecord(events, 'FAILED_BEFORE_EFFECT');
+    const uncertainRecord = dispatchRecord(events, 'OUTCOME_UNKNOWN');
     const receiver = transcript.find((entry) => entry.connection === subject.connection);
     const receiverHoldsTheMessage = receiver?.storedMessageId !== null && receiver?.storedMessageId !== undefined;
-    const applicationClaimedNonExecution = record !== undefined;
+    const applicationClaimedNonExecution = nonExecutionRecord !== undefined;
+    const record = nonExecutionRecord ?? uncertainRecord;
+
+    /**
+     * THREE outcomes, not two. The original version of this check knew only "claimed
+     * non-execution" and "did not", which was sufficient while the executor always claimed it.
+     * Once the classifier was corrected, the interesting case became the third one: the
+     * application looking at a message the receiver genuinely holds and DECLINING to say it
+     * was never sent. Collapsing that into `CORROBORATED` would have quietly reported the fix
+     * as though nothing had been tested.
+     */
+    const agreement = applicationClaimedNonExecution
+      ? receiverHoldsTheMessage
+        ? 'CONTRADICTED'
+        : 'CORROBORATED'
+      : receiverHoldsTheMessage
+        ? 'DECLINED_TO_CLAIM'
+        : 'CORROBORATED';
+
+    const finding = {
+      CONTRADICTED:
+        'The application recorded confirmed non-execution while the receiver genuinely holds the message. The journal is a faithful record of what the executor reported; what is unsound is the executor classifying a post-DATA socket failure as FAILED_BEFORE_EFFECT.',
+      CORROBORATED:
+        'The receiver independently confirms it received no message body and stored nothing, so the application’s confirmed-non-execution classification is corroborated by something other than itself.',
+      DECLINED_TO_CLAIM:
+        'The receiver genuinely holds the message, and the application did NOT claim non-execution: it recorded OUTCOME_UNKNOWN and parked the case for a person rather than authorising a retry that would have delivered a second copy. This is the corrected execution-boundary classification, observed against a real socket rather than asserted by a unit test.',
+    }[agreement];
+
     return {
       subject: subject.label,
       incidentId: subject.incidentId,
-      applicationOutcome: applicationClaimedNonExecution ? 'FAILED_BEFORE_EFFECT' : String(record ?? 'NOT_RECORDED'),
+      applicationOutcome: applicationClaimedNonExecution
+        ? 'FAILED_BEFORE_EFFECT'
+        : uncertainRecord !== undefined
+          ? 'OUTCOME_UNKNOWN'
+          : 'NOT_RECORDED',
       applicationDetail: record?.['detail'] ?? null,
       receiverBodyBytesReceived: receiver?.bodyBytesReceived ?? null,
       receiverStoredMessageId: receiver?.storedMessageId ?? null,
       receiverAcknowledgedToClient: receiver?.acknowledgedToClient ?? null,
-      agreement: applicationClaimedNonExecution && receiverHoldsTheMessage ? 'CONTRADICTED' : 'CORROBORATED',
-      finding:
-        applicationClaimedNonExecution && receiverHoldsTheMessage
-          ? 'The application recorded confirmed non-execution while the receiver genuinely holds the message. The journal is a faithful record of what the executor reported; what is unsound is the executor classifying a post-DATA socket failure as FAILED_BEFORE_EFFECT, and this capture is the first evidence of it. An execution-boundary defect, found by observing a real run rather than by a test written to expect it.'
-          : 'The receiver independently confirms it received no message body and stored nothing, so the application’s confirmed-non-execution classification is corroborated by something other than itself.',
+      agreement,
+      finding,
     };
   });
 
