@@ -3,7 +3,58 @@
 > One per accepted package (Constitution §14). Repository truth is authoritative; this file
 > is an index, not a source. Append the new checkpoint above the previous one.
 
-## Current — The last Pending standard closes, and names nobody · 2026-08-27
+## Current — A state you can enter and never be forced out of · 2026-08-27
+
+**Verified state.** `npm run verify`: 62 files, 971 passed / 1 skipped, exit 0. `npm run build`:
+exit 0, 39 static pages. Four abandonable parked states published in
+`data/parked-state-attention.ts`.
+
+**How this package was chosen.** Not from a plan — from a wrong claim I made an hour earlier.
+Pattern #21's "reusable" line asserted Client Onboarding's readiness sign-off was the obvious
+next taker. Checking it found Client Onboarding declares no human-attention failure mode at all,
+and only two exist portfolio-wide. The claim is corrected in the ledger, and #22 exists so that
+nothing can make it again without being caught.
+
+**The question nobody had asked the graph.** `validateLifecycle` refuses a `DEAD_END_STATE` — a
+non-terminal state with no exit. It passes cleanly over the sibling condition: a state whose
+every declared exit needs a `HUMAN_DECISION`, so the only thing that can move the case is the
+party it is already waiting on. That is not a defect on its own — it is the normal shape of
+human review. The defect is the pair: **no self-driven exit AND no declared attention
+mechanism**. Four states across four systems are in that pair, and each is named with its exits
+rather than counted.
+
+**Prose became data, for the same reason as last time.** `HOLDS_POSITION` carried only a note,
+so "holds position *where*" was unanswerable and no audit could distinguish a covered parked
+state from an uncovered one. `holdsAt` is now declared, validated to resolve to real states, and
+required for `HUMAN_APPROVAL_TIMEOUT` — an attention claim that will not say where it applies
+cannot be checked.
+
+**It found a live canon/code contradiction on its first run.** `lr-fm-approval-timeout` declared
+`shape: 'MOVES'` (`NEEDS_HUMAN -> ESCALATED`) while its own verification test said "without
+transitioning lifecycle state", the handler doctrine said never setting `transitionTo` "is the
+entire point", and the note under that MOVES said "it never decides the case". Nothing caught it
+because the movement is genuinely buildable — a person performs lr-t23, the timeout never does —
+so `validateLifecycle` passed. Corrected to `HOLDS_POSITION`; **no existing test broke**, which
+is the measure of how invisible it was.
+
+**Falsification and mutation.** 15 tests written RED first. 9 targeted mutations; one survived —
+"a bounded judgment counts as the system acting", unreachable from the real model because no
+parked state declares such an exit. Repaired by driving it directly with a synthetic fixture,
+the same repair `creditedRuleIds` got in #20, not by explaining it away. Both files restored
+byte-for-byte and verified by SHA-256.
+
+**Maturity.** Unchanged. $0 spent, no provider crossed, no gated variable set.
+
+**Pattern earned.** #22 — a state you can enter and never be forced out of, asked of the graph
+rather than of the reviewer.
+
+**Next package.** NOT SELECTED. Following #20's own precedent, the natural successor is to put
+this list where a buyer sees it — #20 landed the mechanism and the pass after it took the figure
+to the surface. The other standing candidate is unchanged and larger: Execution 2 → 3, no side
+effect has yet crossed to anything off this machine, which is gated on the owner. Owner
+sequences.
+
+## Earlier — The last Pending standard closes, and names nobody · 2026-08-27
 
 **Verified state.** `npm run verify`: 61 files, 956 passed / 1 skipped, exit 0. `npm run build`:
 exit 0, 39 static pages. Call-to-Proposal scenarios 2 → 3; portfolio 21 → 22. Lead Rescue

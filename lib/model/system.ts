@@ -234,6 +234,21 @@ export const RecoveryPathSchema = z.discriminatedUnion('shape', [
   /** Holding position IS the recovery — a duplicate, a replay, a refused transition. */
   z.strictObject({
     shape: z.literal('HOLDS_POSITION'),
+    /**
+     * The lifecycle states this recovery holds AT, when that is a meaningful question.
+     *
+     * Same reasoning as `RecoveryMoveSchema` above: `note` is prose, and a validator cannot
+     * check a sentence. An attention mechanism that says "the case stays where it is" is
+     * making a claim about WHICH cases, and until that claim was data nothing could ask
+     * whether a given parked state was covered by anything at all.
+     *
+     * Optional, because not every hold is about attention. A refused duplicate holds wherever
+     * the case happens to be; enumerating states there would be false precision. It is
+     * REQUIRED for `HUMAN_APPROVAL_TIMEOUT`, enforced in `validateLifecycle` — an attention
+     * claim that declines to say where it applies cannot be checked, and an uncheckable claim
+     * is the thing this repository exists to not make.
+     */
+    holdsAt: z.array(z.string().min(1)).min(1).optional(),
     note: z.string().min(1),
   }),
   /** Handled entirely below the lifecycle, on the side-effect record. Say where. */
@@ -375,6 +390,31 @@ export function validateLifecycle(system: SystemDefinition): StructuralIssue[] {
   for (const state of system.lifecycle.states) {
     if (!isTerminal(state.kind) && (outgoing.get(state.id) ?? []).length === 0) {
       push('DEAD_END_STATE', `non-terminal state "${state.id}" has no outgoing transition`);
+    }
+  }
+
+  /**
+   * An attention mechanism's scope is a claim about this graph too.
+   *
+   * `DEAD_END_STATE` above catches a state with no exit. It says nothing about a state whose
+   * every exit needs the person who is, by hypothesis, not acting — see
+   * `lib/proof/parked-state-attention.ts`, which derives that. What is checked HERE is the
+   * narrower thing a validator can settle outright: that a declared attention mechanism names
+   * real states, and that it names some.
+   */
+  for (const mode of system.failureModes) {
+    const recovery = mode.recoveryPath;
+    if (recovery.shape !== 'HOLDS_POSITION') continue;
+    for (const stateId of recovery.holdsAt ?? []) {
+      if (!ids.has(stateId)) {
+        push('UNKNOWN_HOLDS_AT_STATE', `failure mode ${mode.id} holds at undefined state "${stateId}"`);
+      }
+    }
+    if (mode.class === 'HUMAN_APPROVAL_TIMEOUT' && recovery.holdsAt === undefined) {
+      push(
+        'ATTENTION_WITHOUT_STATES',
+        `failure mode ${mode.id} is a HUMAN_APPROVAL_TIMEOUT holding position but names no states — declare holdsAt so the claim can be checked against the states work actually parks in`,
+      );
     }
   }
 

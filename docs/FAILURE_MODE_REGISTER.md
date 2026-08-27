@@ -185,7 +185,7 @@ Coverage: 23 distinct failure classes across 43 entries.
 | **Recovery** | Escalate to the next owner in the authority chain. |
 | **Escalates when** | Review window elapsed without acceptance. |
 | **Authority required** | 2 · PREPARE / HUMAN APPROVES |
-| **Resolves into** | Needs human → Escalated. Escalation names the next owner in the authority chain, resolved from the configured roles. A timeout escalates the fact that nobody has acted; it never decides the case. |
+| **Resolves into** | CORRECTED 2026-08-27: this declared `MOVES` (NEEDS_HUMAN -> ESCALATED) while its own verification test, and the handler doctrine in lib/engine/handlers/lead-rescue.ts, both state that the timeout never transitions lifecycle state — and the note under that MOVES already said "it never decides the case", which is HOLDS_POSITION semantics written under the wrong shape. The transition NEEDS_HUMAN -> ESCALATED is real and buildable (lr-t23), so validateLifecycle passed and nothing caught the contradiction; it is performed by a PERSON escalating, never by the timeout. Escalation names the next owner in the authority chain, resolved from the configured roles. A timeout escalates the fact that nobody has acted; it never decides the case. |
 | **Verification** | tests/lead-rescue-attention-timeout.test.ts, tests/lead-rescue-attention-timeout-resume.test.ts — review and dispatch attention timeouts durably escalate without transitioning lifecycle state |
 
 ### UNEXPECTED HUMAN REPLY — A reply does not answer the question asked and instead raises a commitment, complaint, or unrelated request.

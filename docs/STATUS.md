@@ -1,6 +1,51 @@
 # Status
 
-**As of 2026-08-27 (latest pass, same day) · The last Pending standard closes, and the honest
+**As of 2026-08-27 (latest pass, same day) · Four places where work can be parked and canon
+says nothing about it.** `validateLifecycle` has always refused a `DEAD_END_STATE` — a
+non-terminal state with no way out. It passes cleanly over the sibling condition: a state with
+several declared exits, every one of which requires a `HUMAN_DECISION`. On the graph that is not
+a dead end. In practice it is, because the only thing that can move the case is the party the
+case is already waiting on. The defect is never either half alone; it is **no self-driven exit
+AND no declared attention mechanism**, and four states are in that pair:
+`dormant-pipeline-recovery/NEEDS_HUMAN`, `call-to-proposal/NEEDS_HUMAN`,
+`client-onboarding/NEEDS_HUMAN`, `owner-revenue-intelligence/AWAITING_OWNER_DECISION`.
+
+**This package was chosen by being wrong about something an hour earlier.** Pattern #21's
+"reusable" line claimed Client Onboarding's readiness sign-off was the obvious next taker for
+the approval-timeout mechanism. It is not: Client Onboarding declares no human-attention failure
+mode at all, and only two exist across the whole portfolio. The claim is corrected in the
+ledger, and the audit exists so nothing can make it again unchecked.
+
+**Prose became data, for the second time and the same reason.** `RecoveryMoveSchema` replaced
+free prose because a validator cannot check a sentence. `HOLDS_POSITION` still carried only a
+`note`, so "holds position *where*" was unanswerable — and without that link nothing could tell
+a covered parked state from an uncovered one. `holdsAt` is now a declared field, validated to
+resolve against real states, and **required** for `HUMAN_APPROVAL_TIMEOUT`.
+
+**It found a live canon/code contradiction on its first run, invisible to 969 tests.**
+`lr-fm-approval-timeout` declared `shape: 'MOVES'` (`NEEDS_HUMAN -> ESCALATED`), while its own
+verification test said "without transitioning lifecycle state", the handler doctrine said never
+setting `transitionTo` "is the entire point", and the note under that very `MOVES` said "it
+never decides the case". Nothing caught it because the movement is genuinely buildable — a
+person performs `lr-t23`; the timeout never does — so `validateLifecycle` had no complaint. It
+is corrected to `HOLDS_POSITION`, with the correction recorded in the note rather than applied
+silently, and **no existing test broke**, which is the measure of how invisible it was.
+
+**What this does not prove.** It audits what canon SAYS, never what the code does: a system
+could declare an attention mechanism and implement none of it, and this would report the state
+as attended. `DETERMINISTIC_RULE` stands in for "the system can act on its own" — true of every
+timeout, budget and due-date exit in this repository today, but a property of the mechanism
+vocabulary rather than a proof. And it makes no judgement about whether a listed state *should*
+have an attention mechanism; that is a modelling decision it deliberately declines to take.
+
+`npm run verify`: 62 files, 971 passed / 1 skipped, exit 0. `npm run build`: exit 0, 39 static
+pages. 15 tests written RED first; 9 targeted mutations, one survivor repaired by driving an
+unreachable rule directly rather than deleting it, both files then restored byte-for-byte and
+verified by SHA-256.
+
+---
+
+**As of 2026-08-27 (earlier pass, same day) · The last Pending standard closes, and the honest
 answer is that this firm cannot say who approves a proposal.** `cp-fm-approval-timeout` declared
 a prevention nobody had implemented — "Named approver and review window assigned at the moment
 of routing" — and implementing it faithfully surfaced something the canon had not: Kestrel's
