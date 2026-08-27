@@ -1,6 +1,7 @@
 import type { ExecutionMode, SendOutcome, VerifyOutcome } from '@/lib/model/runtime';
 import { AttemptUnavailableError, type SendRequest, type SideEffectExecutor, type VerifyRequest } from '@/lib/ports/side-effect-executor';
 import { SmtpSideEffectExecutor, isProofSafeRecipient } from '@/lib/ports/smtp-side-effect-executor';
+import { WebhookSideEffectExecutor, isRemoteProofSafeEndpoint } from '@/lib/ports/webhook-side-effect-executor';
 
 /**
  * THE ONE PLACE REAL OUTBOUND EXECUTION IS TURNED ON.
@@ -36,13 +37,21 @@ export const SMTP_HOST_ENV_VAR = 'LEAD_RESCUE_SMTP_HOST';
 export const SMTP_PORT_ENV_VAR = 'LEAD_RESCUE_SMTP_PORT';
 export const SMTP_FROM_ENV_VAR = 'LEAD_RESCUE_SMTP_FROM';
 export const SMTP_TO_ENV_VAR = 'LEAD_RESCUE_SMTP_TO';
+export const WEBHOOK_ENDPOINT_ENV_VAR = 'LEAD_RESCUE_WEBHOOK_ENDPOINT';
 
-export const SIDE_EFFECT_EXECUTOR_MODES = ['simulated', 'smtp'] as const;
+export const SIDE_EFFECT_EXECUTOR_MODES = ['simulated', 'smtp', 'webhook'] as const;
 export type SideEffectExecutorMode = (typeof SIDE_EFFECT_EXECUTOR_MODES)[number];
 
-/** Any value other than the literal `smtp` is simulated — an unrecognized value never implies "real". */
+/**
+ * Only an exact, recognised literal selects a real executor. Anything else — a typo, an empty
+ * string, a value meant for a different tool — is simulated. An unrecognised value must never
+ * imply "real", which is why this matches rather than parses.
+ */
 function resolveMode(env: Env): SideEffectExecutorMode {
-  return env[SIDE_EFFECT_EXECUTOR_MODE_ENV_VAR]?.trim().toLowerCase() === 'smtp' ? 'smtp' : 'simulated';
+  const raw = env[SIDE_EFFECT_EXECUTOR_MODE_ENV_VAR]?.trim().toLowerCase();
+  if (raw === 'smtp') return 'smtp';
+  if (raw === 'webhook') return 'webhook';
+  return 'simulated';
 }
 
 export interface SmtpSettings {
@@ -52,14 +61,41 @@ export interface SmtpSettings {
   readonly to: string;
 }
 
+export interface WebhookSettings {
+  readonly endpoint: string;
+}
+
 export type SideEffectExecutorSelection =
   | { readonly kind: 'SIMULATED' }
   | { readonly kind: 'SMTP'; readonly settings: SmtpSettings }
-  | { readonly kind: 'SMTP_MISCONFIGURED'; readonly reason: string };
+  | { readonly kind: 'SMTP_MISCONFIGURED'; readonly reason: string }
+  | { readonly kind: 'WEBHOOK'; readonly settings: WebhookSettings }
+  | { readonly kind: 'WEBHOOK_MISCONFIGURED'; readonly reason: string };
 
 /** Pure: decides WHICH executor should run and validates its settings, never constructs one. */
 export function resolveSideEffectExecutorSelection(env: Env): SideEffectExecutorSelection {
-  if (resolveMode(env) === 'simulated') return { kind: 'SIMULATED' };
+  const mode = resolveMode(env);
+  if (mode === 'simulated') return { kind: 'SIMULATED' };
+
+  if (mode === 'webhook') {
+    const endpoint = env[WEBHOOK_ENDPOINT_ENV_VAR]?.trim();
+    if (endpoint === undefined || endpoint.length === 0) {
+      return {
+        kind: 'WEBHOOK_MISCONFIGURED',
+        reason: `${SIDE_EFFECT_EXECUTOR_MODE_ENV_VAR}=webhook was set but required configuration is missing: ${WEBHOOK_ENDPOINT_ENV_VAR}`,
+      };
+    }
+    // The blast-radius guard, enforced at selection time so an endpoint on this machine can
+    // never reach executor construction. The inverse of the SMTP recipient guard, and for the
+    // mirror-image reason — see `isRemoteProofSafeEndpoint`.
+    if (!isRemoteProofSafeEndpoint(endpoint)) {
+      return {
+        kind: 'WEBHOOK_MISCONFIGURED',
+        reason: `${WEBHOOK_ENDPOINT_ENV_VAR}="${endpoint}" is not a public HTTPS endpoint. Remote execution proof mode refuses loopback, private-range, credentialled, and plaintext endpoints — an executor that can be pointed at this machine cannot be evidence that anything left it.`,
+      };
+    }
+    return { kind: 'WEBHOOK', settings: { endpoint } };
+  }
 
   const host = env[SMTP_HOST_ENV_VAR]?.trim();
   const rawPort = env[SMTP_PORT_ENV_VAR]?.trim();
@@ -103,10 +139,10 @@ export function resolveSideEffectExecutorSelection(env: Env): SideEffectExecutor
  * `UNAVAILABLE` resolution any other executor failure already produces, instead of silently
  * reusing simulated output.
  */
-function createUnavailableSmtpExecutor(reason: string): SideEffectExecutor {
-  const description = `real SMTP execution was explicitly selected (${SIDE_EFFECT_EXECUTOR_MODE_ENV_VAR}=smtp) but is unavailable: ${reason}`;
+function createUnavailableExecutor(mode: 'smtp' | 'webhook', reason: string): SideEffectExecutor {
+  const description = `real execution was explicitly selected (${SIDE_EFFECT_EXECUTOR_MODE_ENV_VAR}=${mode}) but is unavailable: ${reason}`;
   return {
-    id: 'lead-rescue-local-smtp-executor-unavailable',
+    id: mode === 'smtp' ? 'lead-rescue-local-smtp-executor-unavailable' : 'lead-rescue-remote-webhook-executor-unavailable',
     // Deliberately LIVE: this instance stands in for an explicitly requested REAL executor.
     // Reporting SIMULATED here would let a misconfigured real-send request be mistaken for a
     // legitimate simulated run — precisely the confusion this module exists to prevent.
@@ -148,7 +184,7 @@ export function resolveLeadRescueSideEffectExecutor(
         // Only reachable from a test that asked for the simulated branch without supplying
         // the instance; never from the real runtime, which always passes one.
         const reason = 'no simulated executor was supplied to the composition root';
-        return { executor: createUnavailableSmtpExecutor(reason), executorId: 'lead-rescue-local-smtp-executor-unavailable', selectionKind: selection.kind };
+        return { executor: createUnavailableExecutor('smtp', reason), executorId: 'lead-rescue-local-smtp-executor-unavailable', selectionKind: selection.kind };
       }
       return { executor: simulatedExecutor, executorId: simulatedExecutor.id, selectionKind: selection.kind };
     }
@@ -157,7 +193,15 @@ export function resolveLeadRescueSideEffectExecutor(
       return { executor, executorId: executor.id, selectionKind: selection.kind };
     }
     case 'SMTP_MISCONFIGURED': {
-      const executor = createUnavailableSmtpExecutor(selection.reason);
+      const executor = createUnavailableExecutor('smtp', selection.reason);
+      return { executor, executorId: executor.id, selectionKind: selection.kind };
+    }
+    case 'WEBHOOK': {
+      const executor = new WebhookSideEffectExecutor({ endpoint: selection.settings.endpoint });
+      return { executor, executorId: executor.id, selectionKind: selection.kind };
+    }
+    case 'WEBHOOK_MISCONFIGURED': {
+      const executor = createUnavailableExecutor('webhook', selection.reason);
       return { executor, executorId: executor.id, selectionKind: selection.kind };
     }
   }

@@ -252,6 +252,51 @@ export function downgradeEffect(
 }
 
 /**
+ * Attaches the RECEIVER'S OWN identifier for what it recorded, to the effect that earned it.
+ *
+ * A receipt you obtained and threw away is a receipt you do not have. When a real executor
+ * succeeds it returns the counterparty's identifier — the only value that lets anyone later
+ * point at the counterparty's record and check this delivery against a log this application
+ * does not own. Before this existed, that identifier was resolved and dropped: the claim was
+ * confirmed, the effect was EXECUTED, and the link between our record and theirs was gone. The
+ * first remote capture is what surfaced it, by reporting `null` for a send that had genuinely
+ * succeeded against a third-party system.
+ *
+ * DELIBERATELY SEPARATE FROM `downgradeEffect`, which documents itself as "strictly a downgrade
+ * path, never an upgrade". Attaching provenance is a different operation with a different risk,
+ * and folding it in would place an upgrade-shaped branch inside the one function documented as
+ * unable to contain one. This annotates and does nothing else: it touches only `technical`,
+ * only on an effect the pure core already marked `EXECUTED`, and can never alter `status`.
+ */
+export function attachExecutionReceipt(
+  entries: readonly TimelineEntry[],
+  idempotencyKey: string,
+  receipt: { readonly provider: string; readonly attemptedAt: string; readonly externalId?: string },
+): TimelineEntry[] {
+  return entries.map((entry) => ({
+    ...entry,
+    sideEffects: entry.sideEffects.map((effect) =>
+      effect.idempotencyKey === idempotencyKey && effect.status === 'EXECUTED'
+        ? {
+            ...effect,
+            technical: {
+              attempt: 1,
+              provider: receipt.provider,
+              attemptedAt: receipt.attemptedAt,
+              outcomeKind: 'SUCCEEDED',
+              // Never fabricated: an executor that returned no id is recorded as having
+              // returned none, which is a different fact from not having been asked.
+              ...(receipt.externalId === undefined ? {} : { externalId: receipt.externalId }),
+              retrySafety: 'NOT_APPLICABLE' as const,
+              verificationStatus: 'NOT_APPLICABLE' as const,
+            },
+          }
+        : effect,
+    ),
+  }));
+}
+
+/**
  * Emits ONE observation. Awaited so a successful write is durable before the boundary
  * returns, but its result is always discarded — a dropped observation must never be able to
  * change what a boundary returns, and `recordSafely` guarantees it can never throw.
@@ -385,6 +430,13 @@ export async function checkWaitIncident(
 
       if (resolved.status === 'OK' && resolved.result.kind === 'SUCCEEDED') {
         await claimStore.confirm(operationId, nowIso);
+        // Retain what the counterparty said it recorded. Status is unchanged — the pure core
+        // already computed EXECUTED — but the link to their record is kept rather than dropped.
+        entries = attachExecutionReceipt(entries, effect.idempotencyKey, {
+          provider: deps.executor.id,
+          attemptedAt: nowIso,
+          ...(resolved.result.externalId === undefined ? {} : { externalId: resolved.result.externalId }),
+        });
         continue;
       }
 

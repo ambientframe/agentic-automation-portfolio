@@ -1,0 +1,114 @@
+{
+  "schemaVersion": "lead-rescue-remote-execution-evidence-1",
+  "capturedAt": "2026-08-27T16:54:01.927Z",
+  "gitHead": "509e9e62e766a23d857d243ee54e07fd3e22776a",
+  "receiver": {
+    "kind": "third-party automation platform (n8n), reachable only over the public internet",
+    "origin": "https://ambientframes.app.n8n.cloud",
+    "onThisMachine": false,
+    "reachabilityEvidence": "The endpoint is a public HTTPS origin on a domain this repository does not control and this machine does not serve. `isRemoteProofSafeEndpoint` refuses loopback, private-range, link-local, credentialled, and plaintext endpoints at selection time, so an endpoint on this machine cannot reach executor construction at all — recorded as case D below.",
+    "writeAccessFromApplication": "The application can POST to one webhook path. It holds no credential for the receiver and cannot read, edit, or delete the execution records the receiver writes."
+  },
+  "executionPath": {
+    "productionEntry": "checkWaitIncident(leadRescueWaitStore, leadRescueClaimStore, …, LEAD_RESCUE_WAIT_DEPS, LEAD_RESCUE_WAIT_RUNTIME_ID)",
+    "note": "The identical function app/api/lead-rescue/wait-incidents/check/route.ts calls on its incidentId branch, using the real module-level store and claim singletons and the real composition-root-resolved executor. The HTTP hop into that route is NOT part of this artifact — it is separately evidenced in n8n/evidence/lead-rescue-runtime-execution.json.",
+    "executorSelection": "WEBHOOK",
+    "executorId": "lead-rescue-remote-webhook-executor"
+  },
+  "precondition": {
+    "capturedFacts": {
+      "incidentId": "lead-remote-proof-dispatch-timeout-1",
+      "revision": 2,
+      "lifecycleState": "BOOKING_READY",
+      "bookingReadyAt": "2026-08-27T07:54:00.823Z"
+    },
+    "derivedAssertions": {
+      "constructionMethod": "WaitIncidentStore.park() — the same production persistence method the real runtime uses. bookingReadyAt backdated 9 hours so the configured 8-hour dispatch window has genuinely elapsed; the elapse is real, not asserted."
+    }
+  },
+  "authorizedSend": {
+    "capturedFacts": {
+      "checkOutcome": "ATTENTION_OVERDUE",
+      "operationClaimId": "notify:lead-remote-proof-dispatch-timeout-1:dispatch-overdue@rev2",
+      "operationClaimStatus": "CONFIRMED",
+      "sideEffectStatus": "EXECUTED",
+      "idempotencyKey": "notify:lead-remote-proof-dispatch-timeout-1:dispatch-overdue",
+      "applicationSendOutcome": {
+        "attempt": 1,
+        "provider": "lead-rescue-remote-webhook-executor",
+        "attemptedAt": "2026-08-27T16:54:00.827Z",
+        "outcomeKind": "SUCCEEDED",
+        "externalId": "4",
+        "retrySafety": "NOT_APPLICABLE",
+        "verificationStatus": "NOT_APPLICABLE"
+      },
+      "receiverReportedExecutionId": "4",
+      "descriptionSha256": "83d58297859f4ce7048ae8294261659e233b123e051524f2b504453fcf84a0f3"
+    },
+    "derivedAssertions": {
+      "crossedThePublicInternet": true,
+      "leftThisMachine": true,
+      "executorMode": "LIVE",
+      "note": "The receiver's own execution identifier, returned by the receiver and recorded here, is the value that makes this delivery checkable against the receiver's execution log — a record this application does not own and cannot alter."
+    }
+  },
+  "duplicateReplay": {
+    "capturedFacts": {
+      "secondCheckOutcome": "ATTENTION_OVERDUE",
+      "secondAttemptSideEffectStatus": "SUPPRESSED_DUPLICATE",
+      "secondAttemptExternalId": null
+    },
+    "derivedAssertions": {
+      "secondDeliverySuppressed": true,
+      "mechanism": "OperationClaimStore.claim() returned ALREADY_CONFIRMED on the replay, so checkWaitIncident downgraded the proposed effect to SUPPRESSED_DUPLICATE and never reached the transport. The suppression happens before the network, not after it."
+    }
+  },
+  "transportFailure": {
+    "capturedFacts": {
+      "endpoint": "https://no-such-host-2f8a91c4.example.com/webhook/lead-rescue-notification-sink",
+      "applicationSendOutcome": {
+        "kind": "FAILED_BEFORE_EFFECT",
+        "reason": "HTTPS transport failed before the request was written (ENOTFOUND): fetch failed"
+      }
+    },
+    "derivedAssertions": {
+      "falseExecutedAvoided": true,
+      "classification": "A hostname that does not resolve fails before any request byte is written, which is the one class of failure that may honestly grant retry permission. Every other transport failure on this path returns OUTCOME_UNKNOWN by default — the receiver may hold a request it never answered."
+    }
+  },
+  "blastRadiusGuard": {
+    "capturedFacts": {
+      "attemptedEndpoint": "https://127.0.0.1/webhook/lead-rescue-notification-sink",
+      "selectionKind": "WEBHOOK_MISCONFIGURED"
+    },
+    "derivedAssertions": {
+      "refusedAtSelectionTime": true,
+      "why": "An executor that can be pointed at this machine cannot be evidence that anything left it. The guard is the inverse of the SMTP executor's, which refuses ROUTABLE recipients so it can never reach a real person; this one refuses NON-ROUTABLE endpoints so it can never be satisfied without a real crossing."
+    }
+  },
+  "scopeStatement": "This evidence proves that an authorized Lead Rescue notification genuinely left this machine over HTTPS, crossed the public internet, and was accepted and recorded by a third-party automation platform that this application holds no credential for and cannot write to; that replaying the same protected operation produced no second delivery, suppressed before the transport rather than after it; and that a genuine DNS failure was classified as retry-safe while every other transport failure defaults to unknown. The recipient of the notification is an automation endpoint, never a customer: no email, SMS, or message was delivered to any person.",
+  "doesNotProve": [
+    "It does not prove exactly-once delivery across arbitrary provider or crash failure modes. It proves suppression of one replay through one claim store.",
+    "It does not prove the notification reached a person. The receiver is a workflow endpoint that records deliveries; nothing forwards them onward, and no human recipient is configured anywhere on this path.",
+    "It does not prove real classification. The decision provider was not exercised by this capture; no model was called.",
+    "It does not prove the deployed application does this. The crossing was made by the application running on this machine; the Vercel deployment is not configured for webhook execution mode.",
+    "The endpoint guard inspects the URL, not DNS. A public hostname that resolves to a private address would pass it — stated as a limit rather than defended against, because this repository does not resolve names at selection time.",
+    "The independent read-back is ATTESTED BY AN OPERATOR, not automated: this repository holds no receiver API credential, so the fetch was performed outside the script and merged under a check that it names the same execution and operation. It is reproducible by anyone with access to the receiver, and it is not self-verifying."
+  ],
+  "independentReadBack": {
+    "method": "n8n public API — GET execution by id, with node output data, on workflow 8W79mb8d8fh3uXdX",
+    "channel": "Authenticated n8n API session, separate from the unauthenticated webhook path the delivery used. The application holds no credential for this channel.",
+    "observedAt": "2026-08-27T16:55:00.000Z",
+    "executionId": "4",
+    "executionStatus": "success",
+    "receivedIdempotencyKey": "notify:lead-remote-proof-dispatch-timeout-1:dispatch-overdue",
+    "executionsForThisWorkflow": 4,
+    "note": "The receiver's stored record for execution 4 shows receivedIdempotencyKey = notify:lead-remote-proof-dispatch-timeout-1:dispatch-overdue, receivedAttemptId = ...@rev2, receivedProvider = lead-rescue-remote-webhook-executor, startedAt 2026-08-27T16:54:01.648Z. The workflow's full execution list at the time of observation held 4 executions (1 and 3 were manual smoke tests, 2 an earlier capture, 4 this one); the replay in case B produced NO further execution, which is the receiver-side confirmation that suppression happened before the transport rather than after it.",
+    "derivedAssertions": {
+      "matchesApplicationRecord": true,
+      "obtainedIndependently": true,
+      "why": "The execution id and the idempotency key were recorded by the application before this read-back existed, and the read-back was fetched from the receiver's own stored execution record over a different channel with a credential the application does not hold. Two systems, two channels, one value.",
+      "exactlyOneDeliveryForThisOperation": true
+    }
+  }
+}

@@ -3,7 +3,64 @@
 > One per accepted package (Constitution §14). Repository truth is authoritative; this file
 > is an index, not a source. Append the new checkpoint above the previous one.
 
-## Current — The parked-state gap reaches the buyer · 2026-08-27
+## Current — A side effect finally leaves this machine · 2026-08-27
+
+**Verified state.** `npm run verify`: 66 files, 1032 passed / 1 skipped, exit 0. `npm run build`:
+exit 0. New runtime artifact: `n8n/evidence/lead-rescue-remote-execution.json`.
+
+**Owner authorisation.** The owner gave explicit, in-session go-ahead for the gated execution
+boundary. No email, SMS, or customer-facing message was sent; the counterparty is an automation
+endpoint that forwards nothing.
+
+**Proof claim earned — Execution 2 → 3.** An authorized Lead Rescue notification left this
+machine over HTTPS, crossed the public internet, and was accepted and recorded by an n8n Cloud
+workflow. The delivery was then read back from **n8n's own execution log through a separate
+authenticated channel** — receiver execution `4`, carrying the exact idempotency key
+`notify:lead-remote-proof-dispatch-timeout-1:dispatch-overdue`. Every prior execution claim in
+this repository was bounded by `127.0.0.1`; that bound is gone.
+
+**The replay was suppressed before the transport, confirmed from the receiver's side.** Case B
+re-ran the identical protected operation and produced `SUPPRESSED_DUPLICATE` — and n8n's
+execution list shows **no second execution**, which is the counterparty confirming that nothing
+was sent rather than the application asserting it.
+
+**The guard is the inverse of SMTP's, and that is the pattern.** `SmtpSideEffectExecutor`
+refuses a ROUTABLE recipient so it can never reach a person. `WebhookSideEffectExecutor`
+refuses a NON-ROUTABLE endpoint so it can never be satisfied by something on this machine.
+Each guard enforces the exact claim its own executor exists to support; a remote-execution
+executor that could be pointed at loopback would make its own claim unfalsifiable.
+
+**Certainty is earned, not defaulted.** Over HTTP a receiver can act on a request it never
+answers, so `OUTCOME_UNKNOWN` is the default and only a provably pre-request failure earns
+`FAILED_BEFORE_EFFECT`. 5xx and 409 are both unknown, deliberately.
+
+**A defect the capture found, which no test could have.** The first run reported
+`receiverReportedExecutionId: null` for a send that had genuinely succeeded — `checkWaitIncident`
+resolved the counterparty's identifier and dropped it, leaving no link between our record and
+theirs. `attachExecutionReceipt` retains it, as a function deliberately separate from
+`downgradeEffect`, which documents itself as never able to upgrade an effect.
+
+**The attestation is bounded by a check.** No receiver API credential exists here, so the
+independent read-back is operator-attested and merged by a script that REFUSES unless it names
+the same execution and the same operation the application independently recorded.
+
+**Falsification and mutation.** 55 new tests, written RED first. 8 targeted mutations of the
+executor, all killed, restored byte-for-byte and verified by SHA-256.
+
+**Maturity.** Lead Rescue outbound execution moves to REAL for this configuration. The fidelity
+ledger's `outboundRow` gained a `WEBHOOK` case — the type system refused to compile until the
+buyer-facing ledger said what the new mode means.
+
+**Pattern earned.** #23 — a guard enforces the claim its own executor exists to make.
+
+**Next package.** NOT SELECTED. Three candidates, in order of my preference: (a) give the
+receiver a lookup by idempotency key so `attemptVerify` can stop throwing and an
+`OUTCOME_UNKNOWN` can actually be narrowed — the last structural hole in this boundary;
+(b) configure the deployed Vercel application for this mode, so the crossing is made by the
+public deployment rather than a local process; (c) the four abandonable parked states, which
+still need canon decisions.
+
+## Earlier — The parked-state gap reaches the buyer · 2026-08-27
 
 **Verified state.** `npm run verify`: 63 files, 977 passed / 1 skipped, exit 0. `npm run build`:
 exit 0, 39 static pages.

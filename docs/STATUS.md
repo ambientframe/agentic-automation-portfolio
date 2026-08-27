@@ -1,6 +1,59 @@
 # Status
 
-**As of 2026-08-27 (latest pass, same day) · The parked-state gap reaches the buyer.** The audit
+**As of 2026-08-27 (latest pass, same day) · A side effect finally leaves this machine.** Every
+execution claim in this repository has carried the same unstated bound: the SMTP proof crossed a
+real socket to a real capture server, but always at `127.0.0.1`. With the owner's explicit
+in-session go-ahead, an authorized Lead Rescue notification now leaves this machine over HTTPS,
+crosses the public internet, and is accepted and recorded by an **n8n Cloud workflow** — a
+system this application holds no credential for and cannot write to. The delivery was read back
+from n8n's own execution log through a separate authenticated channel: receiver execution `4`,
+carrying the exact idempotency key `notify:lead-remote-proof-dispatch-timeout-1:dispatch-overdue`.
+Retained in `n8n/evidence/lead-rescue-remote-execution.json`.
+
+**Nothing reached a person.** The counterparty is a workflow endpoint that records deliveries
+and forwards nothing — no email, SMS, chat, or onward webhook leaves it. That is a structural
+property of the receiver, stated in the committed workflow definition, not a promise.
+
+**The replay was suppressed before the transport, and the receiver confirms it.** Re-running the
+identical protected operation produced `SUPPRESSED_DUPLICATE`, and n8n's execution list shows no
+second execution — the counterparty confirming nothing was sent, rather than this application
+asserting it.
+
+**The guard is the inverse of the SMTP one, and that inversion is the point.**
+`SmtpSideEffectExecutor` refuses a ROUTABLE recipient, so it can never reach a real person.
+`WebhookSideEffectExecutor` refuses a NON-ROUTABLE endpoint, so it can never be satisfied by
+something on this machine. Each enforces the exact claim its own executor exists to support: an
+executor for proving a crossing that could be pointed at loopback would make its own claim
+unfalsifiable.
+
+**Certainty is earned rather than defaulted.** `FAILED_BEFORE_EFFECT` is a permission, not a
+description — every layer above reads it as "retry is safe". Over HTTP a receiver can act on a
+request it never answers, so the default is `OUTCOME_UNKNOWN`, and only a provably pre-request
+failure (refused connection, unresolvable name, failed TLS handshake) earns retry permission. A
+5xx and a 409 are both unknown, deliberately.
+
+**The capture found a defect no unit test could have.** The first run reported
+`receiverReportedExecutionId: null` for a send that had genuinely succeeded: the runtime resolved
+the counterparty's own identifier and dropped it, leaving no link between our record and theirs.
+A receipt you obtained and threw away is a receipt you do not have. It is now retained by
+`attachExecutionReceipt`, deliberately separate from `downgradeEffect` — which documents itself
+as "strictly a downgrade path, never an upgrade", and must not be given an upgrade-shaped branch.
+
+**What this does not prove.** `attemptVerify` still throws: the receiver records deliveries but
+exposes no lookup by idempotency key, so an `OUTCOME_UNKNOWN` on this path cannot yet be
+narrowed. The independent read-back is **operator-attested, not automated** — this repository
+holds no receiver API credential — though the merge refuses any attestation that does not name
+the same execution and operation the application independently recorded. The endpoint guard
+inspects the URL, not DNS. And the **deployed** application is not configured for this mode: the
+crossing was made by the application running locally.
+
+`npm run verify`: 66 files, 1032 passed / 1 skipped, exit 0. `npm run build`: exit 0. 55 new
+tests written RED first; 8 targeted mutations of the executor, all killed, restored byte-for-byte
+and verified by SHA-256.
+
+---
+
+**As of 2026-08-27 (earlier pass, same day) · The parked-state gap reaches the buyer.** The audit
 from the pass below now renders as `Two · c` on all five `/proof/<slug>` pages, computed at build
 time from each system's own lifecycle, directly under the coverage panel. It answers the
 question that panel provokes: those runs end with a person holding the case, so what happens

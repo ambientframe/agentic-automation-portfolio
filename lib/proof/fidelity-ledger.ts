@@ -148,7 +148,14 @@ function outboundRow(executor: SideEffectExecutorSelection): Pick<FidelityRow, '
         whatIsTrue:
           'Every send on this route is a deterministic stand-in. The claim-then-invoke ordering, the authority gate, and the duplicate refusal are all real; the transport is not. Nothing leaves this process and no recipient exists.',
       };
+    case 'WEBHOOK':
+      return {
+        status: 'REAL',
+        whatIsTrue:
+          'This process is configured to deliver an authorised notification over HTTPS to a third-party automation platform that is not on this machine. The action genuinely leaves this computer, and the receiving system records it in an execution log this application cannot write to or edit — so the delivery can be checked against a record it does not own.',
+      };
     case 'SMTP_MISCONFIGURED':
+    case 'WEBHOOK_MISCONFIGURED':
       return {
         status: 'UNVERIFIED',
         whatIsTrue: `Real sending was explicitly selected for this process but its configuration is unusable, so outbound execution is failing closed rather than quietly reverting to the stand-in: each attempt raises the same error a transport failure would and is recorded as unconfirmed. Reason given: ${executor.reason}.`,

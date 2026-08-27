@@ -1,0 +1,62 @@
+{
+  "name": "Lead Rescue — Notification Sink",
+  "nodes": [
+    {
+      "id": "a5738617-7fce-4d3a-8734-27f3b6db92de",
+      "name": "Notification Received",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [0, 0],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "lead-rescue-notification-sink",
+        "responseMode": "responseNode"
+      },
+      "webhookId": "bc4692e1-dcf0-4adb-b876-c3a28036f684"
+    },
+    {
+      "id": "8cb890ec-2911-4b81-8a42-c4bb66c3d37a",
+      "name": "Build Receipt",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [224, 0],
+      "parameters": {
+        "mode": "manual",
+        "includeOtherFields": false,
+        "assignments": {
+          "assignments": [
+            { "id": "r1", "name": "receivedIdempotencyKey", "value": "={{ $json.body.idempotencyKey }}", "type": "string" },
+            { "id": "r2", "name": "receivedAttemptId", "value": "={{ $json.body.attemptId }}", "type": "string" },
+            { "id": "r3", "name": "receivedProvider", "value": "={{ $json.body.provider }}", "type": "string" },
+            { "id": "r4", "name": "receivedEntityId", "value": "={{ $json.body.entityId }}", "type": "string" },
+            { "id": "r5", "name": "n8nExecutionId", "value": "={{ $execution.id }}", "type": "string" },
+            { "id": "r6", "name": "n8nWorkflowId", "value": "={{ $workflow.id }}", "type": "string" },
+            { "id": "r7", "name": "receivedAt", "value": "={{ $now.toISO() }}", "type": "string" }
+          ]
+        }
+      }
+    },
+    {
+      "id": "b5511fdd-a4f4-400e-b5ec-5eb79d85e4cd",
+      "name": "Return Receipt",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [448, 0],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}"
+      }
+    }
+  ],
+  "connections": {
+    "Notification Received": { "main": [[{ "node": "Build Receipt", "type": "main", "index": 0 }]] },
+    "Build Receipt": { "main": [[{ "node": "Return Receipt", "type": "main", "index": 0 }]] }
+  },
+  "settings": { "executionOrder": "v1" },
+  "_comment": {
+    "purpose": "The remote counterparty for the execution boundary. scripts/remote-execution-proof.ts needs a receiver that is genuinely not on this machine and that keeps its own record of what it received. This is the smallest thing that satisfies both: it accepts one POST and echoes a receipt carrying n8n's own $execution.id, and because n8n logs every execution it leaves behind a record the application cannot write to, cannot edit, and does not own. That record is what the independent read-back in n8n/evidence/lead-rescue-remote-execution.json is fetched from.",
+    "deliberatelyNot": "It contains NO business logic. Classification, authority, policy, and idempotency all live in the application and are not re-implemented or second-guessed here — the same discipline lead-rescue-ingress.json states for the inbound direction. A transport seam that starts making decisions stops being a seam.",
+    "blastRadius": "It forwards nothing. No email, SMS, chat, or onward webhook leaves this workflow, so nothing on this path can reach a customer however the application is configured.",
+    "provenance": "Authored as n8n Workflow SDK source and created through the n8n MCP; this JSON is the deployed definition read back from the instance, kept here so the receiver is version-controlled alongside the evidence that depends on it."
+  }
+}
