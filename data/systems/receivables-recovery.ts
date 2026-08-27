@@ -210,7 +210,19 @@ const RAW = {
       recovery: 'Abort the reminder and move the invoice to PAID.',
       escalationCondition: 'Any executed reminder against a settled invoice.',
       authorityRequired: 3,
-      terminalState: 'PAID.',
+      recoveryPath: {
+        shape: 'MOVES',
+        // The balance check runs at despatch, so the invoice can be in any state the cadence
+        // sends from. Each of those settlements is declared.
+        moves: [
+          { from: 'DUE_SOON', to: 'PAID' },
+          { from: 'PAST_DUE_1_30', to: 'PAID' },
+          { from: 'PAST_DUE_31_60', to: 'PAID' },
+          { from: 'PAST_DUE_61_90', to: 'PAID' },
+          { from: 'PAST_DUE_90_PLUS', to: 'PAID' },
+        ],
+        note: 'The reminder is aborted before despatch; the invoice settles from whichever bucket it was in.',
+      },
       verificationTest: 'tests/receivables-recovery.test.ts — the direct "payment stops further collection" test settles an invoice, then fires a stale evaluation event against it and asserts zero side effects and zero attempted transitions.',
     },
     {
@@ -224,7 +236,19 @@ const RAW = {
       recovery: 'Halt every pending reminder for the invoice and route to a person.',
       escalationCondition: 'Any reminder executed against a disputed invoice.',
       authorityRequired: 3,
-      terminalState: 'DISPUTED.',
+      recoveryPath: {
+        shape: 'MOVES',
+        // Deliberately does NOT include PAST_DUE_90_PLUS: the canon declares no dispute path
+        // out of the last bucket. That asymmetry is recorded in docs/STATUS.md rather than
+        // resolved here by adding a transition nothing exercises.
+        moves: [
+          { from: 'DUE_SOON', to: 'DISPUTED' },
+          { from: 'PAST_DUE_1_30', to: 'DISPUTED' },
+          { from: 'PAST_DUE_31_60', to: 'DISPUTED' },
+          { from: 'PAST_DUE_61_90', to: 'DISPUTED' },
+        ],
+        note: 'Every pending reminder for the invoice halts the moment a dispute is recognised.',
+      },
       verificationTest: 'tests/receivables-recovery.test.ts — the dispute-halts-cadence scenario drives a real dispute reply to DISPUTED and asserts zero reminders despatch from there or after a subsequent stale evaluation; a direct test independently confirms zero side effects from DISPUTED.',
     },
     {
@@ -238,7 +262,15 @@ const RAW = {
       recovery: 'Block despatch and route to a person.',
       escalationCondition: 'Any mismatch detected.',
       authorityRequired: 4,
-      terminalState: 'ESCALATED.',
+      recoveryPath: {
+        shape: 'MOVES',
+        moves: [
+          { from: 'PAST_DUE_31_60', to: 'ESCALATED' },
+          { from: 'PAST_DUE_61_90', to: 'ESCALATED' },
+          { from: 'PAST_DUE_90_PLUS', to: 'ESCALATED' },
+        ],
+        note: 'Despatch is blocked before the message leaves. A figure that does not match the record never reaches a customer.',
+      },
       verificationTest: 'tests/receivables-recovery.test.ts — the overdue-reply-changes-policy scenario asserts every despatched reminder’s description contains the exact balance figure from the authoritative record; reminder text is composed from structured facts and never generated.',
     },
     {
@@ -252,7 +284,11 @@ const RAW = {
       recovery: 'Return the invoice to its ageing bucket and resume the cadence.',
       escalationCondition: 'A second promise broken by the same customer.',
       authorityRequired: 3,
-      terminalState: 'The applicable past-due state.',
+      recoveryPath: {
+        shape: 'MOVES',
+        moves: [{ from: 'PAYMENT_PROMISED', to: 'PAST_DUE_31_60' }],
+        note: 'The one declared return to the ageing ladder. A stale evaluation can only ever move an invoice forward along it, never back.',
+      },
       verificationTest: 'tests/receivables-recovery.test.ts — the direct "a broken promise re-enters the ageing ladder" test records a genuine promise, evaluates again after the committed date with the balance still outstanding, and asserts the invoice returns to PAST_DUE_31_60.',
     },
     {
@@ -267,7 +303,10 @@ const RAW = {
       retryPolicy: 'Bounded retry; the key makes retries safe.',
       escalationCondition: 'Duplicate reminder rate above zero.',
       authorityRequired: 3,
-      terminalState: 'No state change; recorded as SUPPRESSED_DUPLICATE.',
+      recoveryPath: {
+        shape: 'HOLDS_POSITION',
+        note: 'No state change; the attempt is recorded as SUPPRESSED_DUPLICATE. A second reminder is the failure, so not moving is the recovery.',
+      },
       verificationTest: 'tests/receivables-recovery.test.ts — the direct "duplicate events do not cause duplicate sends" test redelivers the same evaluation event and asserts the first reminder resolves EXECUTED while the second resolves SUPPRESSED_DUPLICATE against the shared idempotency ledger.',
     },
     {
@@ -282,7 +321,10 @@ const RAW = {
       retryPolicy: 'Bounded attempts with increasing delay.',
       escalationCondition: 'Outage exceeds the configured tolerance window.',
       authorityRequired: 2,
-      terminalState: 'Current ageing state preserved; cadence held.',
+      recoveryPath: {
+        shape: 'HOLDS_POSITION',
+        note: 'The current ageing state is preserved and the whole cadence is held. Ageing on an unread balance would invent facts about a customer.',
+      },
       verificationTest: 'Pending — this pass modelled every evaluation event as carrying a fresh, present balance read (the payload schema requires one); it did not model the read itself failing or going stale, which would need a distinct "no reading available" event shape rather than a variant of the one authored so far.',
     },
   ],

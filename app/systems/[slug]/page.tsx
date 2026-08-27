@@ -6,7 +6,7 @@ import { ALL_RUNNABLE_SCENARIOS } from '@/lib/engine/registry';
 import { MaturityBadge, MechanismBadge, StandardCard } from '@/components/badges';
 import { RuntimeProofSection } from '@/components/runtime-proof';
 import { loadRuntimeProof } from '@/lib/evidence/runtime-proof';
-import { AUTHORITY_LABELS, type AuthorityLevel } from '@/lib/model/system';
+import { AUTHORITY_LABELS, describeRecovery, type AuthorityLevel } from '@/lib/model/system';
 
 export function generateStaticParams() {
   return ALL_SYSTEMS.map((s) => ({ slug: s.slug }));
@@ -296,7 +296,7 @@ export default async function SystemDossier({ params }: PageProps<'/systems/[slu
                 {mode.retryPolicy !== undefined && (
                   <Detail label="Retry policy" value={mode.retryPolicy} />
                 )}
-                <Detail label="Resolves into" value={mode.terminalState} />
+                <Detail label="Resolves into" value={describeRecovery(system, mode.recoveryPath)} />
                 <Detail
                   label="Authority required"
                   value={`${mode.authorityRequired} · ${AUTHORITY_LABELS[mode.authorityRequired]}`}

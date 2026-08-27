@@ -287,7 +287,10 @@ const RAW = {
       retryPolicy: 'Not applicable. A duplicate is not retried; it is refused.',
       escalationCondition: 'Duplicate rate on a channel exceeds the configured threshold, indicating a broken acknowledgement contract upstream.',
       authorityRequired: 3,
-      terminalState: 'No state change. The original lifecycle position is preserved.',
+      recoveryPath: {
+        shape: 'HOLDS_POSITION',
+        note: 'No state change. The original lifecycle position is preserved and the attempt is recorded as SUPPRESSED_DUPLICATE — moving would itself be the duplicate.',
+      },
       verificationTest: 'tests/lead-rescue.test.ts — replayed duplicate event produces no second executed side effect',
     },
     {
@@ -302,7 +305,10 @@ const RAW = {
       retryPolicy: 'Bounded attempts with backoff; the key makes retries safe.',
       escalationCondition: 'Ledger and state record disagree after reconciliation.',
       authorityRequired: 3,
-      terminalState: 'Original state preserved; the effect is recorded as SUPPRESSED_DUPLICATE.',
+      recoveryPath: {
+        shape: 'HOLDS_POSITION',
+        note: 'Original state preserved; the effect is recorded as SUPPRESSED_DUPLICATE. State is reconciled from the ledger, which is authoritative for what was actually done.',
+      },
       verificationTest: 'tests/lead-rescue.test.ts — ledger refuses a second claim on the same key',
     },
     {
@@ -317,7 +323,16 @@ const RAW = {
       retryPolicy: 'Bounded attempts; exhaustion moves to human review when the payload retains usable signal, otherwise to terminal failure.',
       escalationCondition: 'Repeated malformed payloads from the same channel, indicating an upstream contract change.',
       authorityRequired: 2,
-      terminalState: 'FAILED_RECOVERABLE, then NEEDS_HUMAN or FAILED_TERMINAL.',
+      recoveryPath: {
+        shape: 'MOVES',
+        moves: [
+          { from: 'NEW', to: 'FAILED_RECOVERABLE' },
+          { from: 'FAILED_RECOVERABLE', to: 'NORMALIZED' },
+          { from: 'FAILED_RECOVERABLE', to: 'NEEDS_HUMAN' },
+          { from: 'FAILED_RECOVERABLE', to: 'FAILED_TERMINAL' },
+        ],
+        note: 'The raw payload is retained throughout. A retry inside the bounded budget returns the case to NORMALIZED; exhausting it reaches a person or a recorded terminal failure, never silence.',
+      },
       verificationTest: 'Pending — malformed-payload scenario not yet authored.',
     },
     {
@@ -332,7 +347,15 @@ const RAW = {
       retryPolicy: 'Bounded question budget before routing to a person.',
       escalationCondition: 'Question budget exhausted without resolution.',
       authorityRequired: 3,
-      terminalState: 'NEEDS_INFORMATION then WAITING_FOR_REPLY, or NEEDS_HUMAN on exhaustion.',
+      recoveryPath: {
+        shape: 'MOVES',
+        moves: [
+          { from: 'CLASSIFIED', to: 'NEEDS_INFORMATION' },
+          { from: 'NEEDS_INFORMATION', to: 'WAITING_FOR_REPLY' },
+          { from: 'WAITING_FOR_REPLY', to: 'NEEDS_HUMAN' },
+        ],
+        note: 'Exactly one question is asked, then the case waits against a real deadline. The last movement is the wait elapsing.',
+      },
       verificationTest: 'tests/lead-rescue.test.ts — after-hours scenario carries missing information forward',
     },
     {
@@ -346,7 +369,14 @@ const RAW = {
       recovery: 'Route to human review with the classification, its confidence, and the evidence attached.',
       escalationCondition: 'Human review not accepted within the configured window.',
       authorityRequired: 2,
-      terminalState: 'NEEDS_HUMAN.',
+      recoveryPath: {
+        shape: 'MOVES',
+        moves: [
+          { from: 'NORMALIZED', to: 'NEEDS_HUMAN' },
+          { from: 'REPLIED', to: 'NEEDS_HUMAN' },
+        ],
+        note: 'The classification, its confidence, and the evidence travel with it. The floor is compared in the engine, so the model cannot decide it has cleared it.',
+      },
       verificationTest: 'tests/lead-rescue.test.ts — low-confidence judgment escalates and takes no external action',
     },
     {
@@ -361,7 +391,11 @@ const RAW = {
       retryPolicy: 'At most one re-request; repeated violations disable the judgment path.',
       escalationCondition: 'Contract violations exceed the configured rate.',
       authorityRequired: 2,
-      terminalState: 'NEEDS_HUMAN.',
+      recoveryPath: {
+        shape: 'MOVES',
+        moves: [{ from: 'NORMALIZED', to: 'NEEDS_HUMAN' }],
+        note: 'Treated as unavailable. The value is never coerced into a nearby permitted one.',
+      },
       verificationTest: 'tests/decision-provider.test.ts — out-of-set classification is refused',
     },
     {
@@ -375,7 +409,11 @@ const RAW = {
       recovery: 'Carry the fact as missing and ask for it.',
       escalationCondition: 'A declined inference reappears as an asserted fact downstream.',
       authorityRequired: 2,
-      terminalState: 'NEEDS_INFORMATION.',
+      recoveryPath: {
+        shape: 'MOVES',
+        moves: [{ from: 'CLASSIFIED', to: 'NEEDS_INFORMATION' }],
+        note: 'The fact is carried as missing and asked for. Coverage is computed from the declared missing set, never inferred from the narrative text.',
+      },
       verificationTest: 'tests/lead-rescue.test.ts — declined inferences never enter engine facts',
     },
     {
@@ -389,7 +427,18 @@ const RAW = {
       recovery: 'Hard opt-out: move to DO_NOT_CONTACT immediately and permanently, blocking every pending effect. Restricted-pending-review: hold the candidate action as BLOCKED_BY_POLICY and enter SUPPRESSION_REVIEW for a named person to decide.',
       escalationCondition: 'Any executed outbound effect to a suppressed or unreviewed-restricted entity. Treated as an incident, not a metric.',
       authorityRequired: 4,
-      terminalState: 'DO_NOT_CONTACT, or SUPPRESSION_REVIEW resolved by a person to BOOKING_READY, CLOSED_BAD_FIT, DO_NOT_CONTACT, or ESCALATED.',
+      recoveryPath: {
+        shape: 'MOVES',
+        moves: [
+          { from: 'NORMALIZED', to: 'DO_NOT_CONTACT' },
+          { from: 'CLASSIFIED', to: 'SUPPRESSION_REVIEW' },
+          { from: 'SUPPRESSION_REVIEW', to: 'BOOKING_READY' },
+          { from: 'SUPPRESSION_REVIEW', to: 'CLOSED_BAD_FIT' },
+          { from: 'SUPPRESSION_REVIEW', to: 'DO_NOT_CONTACT' },
+          { from: 'SUPPRESSION_REVIEW', to: 'ESCALATED' },
+        ],
+        note: 'Two distinct paths. A hard opt-out moves to DO_NOT_CONTACT immediately and permanently. A restricted-pending-review contact holds its candidate action as BLOCKED_BY_POLICY and waits in SUPPRESSION_REVIEW for a named person, who may resolve it any of four ways.',
+      },
       verificationTest: 'tests/lead-rescue.test.ts — restricted-contact scenario: candidate action blocked by policy, zero prohibited sends, human authority verified before clearance.',
     },
     {
@@ -404,7 +453,10 @@ const RAW = {
       retryPolicy: 'Retry-safe outcomes retry immediately; unknown outcomes retry only after verification. See lr-lab-retry-safety.',
       escalationCondition: 'Verification itself returns STILL_UNKNOWN, leaving the key permanently blocked pending manual investigation.',
       authorityRequired: 3,
-      terminalState: 'Business lifecycle state is unaffected — this failure lives entirely at the side-effect level, inspectable on the affected SideEffect record.',
+      recoveryPath: {
+        shape: 'BELOW_LIFECYCLE',
+        note: 'The business lifecycle state is unaffected — this failure lives entirely at the side-effect level and is inspectable on the affected SideEffect record. FAILED_BEFORE_EFFECT and RATE_LIMITED permit an immediate retry; OUTCOME_UNKNOWN is blocked until a verification attempt confirms non-execution, and only then is exactly one retry permitted.',
+      },
       verificationTest: 'tests/lead-rescue.test.ts — uncertain-outcome scenario: exactly one customer-facing send across attempt, blocked naive retry, and verified retry.',
     },
     {
@@ -418,7 +470,11 @@ const RAW = {
       recovery: 'Escalate to the next owner in the authority chain.',
       escalationCondition: 'Review window elapsed without acceptance.',
       authorityRequired: 2,
-      terminalState: 'ESCALATED.',
+      recoveryPath: {
+        shape: 'MOVES',
+        moves: [{ from: 'NEEDS_HUMAN', to: 'ESCALATED' }],
+        note: 'Escalation names the next owner in the authority chain, resolved from the configured roles. A timeout escalates the fact that nobody has acted; it never decides the case.',
+      },
       verificationTest:
         'tests/lead-rescue-attention-timeout.test.ts, tests/lead-rescue-attention-timeout-resume.test.ts — review and dispatch attention timeouts durably escalate without transitioning lifecycle state',
     },
@@ -433,7 +489,11 @@ const RAW = {
       recovery: 'Route to a person with the full conversation attached.',
       escalationCondition: 'Reply contains a commitment request, a complaint, or a legal reference.',
       authorityRequired: 2,
-      terminalState: 'NEEDS_HUMAN.',
+      recoveryPath: {
+        shape: 'MOVES',
+        moves: [{ from: 'REPLIED', to: 'NEEDS_HUMAN' }],
+        note: 'The full conversation is attached. An off-script or below-floor reply reaches a person rather than producing a templated answer.',
+      },
       verificationTest: 'tests/lead-rescue.test.ts — ambiguous high-risk scenario routes to review',
     },
     {
@@ -447,7 +507,10 @@ const RAW = {
       recovery: 'Reject the move, preserve the current state, and record the rejection on the timeline.',
       escalationCondition: 'Any rejected transition, since each one indicates a real defect.',
       authorityRequired: 1,
-      terminalState: 'State unchanged; a rejected transition is recorded.',
+      recoveryPath: {
+        shape: 'HOLDS_POSITION',
+        note: 'The move is rejected, the current state preserved, and the rejection recorded on the timeline. An undeclared transition is refused by the engine core, so no handler can opt out of this.',
+      },
       verificationTest: 'tests/engine.test.ts — undeclared transition is rejected and state does not move',
     },
     {
@@ -461,7 +524,10 @@ const RAW = {
       recovery: 'Record the event against the entity and take no action.',
       escalationCondition: 'Repeated post-terminal replay on a channel.',
       authorityRequired: 1,
-      terminalState: 'Terminal state preserved.',
+      recoveryPath: {
+        shape: 'HOLDS_POSITION',
+        note: 'The terminal state is preserved. The event is recorded against the entity and no action is taken — nothing can leave a terminal state.',
+      },
       verificationTest: 'tests/engine.test.ts — no transition may leave a terminal state',
     },
     {
@@ -475,7 +541,14 @@ const RAW = {
       recovery: 'Process the reply against the entity\u2019s current state and reconcile the outbound record from the ledger, rather than rejecting the reply for arriving early.',
       escalationCondition: 'The correlation identifier cannot be resolved to any known entity.',
       authorityRequired: 2,
-      terminalState: 'Current lifecycle state preserved; the reply is processed, or routed to NEEDS_HUMAN.',
+      recoveryPath: {
+        shape: 'MOVES',
+        moves: [
+          { from: 'WAITING_FOR_REPLY', to: 'REPLIED' },
+          { from: 'REPLIED', to: 'NEEDS_HUMAN' },
+        ],
+        note: 'The reply is processed against the entity\u2019s current state and the outbound record reconciled from the ledger, rather than being rejected for arriving early. It reaches a person only if it cannot be interpreted.',
+      },
       verificationTest: 'Pending \u2014 out-of-order scenario not yet authored.',
     },
   ],

@@ -208,7 +208,11 @@ const RAW = {
       recovery: 'Purge the captured value, record the incident, and request rotation of the exposed credential.',
       escalationCondition: 'Any detected secret in persisted state. Treated as an incident, not a metric.',
       authorityRequired: 4,
-      terminalState: 'NEEDS_HUMAN, with an incident record.',
+      recoveryPath: {
+        shape: 'MOVES',
+        moves: [{ from: 'GAPS_COMPUTED', to: 'NEEDS_HUMAN' }],
+        note: 'An incident record travels with it. A secret-shaped value arriving instead on an access-grant reference is withheld in place rather than moved: the requirement is never marked CONFIRMED and its task never marked COMPLETE on the strength of it.',
+      },
       verificationTest:
         'tests/client-onboarding.test.ts — the secret-screen test submits the reserved TEST_ONLY_SECRET_SENTINEL_DO_NOT_USE sentinel through an ordinary intake field, and a second test submits it as an access-grant channel reference; both assert it appears nowhere in final state or in any rendered decision/summary text, and that the corresponding requirement is never marked confirmed or complete on the strength of the withheld value.',
     },
@@ -224,7 +228,10 @@ const RAW = {
       retryPolicy: 'Bounded retry; the key makes retries safe.',
       escalationCondition: 'Duplicate resource rate above zero.',
       authorityRequired: 3,
-      terminalState: 'No state change; creation recorded as SUPPRESSED_DUPLICATE.',
+      recoveryPath: {
+        shape: 'HOLDS_POSITION',
+        note: 'No state change; the creation is recorded as SUPPRESSED_DUPLICATE and reconciled against the resource that already exists.',
+      },
       verificationTest:
         'tests/client-onboarding.test.ts — the duplicate-provisioning-reconciled scenario redelivers the access-confirmation event; both resources resolve ALREADY_EXISTS_MATCHING the second time and exactly two EXECUTED creations exist across the whole run.',
     },
@@ -239,7 +246,11 @@ const RAW = {
       recovery: 'Route to a person with both values shown. Never auto-resolve.',
       escalationCondition: 'Any contradiction on a commercially material field.',
       authorityRequired: 2,
-      terminalState: 'NEEDS_HUMAN.',
+      recoveryPath: {
+        shape: 'MOVES',
+        moves: [{ from: 'GAPS_COMPUTED', to: 'NEEDS_HUMAN' }],
+        note: 'Both values are shown to the person deciding. Two equally-ranked disagreeing sources stay an explicit conflict rather than being silently resolved.',
+      },
       verificationTest:
         'tests/client-onboarding.test.ts — resolveAuthoritativeValue direct tests prove the precedence gate never lets a signed-agreement value be silently overwritten and never picks a side between two same-rank disagreeing sources; a dedicated scenario-level test then drives the same contradiction through the real handler and asserts it reaches NEEDS_HUMAN with the conflicting field named.',
     },
@@ -254,7 +265,11 @@ const RAW = {
       recovery: 'Suppress the request and recompute the gap set.',
       escalationCondition: 'Repeated-information requests above zero.',
       authorityRequired: 3,
-      terminalState: 'GAPS_COMPUTED.',
+      recoveryPath: {
+        shape: 'MOVES',
+        moves: [{ from: 'AWAITING_CUSTOMER_INPUT', to: 'GAPS_COMPUTED' }],
+        note: 'The request is suppressed and the gap set recomputed, so the customer is never asked twice for something they already supplied.',
+      },
       verificationTest:
         'tests/client-onboarding.test.ts — the signed-client-to-first-value scenario asserts the field already known from the handoff (named-owner) never appears in any "requested" list, and the gap-computation decision explicitly records it as reused.',
     },
@@ -270,7 +285,11 @@ const RAW = {
       retryPolicy: 'Bounded attempts per resource, not per sequence.',
       escalationCondition: 'Reconciliation unable to determine what exists.',
       authorityRequired: 2,
-      terminalState: 'NEEDS_HUMAN.',
+      recoveryPath: {
+        shape: 'MOVES',
+        moves: [{ from: 'PROVISIONING', to: 'NEEDS_HUMAN' }],
+        note: 'Only unclaimed resources are retried. A difference reconciliation cannot resolve goes to a person rather than being retried blindly.',
+      },
       verificationTest:
         'tests/client-onboarding.test.ts — the partial-provisioning direct test forces one resource attempt to OUTCOME_UNKNOWN while its sibling genuinely succeeds, and asserts the successful resource stays EXECUTED rather than being lost or recreated.',
     },
@@ -286,7 +305,11 @@ const RAW = {
       retryPolicy: 'Bounded attempts, each reconciling before acting.',
       escalationCondition: 'Reconciliation cannot determine whether the resource exists.',
       authorityRequired: 2,
-      terminalState: 'NEEDS_HUMAN when reconciliation cannot confirm the outcome.',
+      recoveryPath: {
+        shape: 'MOVES',
+        moves: [{ from: 'PROVISIONING', to: 'NEEDS_HUMAN' }],
+        note: 'Reached only when reconciliation cannot confirm the outcome. The resource is read back by its key before any retry, and retried only when that read confirms absence.',
+      },
       verificationTest:
         'tests/client-onboarding.test.ts \u2014 the partial-provisioning direct test forces an OUTCOME_UNKNOWN result on one attempt and asserts it is refused rather than assumed successful, routing to NEEDS_HUMAN instead of TASKS_ASSIGNED.',
     },
@@ -301,7 +324,10 @@ const RAW = {
       recovery: 'Refuse the task. It never becomes a client-visible commitment without a person separately approving an amended scope.',
       escalationCondition: 'Any candidate task whose implied service differs from the signed engagement.',
       authorityRequired: 2,
-      terminalState: 'CONTEXT_LOADED; the refused task never enters the plan.',
+      recoveryPath: {
+        shape: 'HOLDS_POSITION',
+        note: 'The engagement carries on from where it was; the refused task simply never enters the derived plan. It cannot become a client-visible commitment without a person separately approving an amended scope.',
+      },
       verificationTest:
         'tests/client-onboarding.test.ts \u2014 admitOnboardingTask is exercised directly against a synthetic task implying a service line the signed handoff did not buy, and is refused by name; the same gate runs for real over every task in each scenario\u2019s derived plan.',
     },

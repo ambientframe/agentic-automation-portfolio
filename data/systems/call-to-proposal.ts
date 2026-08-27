@@ -208,7 +208,11 @@ const RAW = {
       recovery: 'Return the claim to unknown and route the gap for clarification.',
       escalationCondition: 'Any unsupported claim reaching a reviewer.',
       authorityRequired: 2,
-      terminalState: 'NEEDS_HUMAN.',
+      recoveryPath: {
+        shape: 'MOVES',
+        moves: [{ from: 'CLAIMS_REVIEW', to: 'NEEDS_HUMAN' }],
+        note: 'The claim is returned to unknown; the gap goes to a person rather than into the draft.',
+      },
       verificationTest: 'tests/call-to-proposal.test.ts — the unsupported-scope-claim-blocked scenario and the claim-admission-gate unit tests',
     },
     {
@@ -223,7 +227,11 @@ const RAW = {
       retryPolicy: 'At most one re-request before routing to review.',
       escalationCondition: 'Repeated contract violations on the same transcript format.',
       authorityRequired: 2,
-      terminalState: 'NEEDS_HUMAN.',
+      recoveryPath: {
+        shape: 'MOVES',
+        moves: [{ from: 'EXTRACTING', to: 'NEEDS_HUMAN' }],
+        note: 'The raw transcript travels with it. Partial output is never coerced into the schema.',
+      },
       verificationTest: 'tests/extraction-provider.test.ts — schema-invalid and mis-cited output is refused; tests/call-to-proposal.test.ts — an unavailable extraction routes to NEEDS_HUMAN',
     },
     {
@@ -237,7 +245,14 @@ const RAW = {
       recovery: 'Route the material gap for clarification and hold the draft.',
       escalationCondition: 'Clarification window elapses without an answer.',
       authorityRequired: 2,
-      terminalState: 'AWAITING_CLARIFICATION, then NEEDS_HUMAN on timeout.',
+      recoveryPath: {
+        shape: 'MOVES',
+        moves: [
+          { from: 'GAPS_IDENTIFIED', to: 'AWAITING_CLARIFICATION' },
+          { from: 'AWAITING_CLARIFICATION', to: 'NEEDS_HUMAN' },
+        ],
+        note: 'The second movement is the timeout path, and remains undriven by any event.',
+      },
       verificationTest: 'tests/call-to-proposal.test.ts — a call missing exactly one material field routes to AWAITING_CLARIFICATION and resolves once a person supplies it. The timeout-to-NEEDS_HUMAN edge itself remains unexercised — no event drives it yet.',
     },
     {
@@ -251,7 +266,11 @@ const RAW = {
       recovery: 'Block assembly and route to review with the offending passage identified.',
       escalationCondition: 'Any prohibited commitment reaching a draft.',
       authorityRequired: 2,
-      terminalState: 'NEEDS_HUMAN.',
+      recoveryPath: {
+        shape: 'MOVES',
+        moves: [{ from: 'CLAIMS_REVIEW', to: 'NEEDS_HUMAN' }],
+        note: 'Assembly is blocked and the offending passage is identified for the reviewer.',
+      },
       verificationTest: 'tests/call-to-proposal.test.ts — the claim-admission gate blocks any claim value containing a prohibited-commitment phrase, regardless of source or citation',
     },
     {
@@ -265,7 +284,10 @@ const RAW = {
       recovery: 'Escalate to the next approver in the authority chain.',
       escalationCondition: 'Promised delivery window elapsed.',
       authorityRequired: 2,
-      terminalState: 'AWAITING_APPROVAL, escalated to a higher approver.',
+      recoveryPath: {
+        shape: 'HOLDS_POSITION',
+        note: 'The draft stays in AWAITING_APPROVAL. Escalation changes who is asked, not where the case is — a timeout must never decide a proposal on its own.',
+      },
       verificationTest: 'Pending — scenario not yet authored.',
     },
   ],

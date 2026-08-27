@@ -178,7 +178,14 @@ const RAW = {
       recovery: 'Flag the input, attempt refresh, and record insufficient evidence if refresh fails.',
       escalationCondition: 'Repeated staleness from the same source.',
       authorityRequired: 1,
-      terminalState: 'STALE_DATA_FLAGGED, then INSUFFICIENT_EVIDENCE.',
+      recoveryPath: {
+        shape: 'MOVES',
+        moves: [
+          { from: 'FRESHNESS_CHECKED', to: 'STALE_DATA_FLAGGED' },
+          { from: 'STALE_DATA_FLAGGED', to: 'INSUFFICIENT_EVIDENCE' },
+        ],
+        note: 'A refresh is attempted first; the second movement is what happens when it fails. Freshness is a transition guard, not an annotation.',
+      },
       verificationTest:
         'tests/owner-revenue-intelligence.test.ts — the stale-concentration-read scenario blocks on a first read older than the configured tolerance; a direct test drives a second refresh attempt that is still stale and asserts it resolves to INSUFFICIENT_EVIDENCE rather than concluding on a partial refresh.',
     },
@@ -193,7 +200,11 @@ const RAW = {
       recovery: 'Strip the causal assertion and present the variance with candidate factors instead.',
       escalationCondition: 'Any unsupported causal claim reaching the owner.',
       authorityRequired: 1,
-      terminalState: 'EXCEPTION_SURFACED without a causal claim.',
+      recoveryPath: {
+        shape: 'MOVES',
+        moves: [{ from: 'CORROBORATING', to: 'EXCEPTION_SURFACED' }],
+        note: 'The exception is surfaced WITHOUT the causal claim — the variance is presented with candidate factors instead of a cause.',
+      },
       verificationTest:
         'tests/owner-revenue-intelligence.test.ts — the cash-collection scenario asserts the bounded judgment’s decision record forbids asserting a cause or presenting the recommendation as fact, and carries a non-empty "declined to infer" list rather than a determined root cause.',
     },
@@ -208,7 +219,11 @@ const RAW = {
       recovery: 'Surface both figures with their definitions and route the definition conflict to a person.',
       escalationCondition: 'Any metric with more than one active definition.',
       authorityRequired: 1,
-      terminalState: 'AWAITING_OWNER_DECISION on the definition itself.',
+      recoveryPath: {
+        shape: 'MOVES',
+        moves: [{ from: 'ACTION_RECOMMENDED', to: 'AWAITING_OWNER_DECISION' }],
+        note: 'Both figures travel with their definitions; what the owner decides is the definition, not the number.',
+      },
       verificationTest: 'Pending — scenario not yet authored.',
     },
     {
@@ -222,7 +237,11 @@ const RAW = {
       recovery: 'Raise thresholds and route the tuning decision to the owner.',
       escalationCondition: 'Decision rate below the configured floor across consecutive windows.',
       authorityRequired: 1,
-      terminalState: 'AWAITING_OWNER_DECISION on threshold configuration.',
+      recoveryPath: {
+        shape: 'MOVES',
+        moves: [{ from: 'ACTION_RECOMMENDED', to: 'AWAITING_OWNER_DECISION' }],
+        note: 'The tuning decision goes to the owner. The system never quietly raises its own thresholds.',
+      },
       verificationTest: 'Pending — scenario not yet authored.',
     },
     {
@@ -236,7 +255,11 @@ const RAW = {
       recovery: 'Block the metric and report it as unavailable by policy rather than omitting it silently.',
       escalationCondition: 'Any blocked aggregation, since it indicates a metric was specified without checking its inputs.',
       authorityRequired: 2,
-      terminalState: 'INSUFFICIENT_EVIDENCE, recorded as blocked by policy.',
+      recoveryPath: {
+        shape: 'MOVES',
+        moves: [{ from: 'CORROBORATING', to: 'INSUFFICIENT_EVIDENCE' }],
+        note: 'Reported as unavailable by policy rather than omitted silently, so the absence is visible.',
+      },
       verificationTest:
         'tests/owner-revenue-intelligence.test.ts — a direct test supplies a corroborating observation flagged as requiring cross-client aggregation and asserts it is excluded before comparison, resolving to INSUFFICIENT_EVIDENCE at authority level 2 with the confidentiality policy named in the decision record, rather than composed into the metric.',
     },

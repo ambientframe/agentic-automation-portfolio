@@ -201,6 +201,50 @@ export const FAILURE_CLASSES = [
 export const FailureClassSchema = z.enum(FAILURE_CLASSES);
 export type FailureClass = z.infer<typeof FailureClassSchema>;
 
+/**
+ * One lifecycle movement a recovery requires, as a pair the transition graph can be asked
+ * about. This replaced free prose (`'ELIGIBILITY_REVIEW.'`) because a validator cannot check
+ * a sentence — see `validateLifecycle` and `docs/STATUS.md` gap 0.
+ */
+export const RecoveryMoveSchema = z.strictObject({
+  from: z.string().min(1),
+  to: z.string().min(1),
+  /**
+   * Set ONLY when this movement is declared in canon and the lifecycle has no transition that
+   * performs it. It renders in the register as an open canon defect rather than as handling,
+   * and `validateLifecycle` fails if it is set on a movement that IS buildable — so the
+   * honest escape hatch cannot quietly become the next `Pending` marker.
+   */
+  unbuildable: z.literal(true).optional(),
+});
+
+export type RecoveryMove = z.infer<typeof RecoveryMoveSchema>;
+
+export const RECOVERY_SHAPES = ['MOVES', 'HOLDS_POSITION', 'BELOW_LIFECYCLE'] as const;
+export const RecoveryShapeSchema = z.enum(RECOVERY_SHAPES);
+export type RecoveryShape = z.infer<typeof RecoveryShapeSchema>;
+
+export const RecoveryPathSchema = z.discriminatedUnion('shape', [
+  /** The case moves. Every movement is checked against the declared transitions. */
+  z.strictObject({
+    shape: z.literal('MOVES'),
+    moves: z.array(RecoveryMoveSchema).min(1),
+    note: z.string().min(1).optional(),
+  }),
+  /** Holding position IS the recovery — a duplicate, a replay, a refused transition. */
+  z.strictObject({
+    shape: z.literal('HOLDS_POSITION'),
+    note: z.string().min(1),
+  }),
+  /** Handled entirely below the lifecycle, on the side-effect record. Say where. */
+  z.strictObject({
+    shape: z.literal('BELOW_LIFECYCLE'),
+    note: z.string().min(1),
+  }),
+]);
+
+export type RecoveryPath = z.infer<typeof RecoveryPathSchema>;
+
 export const FailureModeSchema = z.strictObject({
   id: z.string().min(1),
   class: FailureClassSchema,
@@ -213,8 +257,11 @@ export const FailureModeSchema = z.strictObject({
   retryPolicy: z.string().optional(),
   escalationCondition: z.string().min(1),
   authorityRequired: AuthorityLevelSchema,
-  /** The lifecycle state this failure resolves into. Never a generic "error". */
-  terminalState: z.string().min(1),
+  /**
+   * Where the case ends up, as a structured claim about the transition graph rather than as
+   * prose. Never a generic "error".
+   */
+  recoveryPath: RecoveryPathSchema,
   /** How we would know the handling works. Names a test where one exists. */
   verificationTest: z.string().min(1),
 });
@@ -331,5 +378,89 @@ export function validateLifecycle(system: SystemDefinition): StructuralIssue[] {
     }
   }
 
+  /**
+   * Every failure mode's declared recovery is a claim about this graph, so ask the graph.
+   *
+   * This is the check that was missing when `dp-fm-stale-data` and `dp-fm-rate-limited`
+   * declared recoveries the lifecycle had no transition for. Both sat marked
+   * `Pending — scenario not yet authored`, which read as unfinished writing and was in fact a
+   * canon defect: the standards were not unwritten, they were unbuildable. See
+   * `docs/STATUS.md` gap 0.
+   *
+   * The marker is checked in BOTH directions on purpose. An unmarked unbuildable recovery
+   * fails, and so does a marker on a movement that has since become buildable — otherwise the
+   * escape hatch rots into exactly the kind of stale annotation it was introduced to replace.
+   */
+  const declared = new Set(system.lifecycle.transitions.map((t) => `${t.from} ${t.to}`));
+  for (const mode of system.failureModes) {
+    if (mode.recoveryPath.shape !== 'MOVES') continue;
+    for (const move of mode.recoveryPath.moves) {
+      const known = ids.has(move.from) && ids.has(move.to);
+      if (!known) {
+        push(
+          'UNKNOWN_RECOVERY_STATE',
+          `failure mode ${mode.id} recovers via "${move.from}" -> "${move.to}", which names a state this lifecycle never declares`,
+        );
+        continue;
+      }
+      const buildable = declared.has(`${move.from} ${move.to}`);
+      if (!buildable && move.unbuildable !== true) {
+        push(
+          'UNBUILDABLE_RECOVERY',
+          `failure mode ${mode.id} declares the recovery "${move.from}" -> "${move.to}", but no transition performs it. Build the transition, correct the recovery, or mark the move \`unbuildable: true\` to record it as an open canon defect.`,
+        );
+      }
+      if (buildable && move.unbuildable === true) {
+        push(
+          'STALE_UNBUILDABLE_MARKER',
+          `failure mode ${mode.id} marks "${move.from}" -> "${move.to}" unbuildable, but a transition now performs it. Remove the marker.`,
+        );
+      }
+    }
+  }
+
   return issues;
+}
+
+/**
+ * Renders a structured recovery back into the sentence the register and the system pages
+ * used to store by hand. Derived rather than authored, so it cannot drift from the graph —
+ * and an unbuildable movement says so in the prose rather than reading as handling.
+ */
+export function describeRecovery(system: SystemDefinition, recovery: RecoveryPath): string {
+  if (recovery.shape !== 'MOVES') return recovery.note;
+
+  const label = (id: string) => system.lifecycle.states.find((s) => s.id === id)?.label ?? id;
+
+  /**
+   * Consecutive movements that genuinely chain (this one starts where the last ended) render
+   * as one path; everything else is a separate alternative. Joining the whole list with
+   * "then" would assert a sequence several of these recoveries do not have — a low-confidence
+   * judgment reaches a person from NORMALIZED *or* from REPLIED, never both in order.
+   */
+  interface Segment {
+    readonly states: string[];
+    unbuildable: boolean;
+  }
+  const segments: Segment[] = [];
+  for (const move of recovery.moves) {
+    const open = segments[segments.length - 1];
+    if (open !== undefined && open.states[open.states.length - 1] === move.from) {
+      open.states.push(move.to);
+      open.unbuildable ||= move.unbuildable === true;
+    } else {
+      segments.push({ states: [move.from, move.to], unbuildable: move.unbuildable === true });
+    }
+  }
+
+  const path = segments
+    .map((segment) => {
+      const arrow = segment.states.map(label).join(' → ');
+      return segment.unbuildable
+        ? `${arrow} (declared in canon, but no declared transition performs it — an open defect, not handling)`
+        : arrow;
+    })
+    .join(' · ');
+
+  return recovery.note === undefined ? `${path}.` : `${path}. ${recovery.note}`;
 }

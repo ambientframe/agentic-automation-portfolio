@@ -3,7 +3,43 @@
 > One per accepted package (Constitution §14). Repository truth is authoritative; this file
 > is an index, not a source. Append the new checkpoint above the previous one.
 
-## Current — The portfolio survives a reader who will not click · 2026-08-26
+## Current — A declared recovery is checked against the transition graph · 2026-08-26
+
+**Verified state.** `npm run verify`: 56 files, 902 passed / 1 skipped, exit 0. `npm run build`:
+exit 0. 12 new tests, 8 RED before implementation; 10 targeted mutations each confirmed to fail
+the suite, none survived.
+
+**Proof claim earned.** `terminalState` is gone. All 43 failure modes across all six systems
+declare a structured `recoveryPath` — `MOVES` (ordered `{from, to}` pairs), `HOLDS_POSITION` (not
+moving *is* the recovery), or `BELOW_LIFECYCLE` — and `validateLifecycle` checks every movement
+against the declared transitions. STATUS gap 0 is now enforced rather than described.
+
+**It fails in both directions.** An unbuildable recovery fails the build unless explicitly marked
+`unbuildable: true`, which renders it in the register as an open canon defect rather than as
+handling — and that marker itself fails the build once a transition performs the move. Without
+the second direction the escape hatch becomes the next `Pending`.
+
+**It found a third instance on its first run.** `dp-fm-suppression`, already marked `Verified`,
+declares a consent re-check at despatch and therefore a `SCHEDULED -> SUPPRESSED` recovery no
+transition performs. `dp-t06` is the only exit from `SCHEDULED` and carries that same re-check as
+its guard, so a record whose consent goes stale after scheduling has nowhere to go at all.
+
+**Nothing was papered over.** No transition was added to satisfy a register entry. All three are
+marked, rendered as defects, and pinned by name. Receivables' missing 90-plus dispute path and
+Client Onboarding's non-moving scope-drift refusal were both encoded as what they are rather than
+rounded up into movements that do not exist.
+
+**Maturity.** Unchanged for all six. A validator is not a capability. $0 spent, no provider
+crossed.
+
+**Pattern earned.** #18 — a declared recovery is a claim about the transition graph.
+
+**Still blocked.** The two pending Dormant Pipeline standards remain unbuildable; this made them
+visible and enforced, not buildable.
+
+**Next package.** NOT SELECTED.
+
+## Earlier — The portfolio survives a reader who will not click · 2026-08-26
 
 **Verified state.** `npm run verify`: 55 files, 889 passed / 1 skipped, exit 0. `npm run build`:
 exit 0. 21 new tests, 19 RED before any artifact existed; 13 targeted mutations each confirmed to

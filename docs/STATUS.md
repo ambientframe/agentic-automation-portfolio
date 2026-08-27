@@ -1,6 +1,67 @@
 # Status
 
-**As of 2026-08-26 (latest pass, same day) · The portfolio survives a reader who will not click,
+**As of 2026-08-26 (latest pass, same day) · A failure mode's declared recovery is now a claim
+about the transition graph, and the graph is asked.** `terminalState` was free prose
+(`'ELIGIBILITY_REVIEW.'`, `'SCHEDULED — unsent records return to the queue…'`) and a validator
+cannot check a sentence, which is the whole reason gap 0 went unnoticed. It is replaced across
+all six systems by `recoveryPath`: a discriminated union of `MOVES` (an ordered list of
+`{from, to}` pairs), `HOLDS_POSITION` (not moving *is* the recovery — a duplicate, a replay, a
+refused transition), and `BELOW_LIFECYCLE` (handled entirely on the side-effect record).
+`validateLifecycle` now checks every movement of all 43 failure modes against the declared
+transitions.
+
+**It fails in two directions, deliberately.** An unbuildable recovery fails the build unless the
+movement carries an explicit `unbuildable: true`, which renders it in the register as an open
+canon defect rather than as handling. **And that marker itself fails the build the moment a
+transition performs the move.** Without the second direction the honest escape hatch becomes the
+next thing to rot, which is exactly how `Pending — scenario not yet authored` came to be hiding a
+structural defect rather than describing unfinished writing.
+
+**It found a third instance on its first run over migrated data, and that is the argument for
+it.** `dp-fm-suppression` — a `Verified` failure mode, not a pending one — declares in both its
+`prevention` and its `detection` that consent is re-checked **at despatch time**. Despatch
+happens from `SCHEDULED`, and nothing performs `SCHEDULED -> SUPPRESSED`. Worse, `dp-t06` is the
+*only* exit from `SCHEDULED` and it carries that same consent re-check as its guard — so a record
+whose consent goes stale after scheduling fails the guard and has nowhere to go at all. Gap 0
+found two failure modes that could not recover; this pass found a third, in a mode already marked
+verified, plus the structural reason underneath it.
+
+**Nothing was papered over.** No transition was added to satisfy a register entry: a transition
+exists to be exercised, and adding one to close a validator complaint inverts the relationship
+between canon and code. All three are marked, rendered as defects in
+`FAILURE_MODE_REGISTER.md` ("declared in canon, but no declared transition performs it — an open
+defect, not handling"), and pinned by name in `tests/lifecycle-recovery.test.ts`.
+
+**Two encodings this migration deliberately refused to round up.** Receivables' dispute path is
+declared from four ageing buckets and *not* from `PAST_DUE_90_PLUS`, because the canon genuinely
+has no dispute transition out of the last bucket — the asymmetry recorded in gap 4 is preserved
+rather than quietly resolved by declaring a move that does not exist. And Client Onboarding's
+`co-fm-scope-drift`, whose prose read `CONTEXT_LOADED`, is `HOLDS_POSITION`: the engagement
+carries on from where it was and the refused task simply never enters the derived plan. The case
+does not move, so claiming a movement would have been a small fabrication.
+
+**The prose did not disappear; it is derived.** `describeRecovery` renders the structured field
+back into the sentence the register and the system pages used to store by hand, collapsing
+genuinely chained movements into one path and separating alternatives with `·` — because joining
+the whole list with "then" would assert a sequence several recoveries do not have. A
+low-confidence judgment reaches a person from `NORMALIZED` *or* from `REPLIED`, never both in
+order.
+
+`npm run verify`: 56 files, 902 passed / 1 skipped, exit 0. `npm run build`: exit 0. 8 of the 12
+new tests were RED before implementation, and 10 targeted mutations — short-circuiting the check,
+disabling each of its three issue kinds, checking only the first movement of a multi-step
+recovery, dropping gap 0's marker so the defect reads as handling, inventing the missing
+transition, pointing a real recovery at an undeclared state, pointing one at a forbidden move,
+and stripping the defect wording from the rendered prose — were each confirmed to fail the suite.
+None survived.
+
+**What this does not do.** It does not make the three marked recoveries buildable — they are
+still structurally unbuildable, and the two pending Dormant Pipeline standards remain blocked for
+that reason. It checks recoveries, not guards, so the `SCHEDULED` dead-end above was found by
+reading rather than by the validator and is pinned by an explicit test rather than by the
+mechanism. Maturity unchanged for all six systems.
+
+**As of 2026-08-26 (earlier pass, same day) · The portfolio survives a reader who will not click,
 and the collateral that carries it is now guarded by arithmetic rather than by proofreading.**
 [`docs/WALKTHROUGH.md`](WALKTHROUGH.md) carries eight frames captured from a real production
 build, keyed to a beat table that totals 90 seconds, with the README leading on one of them. That
@@ -2640,7 +2701,19 @@ effects, matching the "ordinary variation is left alone" claim exactly.
 
 ## Known fidelity gaps
 
-0. **Two Dormant Pipeline failure modes declare a recovery the lifecycle forbids, and nothing
+0. **ENFORCED, and now three rather than two — still open, deliberately.** As of the latest pass
+   `terminalState` is gone: every failure mode declares a structured `recoveryPath`, and
+   `validateLifecycle` checks each movement against the transition graph, failing the build both
+   when an unbuildable recovery is unmarked and when a marker outlives the defect it names. The
+   two below are marked and render in `FAILURE_MODE_REGISTER.md` as open defects rather than as
+   handling. A **third** was found on the first run over migrated data: `dp-fm-suppression`,
+   already marked `Verified`, declares a consent re-check at despatch time and therefore a
+   `SCHEDULED -> SUPPRESSED` recovery that no transition performs — and `dp-t06`, the only exit
+   from `SCHEDULED`, carries that same re-check as its guard, so a record whose consent goes
+   stale after scheduling has nowhere to go. None of the three was fixed by adding a transition;
+   the original finding follows, unchanged.
+
+   **Two Dormant Pipeline failure modes declare a recovery the lifecycle forbids, and nothing
    checks that.** Found 2026-08-26 while scoping the three `Pending — scenario not yet authored`
    standards on that system. `dp-fm-stale-data` declares its recovery terminal state as
    `ELIGIBILITY_REVIEW`, reached from `SCHEDULED` at despatch time; there is no
@@ -2651,17 +2724,17 @@ effects, matching the "ordinary variation is left alone" claim exactly.
    than as a canon defect. `dp-fm-wrong-entity` is the exception: its `ELIGIBILITY_REVIEW ->
    NEEDS_HUMAN` recovery is `dp-t05`, which exists, so that one is buildable as it stands.
 
-   **Why nothing caught it.** `validateLifecycle` in `lib/model/system.ts` checks that
-   transitions reference real states, that every state is reachable from the initial state, and
-   that no non-terminal state is a dead end. It never compares a failure mode's declared
-   recovery against the transition graph. `terminalState` is free prose (`'ELIGIBILITY_REVIEW.'`,
-   `'SCHEDULED — unsent records return to the queue…'`), so a validator cannot check it today
-   without that field first becoming a structured reference to a state and the state the failure
-   occurs in — a data-model change across all six systems' failure registers.
+   **Why nothing caught it — resolved.** `validateLifecycle` checked that transitions reference
+   real states, that every state is reachable, and that no non-terminal state is a dead end. It
+   never compared a failure mode's declared recovery against the transition graph, because
+   `terminalState` was free prose and a validator cannot check a sentence. That field is now the
+   structured reference this paragraph called for, across all six systems' failure registers, and
+   the comparison it enables is what surfaced the third instance above.
 
-   Not fixed here, and deliberately not papered over by quietly adding two transitions: a
+   Not fixed here, and deliberately not papered over by quietly adding transitions: a
    transition exists to be exercised, and adding one to satisfy a register entry would invert
-   the relationship between canon and code. Recorded as the defect it is.
+   the relationship between canon and code. Recorded as the defect it is — now mechanically
+   rather than in prose.
 
 1. **Three Dormant Pipeline Recovery and two Call-to-Proposal transitions remain declared but
    unexercised.** Both of Lead Rescue's wait-elapsed transitions are now closed genuinely,

@@ -21,7 +21,12 @@ import { join } from 'node:path';
 import { ALL_SYSTEMS } from '../data/systems';
 import { SOURCES, sourceById } from '../data/research/sources';
 import { KESTREL } from '../data/profiles/kestrel/profile';
-import { AUTHORITY_LABELS, type AuthorityLevel, type SystemDefinition } from '../lib/model/system';
+import {
+  AUTHORITY_LABELS,
+  describeRecovery,
+  type AuthorityLevel,
+  type SystemDefinition,
+} from '../lib/model/system';
 import { evidenceDisplay, type OperatingStandard } from '../lib/model/provenance';
 
 const ROOT = join(import.meta.dirname, '..');
@@ -289,7 +294,7 @@ ${system.failureModes
 | **Recovery** | ${esc(mode.recovery)} |
 ${mode.retryPolicy === undefined ? '' : `| **Retry policy** | ${esc(mode.retryPolicy)} |\n`}| **Escalates when** | ${esc(mode.escalationCondition)} |
 | **Authority required** | ${mode.authorityRequired} · ${AUTHORITY_LABELS[mode.authorityRequired]} |
-| **Resolves into** | ${esc(mode.terminalState)} |
+| **Resolves into** | ${esc(describeRecovery(system, mode.recoveryPath))} |
 | **Verification** | ${esc(mode.verificationTest)} |`,
   )
   .join('\n\n')}`,

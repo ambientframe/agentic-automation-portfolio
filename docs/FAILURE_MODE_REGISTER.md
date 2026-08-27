@@ -54,7 +54,7 @@ Coverage: 23 distinct failure classes across 43 entries.
 | **Retry policy** | Not applicable. A duplicate is not retried; it is refused. |
 | **Escalates when** | Duplicate rate on a channel exceeds the configured threshold, indicating a broken acknowledgement contract upstream. |
 | **Authority required** | 3 · EXECUTE UNDER EXPLICIT POLICY |
-| **Resolves into** | No state change. The original lifecycle position is preserved. |
+| **Resolves into** | No state change. The original lifecycle position is preserved and the attempt is recorded as SUPPRESSED_DUPLICATE — moving would itself be the duplicate. |
 | **Verification** | tests/lead-rescue.test.ts — replayed duplicate event produces no second executed side effect |
 
 ### RETRY DUPLICATE SIDE EFFECT — A retry after a partially completed step re-executes an external action that already succeeded.
@@ -69,7 +69,7 @@ Coverage: 23 distinct failure classes across 43 entries.
 | **Retry policy** | Bounded attempts with backoff; the key makes retries safe. |
 | **Escalates when** | Ledger and state record disagree after reconciliation. |
 | **Authority required** | 3 · EXECUTE UNDER EXPLICIT POLICY |
-| **Resolves into** | Original state preserved; the effect is recorded as SUPPRESSED_DUPLICATE. |
+| **Resolves into** | Original state preserved; the effect is recorded as SUPPRESSED_DUPLICATE. State is reconciled from the ledger, which is authoritative for what was actually done. |
 | **Verification** | tests/lead-rescue.test.ts — ledger refuses a second claim on the same key |
 
 ### MALFORMED PAYLOAD — An inbound payload does not conform to the declared schema.
@@ -84,7 +84,7 @@ Coverage: 23 distinct failure classes across 43 entries.
 | **Retry policy** | Bounded attempts; exhaustion moves to human review when the payload retains usable signal, otherwise to terminal failure. |
 | **Escalates when** | Repeated malformed payloads from the same channel, indicating an upstream contract change. |
 | **Authority required** | 2 · PREPARE / HUMAN APPROVES |
-| **Resolves into** | FAILED_RECOVERABLE, then NEEDS_HUMAN or FAILED_TERMINAL. |
+| **Resolves into** | New → Failed — recoverable → Normalised · Failed — recoverable → Needs human · Failed — recoverable → Failed — terminal. The raw payload is retained throughout. A retry inside the bounded budget returns the case to NORMALIZED; exhausting it reaches a person or a recorded terminal failure, never silence. |
 | **Verification** | Pending — malformed-payload scenario not yet authored. |
 
 ### MISSING REQUIRED FIELD — The enquiry is legitimate but omits facts required to route or scope it.
@@ -99,7 +99,7 @@ Coverage: 23 distinct failure classes across 43 entries.
 | **Retry policy** | Bounded question budget before routing to a person. |
 | **Escalates when** | Question budget exhausted without resolution. |
 | **Authority required** | 3 · EXECUTE UNDER EXPLICIT POLICY |
-| **Resolves into** | NEEDS_INFORMATION then WAITING_FOR_REPLY, or NEEDS_HUMAN on exhaustion. |
+| **Resolves into** | Classified → Needs information → Waiting for reply → Needs human. Exactly one question is asked, then the case waits against a real deadline. The last movement is the wait elapsing. |
 | **Verification** | tests/lead-rescue.test.ts — after-hours scenario carries missing information forward |
 
 ### AI LOW CONFIDENCE — A bounded judgment returns a classification below the configured confidence floor.
@@ -113,7 +113,7 @@ Coverage: 23 distinct failure classes across 43 entries.
 | **Recovery** | Route to human review with the classification, its confidence, and the evidence attached. |
 | **Escalates when** | Human review not accepted within the configured window. |
 | **Authority required** | 2 · PREPARE / HUMAN APPROVES |
-| **Resolves into** | NEEDS_HUMAN. |
+| **Resolves into** | Normalised → Needs human · Replied → Needs human. The classification, its confidence, and the evidence travel with it. The floor is compared in the engine, so the model cannot decide it has cleared it. |
 | **Verification** | tests/lead-rescue.test.ts — low-confidence judgment escalates and takes no external action |
 
 ### AI MALFORMED OUTPUT — A bounded judgment returns a classification outside its permitted set, or output that fails its schema.
@@ -128,7 +128,7 @@ Coverage: 23 distinct failure classes across 43 entries.
 | **Retry policy** | At most one re-request; repeated violations disable the judgment path. |
 | **Escalates when** | Contract violations exceed the configured rate. |
 | **Authority required** | 2 · PREPARE / HUMAN APPROVES |
-| **Resolves into** | NEEDS_HUMAN. |
+| **Resolves into** | Normalised → Needs human. Treated as unavailable. The value is never coerced into a nearby permitted one. |
 | **Verification** | tests/decision-provider.test.ts — out-of-set classification is refused |
 
 ### AI UNSUPPORTED INFERENCE — A judgment asserts a fact the input did not establish.
@@ -142,7 +142,7 @@ Coverage: 23 distinct failure classes across 43 entries.
 | **Recovery** | Carry the fact as missing and ask for it. |
 | **Escalates when** | A declined inference reappears as an asserted fact downstream. |
 | **Authority required** | 2 · PREPARE / HUMAN APPROVES |
-| **Resolves into** | NEEDS_INFORMATION. |
+| **Resolves into** | Classified → Needs information. The fact is carried as missing and asked for. Coverage is computed from the declared missing set, never inferred from the narrative text. |
 | **Verification** | tests/lead-rescue.test.ts — declined inferences never enter engine facts |
 
 ### SUPPRESSION STATE — A contact under suppression, opt-out, or restricted-review state receives commercial outreach without a person deciding it should.
@@ -156,7 +156,7 @@ Coverage: 23 distinct failure classes across 43 entries.
 | **Recovery** | Hard opt-out: move to DO_NOT_CONTACT immediately and permanently, blocking every pending effect. Restricted-pending-review: hold the candidate action as BLOCKED_BY_POLICY and enter SUPPRESSION_REVIEW for a named person to decide. |
 | **Escalates when** | Any executed outbound effect to a suppressed or unreviewed-restricted entity. Treated as an incident, not a metric. |
 | **Authority required** | 4 · EXECUTE AND MANAGE BOUNDED DOWNSTREAM CONSEQUENCES |
-| **Resolves into** | DO_NOT_CONTACT, or SUPPRESSION_REVIEW resolved by a person to BOOKING_READY, CLOSED_BAD_FIT, DO_NOT_CONTACT, or ESCALATED. |
+| **Resolves into** | Normalised → Do not contact · Classified → Suppression review → Booking ready · Suppression review → Closed — not a fit · Suppression review → Do not contact · Suppression review → Escalated. Two distinct paths. A hard opt-out moves to DO_NOT_CONTACT immediately and permanently. A restricted-pending-review contact holds its candidate action as BLOCKED_BY_POLICY and waits in SUPPRESSION_REVIEW for a named person, who may resolve it any of four ways. |
 | **Verification** | tests/lead-rescue.test.ts — restricted-contact scenario: candidate action blocked by policy, zero prohibited sends, human authority verified before clearance. |
 
 ### DOWNSTREAM API FAILURE — The channel or system of record rejects an action, or returns no confirmation at all.
@@ -171,7 +171,7 @@ Coverage: 23 distinct failure classes across 43 entries.
 | **Retry policy** | Retry-safe outcomes retry immediately; unknown outcomes retry only after verification. See lr-lab-retry-safety. |
 | **Escalates when** | Verification itself returns STILL_UNKNOWN, leaving the key permanently blocked pending manual investigation. |
 | **Authority required** | 3 · EXECUTE UNDER EXPLICIT POLICY |
-| **Resolves into** | Business lifecycle state is unaffected — this failure lives entirely at the side-effect level, inspectable on the affected SideEffect record. |
+| **Resolves into** | The business lifecycle state is unaffected — this failure lives entirely at the side-effect level and is inspectable on the affected SideEffect record. FAILED_BEFORE_EFFECT and RATE_LIMITED permit an immediate retry; OUTCOME_UNKNOWN is blocked until a verification attempt confirms non-execution, and only then is exactly one retry permitted. |
 | **Verification** | tests/lead-rescue.test.ts — uncertain-outcome scenario: exactly one customer-facing send across attempt, blocked naive retry, and verified retry. |
 
 ### HUMAN APPROVAL TIMEOUT — A case held for human approval is never actioned.
@@ -185,7 +185,7 @@ Coverage: 23 distinct failure classes across 43 entries.
 | **Recovery** | Escalate to the next owner in the authority chain. |
 | **Escalates when** | Review window elapsed without acceptance. |
 | **Authority required** | 2 · PREPARE / HUMAN APPROVES |
-| **Resolves into** | ESCALATED. |
+| **Resolves into** | Needs human → Escalated. Escalation names the next owner in the authority chain, resolved from the configured roles. A timeout escalates the fact that nobody has acted; it never decides the case. |
 | **Verification** | tests/lead-rescue-attention-timeout.test.ts, tests/lead-rescue-attention-timeout-resume.test.ts — review and dispatch attention timeouts durably escalate without transitioning lifecycle state |
 
 ### UNEXPECTED HUMAN REPLY — A reply does not answer the question asked and instead raises a commitment, complaint, or unrelated request.
@@ -199,7 +199,7 @@ Coverage: 23 distinct failure classes across 43 entries.
 | **Recovery** | Route to a person with the full conversation attached. |
 | **Escalates when** | Reply contains a commitment request, a complaint, or a legal reference. |
 | **Authority required** | 2 · PREPARE / HUMAN APPROVES |
-| **Resolves into** | NEEDS_HUMAN. |
+| **Resolves into** | Replied → Needs human. The full conversation is attached. An off-script or below-floor reply reaches a person rather than producing a templated answer. |
 | **Verification** | tests/lead-rescue.test.ts — ambiguous high-risk scenario routes to review |
 
 ### STATE TRANSITION CONFLICT — Logic requests a lifecycle move that no declared transition permits.
@@ -213,7 +213,7 @@ Coverage: 23 distinct failure classes across 43 entries.
 | **Recovery** | Reject the move, preserve the current state, and record the rejection on the timeline. |
 | **Escalates when** | Any rejected transition, since each one indicates a real defect. |
 | **Authority required** | 1 · RECOMMEND |
-| **Resolves into** | State unchanged; a rejected transition is recorded. |
+| **Resolves into** | The move is rejected, the current state preserved, and the rejection recorded on the timeline. An undeclared transition is refused by the engine core, so no handler can opt out of this. |
 | **Verification** | tests/engine.test.ts — undeclared transition is rejected and state does not move |
 
 ### REPLAY AFTER COMPLETION — An event arrives for an entity that already reached a terminal state.
@@ -227,7 +227,7 @@ Coverage: 23 distinct failure classes across 43 entries.
 | **Recovery** | Record the event against the entity and take no action. |
 | **Escalates when** | Repeated post-terminal replay on a channel. |
 | **Authority required** | 1 · RECOMMEND |
-| **Resolves into** | Terminal state preserved. |
+| **Resolves into** | The terminal state is preserved. The event is recorded against the entity and no action is taken — nothing can leave a terminal state. |
 | **Verification** | tests/engine.test.ts — no transition may leave a terminal state |
 
 ### OUT OF ORDER EVENT — A reply is delivered and processed before the outbound message that prompted it has been recorded.
@@ -241,7 +241,7 @@ Coverage: 23 distinct failure classes across 43 entries.
 | **Recovery** | Process the reply against the entity’s current state and reconcile the outbound record from the ledger, rather than rejecting the reply for arriving early. |
 | **Escalates when** | The correlation identifier cannot be resolved to any known entity. |
 | **Authority required** | 2 · PREPARE / HUMAN APPROVES |
-| **Resolves into** | Current lifecycle state preserved; the reply is processed, or routed to NEEDS_HUMAN. |
+| **Resolves into** | Waiting for reply → Replied → Needs human. The reply is processed against the entity’s current state and the outbound record reconciled from the ledger, rather than being rejected for arriving early. It reaches a person only if it cannot be interpreted. |
 | **Verification** | Pending — out-of-order scenario not yet authored. |
 
 ---
@@ -259,7 +259,7 @@ Coverage: 23 distinct failure classes across 43 entries.
 | **Recovery** | Halt the sequence, move to SUPPRESSED, and block every pending effect for the entity. |
 | **Escalates when** | Any executed attempt to a suppressed contact. |
 | **Authority required** | 4 · EXECUTE AND MANAGE BOUNDED DOWNSTREAM CONSEQUENCES |
-| **Resolves into** | SUPPRESSED. |
+| **Resolves into** | Eligibility review → Suppressed · Scheduled → Suppressed (declared in canon, but no declared transition performs it — an open defect, not handling). Only the eligibility-review screen is exercised by a scenario; it is the movement the built path takes. |
 | **Verification** | Verified — tests/dormant-pipeline-recovery.test.ts, 'suppressed recovery': consent is evaluated before the re-entry reason, a textbook-qualifying recycle trigger is recorded and then overridden, and zero side effects are produced. |
 
 ### RETRY DUPLICATE SIDE EFFECT — The same contact receives the same attempt twice, or is worked by two sequences at once.
@@ -274,7 +274,7 @@ Coverage: 23 distinct failure classes across 43 entries.
 | **Retry policy** | Bounded retry; the key makes retries safe. |
 | **Escalates when** | Duplicate outreach rate above zero. |
 | **Authority required** | 3 · EXECUTE UNDER EXPLICIT POLICY |
-| **Resolves into** | No state change; attempt recorded as SUPPRESSED_DUPLICATE. |
+| **Resolves into** | No state change; the attempt is recorded as SUPPRESSED_DUPLICATE. Holding position is the recovery — moving would itself be the duplicate. |
 | **Verification** | Verified — tests/dormant-pipeline-recovery.test.ts, 'redelivering the same triggering event produces zero additional customer-facing outreach': the same business event delivered twice claims the same idempotency key once and is refused the second time. |
 
 ### STALE DATA — Outreach references an account fact that is no longer true.
@@ -288,7 +288,7 @@ Coverage: 23 distinct failure classes across 43 entries.
 | **Recovery** | Abort the attempt, return to eligibility review. |
 | **Escalates when** | Repeated staleness on a segment, indicating too long a build-to-send gap. |
 | **Authority required** | 2 · PREPARE / HUMAN APPROVES |
-| **Resolves into** | ELIGIBILITY_REVIEW. |
+| **Resolves into** | Scheduled → Eligibility review (declared in canon, but no declared transition performs it — an open defect, not handling). |
 | **Verification** | Pending — scenario not yet authored. |
 
 ### WRONG ENTITY MATCH — A dormant record is matched to the wrong person or account.
@@ -302,7 +302,7 @@ Coverage: 23 distinct failure classes across 43 entries.
 | **Recovery** | Route to human review with all candidates attached. |
 | **Escalates when** | Any ambiguous match involving commercially sensitive history. |
 | **Authority required** | 2 · PREPARE / HUMAN APPROVES |
-| **Resolves into** | NEEDS_HUMAN. |
+| **Resolves into** | Eligibility review → Needs human. Identity resolves before any policy question, so the ambiguity is caught at eligibility review with every candidate attached. |
 | **Verification** | Verified — tests/dormant-pipeline-recovery.test.ts, the ambiguous-entity-match scenario: two candidates both clear the configured match threshold, the cycle routes to NEEDS_HUMAN with every candidate attached, and zero side effects occur. Resolving to the closest or highest-confidence candidate is named as a forbidden action rather than merely left unselected, and the guard is proven not to fire on the two scenarios that supply no competing candidates. Identity is asserted to resolve BEFORE the consent screen, because consent, account status, and the re-entry reason are all questions about a specific party. |
 
 ### POLICY VIOLATION — An existing customer is entered into prospecting outreach.
@@ -316,7 +316,7 @@ Coverage: 23 distinct failure classes across 43 entries.
 | **Recovery** | Archive the record from the sequence and route to the account owner. |
 | **Escalates when** | Any executed attempt to an active customer. |
 | **Authority required** | 3 · EXECUTE UNDER EXPLICIT POLICY |
-| **Resolves into** | ARCHIVED. |
+| **Resolves into** | Eligibility review → Archived. Active-customer status is an eligibility exclusion, evaluated before the re-entry reason. |
 | **Verification** | Verified — tests/dormant-pipeline-recovery.test.ts, 'excludes an account that is already active elsewhere': the active-account exclusion runs before the re-entry reason is evaluated and produces zero side effects. |
 
 ### RATE LIMITED — The outreach provider refuses further sends partway through a cycle.
@@ -331,7 +331,7 @@ Coverage: 23 distinct failure classes across 43 entries.
 | **Retry policy** | Honour the provider’s retry-after; bounded attempts with increasing delay. |
 | **Escalates when** | The limit is reached on consecutive cycles, indicating the segment is too large for the window. |
 | **Authority required** | 2 · PREPARE / HUMAN APPROVES |
-| **Resolves into** | SCHEDULED — unsent records return to the queue rather than being marked attempted. |
+| **Resolves into** | Reactivation attempted → Scheduled (declared in canon, but no declared transition performs it — an open defect, not handling). Unsent records should return to the queue rather than being marked attempted. |
 | **Verification** | Pending — scenario not yet authored. |
 
 ---
@@ -349,7 +349,7 @@ Coverage: 23 distinct failure classes across 43 entries.
 | **Recovery** | Return the claim to unknown and route the gap for clarification. |
 | **Escalates when** | Any unsupported claim reaching a reviewer. |
 | **Authority required** | 2 · PREPARE / HUMAN APPROVES |
-| **Resolves into** | NEEDS_HUMAN. |
+| **Resolves into** | Claims review → Needs human. The claim is returned to unknown; the gap goes to a person rather than into the draft. |
 | **Verification** | tests/call-to-proposal.test.ts — the unsupported-scope-claim-blocked scenario and the claim-admission-gate unit tests |
 
 ### AI MALFORMED OUTPUT — Extraction returns output that does not satisfy the record contract.
@@ -364,7 +364,7 @@ Coverage: 23 distinct failure classes across 43 entries.
 | **Retry policy** | At most one re-request before routing to review. |
 | **Escalates when** | Repeated contract violations on the same transcript format. |
 | **Authority required** | 2 · PREPARE / HUMAN APPROVES |
-| **Resolves into** | NEEDS_HUMAN. |
+| **Resolves into** | Extracting → Needs human. The raw transcript travels with it. Partial output is never coerced into the schema. |
 | **Verification** | tests/extraction-provider.test.ts — schema-invalid and mis-cited output is refused; tests/call-to-proposal.test.ts — an unavailable extraction routes to NEEDS_HUMAN |
 
 ### MISSING REQUIRED FIELD — A material commercial field is absent and no one notices before the proposal is written.
@@ -378,7 +378,7 @@ Coverage: 23 distinct failure classes across 43 entries.
 | **Recovery** | Route the material gap for clarification and hold the draft. |
 | **Escalates when** | Clarification window elapses without an answer. |
 | **Authority required** | 2 · PREPARE / HUMAN APPROVES |
-| **Resolves into** | AWAITING_CLARIFICATION, then NEEDS_HUMAN on timeout. |
+| **Resolves into** | Gaps identified → Awaiting clarification → Needs human. The second movement is the timeout path, and remains undriven by any event. |
 | **Verification** | tests/call-to-proposal.test.ts — a call missing exactly one material field routes to AWAITING_CLARIFICATION and resolves once a person supplies it. The timeout-to-NEEDS_HUMAN edge itself remains unexercised — no event drives it yet. |
 
 ### POLICY VIOLATION — Draft text promises an outcome the firm does not control, or terms outside the approved rate card.
@@ -392,7 +392,7 @@ Coverage: 23 distinct failure classes across 43 entries.
 | **Recovery** | Block assembly and route to review with the offending passage identified. |
 | **Escalates when** | Any prohibited commitment reaching a draft. |
 | **Authority required** | 2 · PREPARE / HUMAN APPROVES |
-| **Resolves into** | NEEDS_HUMAN. |
+| **Resolves into** | Claims review → Needs human. Assembly is blocked and the offending passage is identified for the reviewer. |
 | **Verification** | tests/call-to-proposal.test.ts — the claim-admission gate blocks any claim value containing a prohibited-commitment phrase, regardless of source or citation |
 
 ### HUMAN APPROVAL TIMEOUT — A draft waits for approval past the promised delivery window.
@@ -406,7 +406,7 @@ Coverage: 23 distinct failure classes across 43 entries.
 | **Recovery** | Escalate to the next approver in the authority chain. |
 | **Escalates when** | Promised delivery window elapsed. |
 | **Authority required** | 2 · PREPARE / HUMAN APPROVES |
-| **Resolves into** | AWAITING_APPROVAL, escalated to a higher approver. |
+| **Resolves into** | The draft stays in AWAITING_APPROVAL. Escalation changes who is asked, not where the case is — a timeout must never decide a proposal on its own. |
 | **Verification** | Pending — scenario not yet authored. |
 
 ---
@@ -424,7 +424,7 @@ Coverage: 23 distinct failure classes across 43 entries.
 | **Recovery** | Purge the captured value, record the incident, and request rotation of the exposed credential. |
 | **Escalates when** | Any detected secret in persisted state. Treated as an incident, not a metric. |
 | **Authority required** | 4 · EXECUTE AND MANAGE BOUNDED DOWNSTREAM CONSEQUENCES |
-| **Resolves into** | NEEDS_HUMAN, with an incident record. |
+| **Resolves into** | Gaps computed → Needs human. An incident record travels with it. A secret-shaped value arriving instead on an access-grant reference is withheld in place rather than moved: the requirement is never marked CONFIRMED and its task never marked COMPLETE on the strength of it. |
 | **Verification** | tests/client-onboarding.test.ts — the secret-screen test submits the reserved TEST_ONLY_SECRET_SENTINEL_DO_NOT_USE sentinel through an ordinary intake field, and a second test submits it as an access-grant channel reference; both assert it appears nowhere in final state or in any rendered decision/summary text, and that the corresponding requirement is never marked confirmed or complete on the strength of the withheld value. |
 
 ### RETRY DUPLICATE SIDE EFFECT — Re-running onboarding creates a second project, folder, or task list.
@@ -439,7 +439,7 @@ Coverage: 23 distinct failure classes across 43 entries.
 | **Retry policy** | Bounded retry; the key makes retries safe. |
 | **Escalates when** | Duplicate resource rate above zero. |
 | **Authority required** | 3 · EXECUTE UNDER EXPLICIT POLICY |
-| **Resolves into** | No state change; creation recorded as SUPPRESSED_DUPLICATE. |
+| **Resolves into** | No state change; the creation is recorded as SUPPRESSED_DUPLICATE and reconciled against the resource that already exists. |
 | **Verification** | tests/client-onboarding.test.ts — the duplicate-provisioning-reconciled scenario redelivers the access-confirmation event; both resources resolve ALREADY_EXISTS_MATCHING the second time and exactly two EXECUTED creations exist across the whole run. |
 
 ### CONTRADICTORY DATA — The agreement and the customer record disagree about scope, contacts, or commercial terms.
@@ -453,7 +453,7 @@ Coverage: 23 distinct failure classes across 43 entries.
 | **Recovery** | Route to a person with both values shown. Never auto-resolve. |
 | **Escalates when** | Any contradiction on a commercially material field. |
 | **Authority required** | 2 · PREPARE / HUMAN APPROVES |
-| **Resolves into** | NEEDS_HUMAN. |
+| **Resolves into** | Gaps computed → Needs human. Both values are shown to the person deciding. Two equally-ranked disagreeing sources stay an explicit conflict rather than being silently resolved. |
 | **Verification** | tests/client-onboarding.test.ts — resolveAuthoritativeValue direct tests prove the precedence gate never lets a signed-agreement value be silently overwritten and never picks a side between two same-rank disagreeing sources; a dedicated scenario-level test then drives the same contradiction through the real handler and asserts it reaches NEEDS_HUMAN with the conflicting field named. |
 
 ### POLICY VIOLATION — The customer is asked for something they already supplied.
@@ -467,7 +467,7 @@ Coverage: 23 distinct failure classes across 43 entries.
 | **Recovery** | Suppress the request and recompute the gap set. |
 | **Escalates when** | Repeated-information requests above zero. |
 | **Authority required** | 3 · EXECUTE UNDER EXPLICIT POLICY |
-| **Resolves into** | GAPS_COMPUTED. |
+| **Resolves into** | Awaiting customer input → Gaps computed. The request is suppressed and the gap set recomputed, so the customer is never asked twice for something they already supplied. |
 | **Verification** | tests/client-onboarding.test.ts — the signed-client-to-first-value scenario asserts the field already known from the handoff (named-owner) never appears in any "requested" list, and the gap-computation decision explicitly records it as reused. |
 
 ### PARTIAL SIDE EFFECT — Some required resources are created and others fail, leaving the engagement half-provisioned.
@@ -482,7 +482,7 @@ Coverage: 23 distinct failure classes across 43 entries.
 | **Retry policy** | Bounded attempts per resource, not per sequence. |
 | **Escalates when** | Reconciliation unable to determine what exists. |
 | **Authority required** | 2 · PREPARE / HUMAN APPROVES |
-| **Resolves into** | NEEDS_HUMAN. |
+| **Resolves into** | Provisioning → Needs human. Only unclaimed resources are retried. A difference reconciliation cannot resolve goes to a person rather than being retried blindly. |
 | **Verification** | tests/client-onboarding.test.ts — the partial-provisioning direct test forces one resource attempt to OUTCOME_UNKNOWN while its sibling genuinely succeeds, and asserts the successful resource stays EXECUTED rather than being lost or recreated. |
 
 ### TIMEOUT — A resource-creation call times out without returning, leaving it unknown whether the resource was created.
@@ -497,7 +497,7 @@ Coverage: 23 distinct failure classes across 43 entries.
 | **Retry policy** | Bounded attempts, each reconciling before acting. |
 | **Escalates when** | Reconciliation cannot determine whether the resource exists. |
 | **Authority required** | 2 · PREPARE / HUMAN APPROVES |
-| **Resolves into** | NEEDS_HUMAN when reconciliation cannot confirm the outcome. |
+| **Resolves into** | Provisioning → Needs human. Reached only when reconciliation cannot confirm the outcome. The resource is read back by its key before any retry, and retried only when that read confirms absence. |
 | **Verification** | tests/client-onboarding.test.ts — the partial-provisioning direct test forces an OUTCOME_UNKNOWN result on one attempt and asserts it is refused rather than assumed successful, routing to NEEDS_HUMAN instead of TASKS_ASSIGNED. |
 
 ### POLICY VIOLATION — A derived onboarding task implies a service or commitment the signed engagement did not buy.
@@ -511,7 +511,7 @@ Coverage: 23 distinct failure classes across 43 entries.
 | **Recovery** | Refuse the task. It never becomes a client-visible commitment without a person separately approving an amended scope. |
 | **Escalates when** | Any candidate task whose implied service differs from the signed engagement. |
 | **Authority required** | 2 · PREPARE / HUMAN APPROVES |
-| **Resolves into** | CONTEXT_LOADED; the refused task never enters the plan. |
+| **Resolves into** | The engagement carries on from where it was; the refused task simply never enters the derived plan. It cannot become a client-visible commitment without a person separately approving an amended scope. |
 | **Verification** | tests/client-onboarding.test.ts — admitOnboardingTask is exercised directly against a synthetic task implying a service line the signed handoff did not buy, and is refused by name; the same gate runs for real over every task in each scenario’s derived plan. |
 
 ---
@@ -529,7 +529,7 @@ Coverage: 23 distinct failure classes across 43 entries.
 | **Recovery** | Abort the reminder and move the invoice to PAID. |
 | **Escalates when** | Any executed reminder against a settled invoice. |
 | **Authority required** | 3 · EXECUTE UNDER EXPLICIT POLICY |
-| **Resolves into** | PAID. |
+| **Resolves into** | Due soon → Paid · 1–30 days past due → Paid · 31–60 days past due → Paid · 61–90 days past due → Paid · 90+ days past due → Paid. The reminder is aborted before despatch; the invoice settles from whichever bucket it was in. |
 | **Verification** | tests/receivables-recovery.test.ts — the direct "payment stops further collection" test settles an invoice, then fires a stale evaluation event against it and asserts zero side effects and zero attempted transitions. |
 
 ### POLICY VIOLATION — The cadence continues after a customer raised a dispute.
@@ -543,7 +543,7 @@ Coverage: 23 distinct failure classes across 43 entries.
 | **Recovery** | Halt every pending reminder for the invoice and route to a person. |
 | **Escalates when** | Any reminder executed against a disputed invoice. |
 | **Authority required** | 3 · EXECUTE UNDER EXPLICIT POLICY |
-| **Resolves into** | DISPUTED. |
+| **Resolves into** | Due soon → Disputed · 1–30 days past due → Disputed · 31–60 days past due → Disputed · 61–90 days past due → Disputed. Every pending reminder for the invoice halts the moment a dispute is recognised. |
 | **Verification** | tests/receivables-recovery.test.ts — the dispute-halts-cadence scenario drives a real dispute reply to DISPUTED and asserts zero reminders despatch from there or after a subsequent stale evaluation; a direct test independently confirms zero side effects from DISPUTED. |
 
 ### AI UNSUPPORTED INFERENCE — A message states an amount, due date, or balance that does not match the accounting system.
@@ -557,7 +557,7 @@ Coverage: 23 distinct failure classes across 43 entries.
 | **Recovery** | Block despatch and route to a person. |
 | **Escalates when** | Any mismatch detected. |
 | **Authority required** | 4 · EXECUTE AND MANAGE BOUNDED DOWNSTREAM CONSEQUENCES |
-| **Resolves into** | ESCALATED. |
+| **Resolves into** | 31–60 days past due → Escalated · 61–90 days past due → Escalated · 90+ days past due → Escalated. Despatch is blocked before the message leaves. A figure that does not match the record never reaches a customer. |
 | **Verification** | tests/receivables-recovery.test.ts — the overdue-reply-changes-policy scenario asserts every despatched reminder’s description contains the exact balance figure from the authoritative record; reminder text is composed from structured facts and never generated. |
 
 ### UNEXPECTED HUMAN REPLY — A promised payment date passes with no payment and no follow-up.
@@ -571,7 +571,7 @@ Coverage: 23 distinct failure classes across 43 entries.
 | **Recovery** | Return the invoice to its ageing bucket and resume the cadence. |
 | **Escalates when** | A second promise broken by the same customer. |
 | **Authority required** | 3 · EXECUTE UNDER EXPLICIT POLICY |
-| **Resolves into** | The applicable past-due state. |
+| **Resolves into** | Payment promised → 31–60 days past due. The one declared return to the ageing ladder. A stale evaluation can only ever move an invoice forward along it, never back. |
 | **Verification** | tests/receivables-recovery.test.ts — the direct "a broken promise re-enters the ageing ladder" test records a genuine promise, evaluates again after the committed date with the balance still outstanding, and asserts the invoice returns to PAST_DUE_31_60. |
 
 ### DUPLICATE EVENT — The same reminder is sent twice for the same invoice and cadence step.
@@ -586,7 +586,7 @@ Coverage: 23 distinct failure classes across 43 entries.
 | **Retry policy** | Bounded retry; the key makes retries safe. |
 | **Escalates when** | Duplicate reminder rate above zero. |
 | **Authority required** | 3 · EXECUTE UNDER EXPLICIT POLICY |
-| **Resolves into** | No state change; recorded as SUPPRESSED_DUPLICATE. |
+| **Resolves into** | No state change; the attempt is recorded as SUPPRESSED_DUPLICATE. A second reminder is the failure, so not moving is the recovery. |
 | **Verification** | tests/receivables-recovery.test.ts — the direct "duplicate events do not cause duplicate sends" test redelivers the same evaluation event and asserts the first reminder resolves EXECUTED while the second resolves SUPPRESSED_DUPLICATE against the shared idempotency ledger. |
 
 ### SOURCE SYSTEM OUTAGE — The accounting system is unavailable at evaluation time.
@@ -601,7 +601,7 @@ Coverage: 23 distinct failure classes across 43 entries.
 | **Retry policy** | Bounded attempts with increasing delay. |
 | **Escalates when** | Outage exceeds the configured tolerance window. |
 | **Authority required** | 2 · PREPARE / HUMAN APPROVES |
-| **Resolves into** | Current ageing state preserved; cadence held. |
+| **Resolves into** | The current ageing state is preserved and the whole cadence is held. Ageing on an unread balance would invent facts about a customer. |
 | **Verification** | Pending — this pass modelled every evaluation event as carrying a fresh, present balance read (the payload schema requires one); it did not model the read itself failing or going stale, which would need a distinct "no reading available" event shape rather than a variant of the one authored so far. |
 
 ---
@@ -619,7 +619,7 @@ Coverage: 23 distinct failure classes across 43 entries.
 | **Recovery** | Flag the input, attempt refresh, and record insufficient evidence if refresh fails. |
 | **Escalates when** | Repeated staleness from the same source. |
 | **Authority required** | 1 · RECOMMEND |
-| **Resolves into** | STALE_DATA_FLAGGED, then INSUFFICIENT_EVIDENCE. |
+| **Resolves into** | Freshness checked → Stale data flagged → Insufficient evidence. A refresh is attempted first; the second movement is what happens when it fails. Freshness is a transition guard, not an annotation. |
 | **Verification** | tests/owner-revenue-intelligence.test.ts — the stale-concentration-read scenario blocks on a first read older than the configured tolerance; a direct test drives a second refresh attempt that is still stale and asserts it resolves to INSUFFICIENT_EVIDENCE rather than concluding on a partial refresh. |
 
 ### AI UNSUPPORTED INFERENCE — A narrative asserts why a metric moved without evidence for that cause.
@@ -633,7 +633,7 @@ Coverage: 23 distinct failure classes across 43 entries.
 | **Recovery** | Strip the causal assertion and present the variance with candidate factors instead. |
 | **Escalates when** | Any unsupported causal claim reaching the owner. |
 | **Authority required** | 1 · RECOMMEND |
-| **Resolves into** | EXCEPTION_SURFACED without a causal claim. |
+| **Resolves into** | Corroborating → Exception surfaced. The exception is surfaced WITHOUT the causal claim — the variance is presented with candidate factors instead of a cause. |
 | **Verification** | tests/owner-revenue-intelligence.test.ts — the cash-collection scenario asserts the bounded judgment’s decision record forbids asserting a cause or presenting the recommendation as fact, and carries a non-empty "declined to infer" list rather than a determined root cause. |
 
 ### CONTRADICTORY DATA — The same metric name resolves to different figures in different systems.
@@ -647,7 +647,7 @@ Coverage: 23 distinct failure classes across 43 entries.
 | **Recovery** | Surface both figures with their definitions and route the definition conflict to a person. |
 | **Escalates when** | Any metric with more than one active definition. |
 | **Authority required** | 1 · RECOMMEND |
-| **Resolves into** | AWAITING_OWNER_DECISION on the definition itself. |
+| **Resolves into** | Action recommended → Awaiting owner decision. Both figures travel with their definitions; what the owner decides is the definition, not the number. |
 | **Verification** | Pending — scenario not yet authored. |
 
 ### POLICY VIOLATION — So many exceptions are surfaced that the owner stops reading them.
@@ -661,7 +661,7 @@ Coverage: 23 distinct failure classes across 43 entries.
 | **Recovery** | Raise thresholds and route the tuning decision to the owner. |
 | **Escalates when** | Decision rate below the configured floor across consecutive windows. |
 | **Authority required** | 1 · RECOMMEND |
-| **Resolves into** | AWAITING_OWNER_DECISION on threshold configuration. |
+| **Resolves into** | Action recommended → Awaiting owner decision. The tuning decision goes to the owner. The system never quietly raises its own thresholds. |
 | **Verification** | Pending — scenario not yet authored. |
 
 ### POLICY VIOLATION — Confidential customer data is aggregated across accounts where policy forbids it.
@@ -675,5 +675,5 @@ Coverage: 23 distinct failure classes across 43 entries.
 | **Recovery** | Block the metric and report it as unavailable by policy rather than omitting it silently. |
 | **Escalates when** | Any blocked aggregation, since it indicates a metric was specified without checking its inputs. |
 | **Authority required** | 2 · PREPARE / HUMAN APPROVES |
-| **Resolves into** | INSUFFICIENT_EVIDENCE, recorded as blocked by policy. |
+| **Resolves into** | Corroborating → Insufficient evidence. Reported as unavailable by policy rather than omitted silently, so the absence is visible. |
 | **Verification** | tests/owner-revenue-intelligence.test.ts — a direct test supplies a corroborating observation flagged as requiring cross-client aggregation and asserts it is excluded before comparison, resolving to INSUFFICIENT_EVIDENCE at authority level 2 with the confidentiality policy named in the decision record, rather than composed into the metric. |

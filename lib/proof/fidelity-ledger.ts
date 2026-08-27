@@ -1,6 +1,7 @@
 import { LEAD_RESCUE } from '@/data/systems';
 import { KESTREL } from '@/data/profiles/kestrel/profile';
 import { numberParam } from '@/lib/model/profile';
+import { describeRecovery } from '@/lib/model/system';
 import {
   resolveDecisionProviderSelection,
   resolveLiveEvalGate,
@@ -502,7 +503,9 @@ export function deriveFailureRegister(): readonly FailureRegisterEntry[] {
     prevention: mode.prevention,
     recovery: mode.recovery,
     retryPolicy: mode.retryPolicy ?? null,
-    terminalState: mode.terminalState,
+    // Rendered from the structured recovery rather than stored as prose, so this line cannot
+    // describe a movement the transition graph does not have. See `validateLifecycle`.
+    terminalState: describeRecovery(LEAD_RESCUE, mode.recoveryPath),
     verificationTest: mode.verificationTest,
     exercised: !mode.verificationTest.startsWith(PENDING_PREFIX),
   }));

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { ALL_SYSTEMS, systemBySlug } from '@/data/systems';
 import { SOURCE_BY_ID } from '@/data/research/sources';
 import { isSettledEvidence, evidenceDisplay } from '@/lib/model/provenance';
-import { isAccountedFor, isTerminal, validateLifecycle } from '@/lib/model/system';
+import { describeRecovery, isAccountedFor, isTerminal, validateLifecycle } from '@/lib/model/system';
 
 describe('system definitions', () => {
   it('loads all six systems', () => {
@@ -64,8 +64,9 @@ describe('system definitions', () => {
 
     it('resolves every failure mode into a named state, never a generic error', () => {
       for (const mode of system.failureModes) {
-        expect(mode.terminalState.toLowerCase()).not.toBe('error');
-        expect(mode.terminalState.length).toBeGreaterThan(4);
+        const resolvesInto = describeRecovery(system, mode.recoveryPath);
+        expect(resolvesInto.toLowerCase()).not.toBe('error');
+        expect(resolvesInto.length).toBeGreaterThan(4);
         expect(mode.detection.length).toBeGreaterThan(10);
         expect(mode.recovery.length).toBeGreaterThan(10);
       }

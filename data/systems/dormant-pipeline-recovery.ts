@@ -189,7 +189,20 @@ const RAW = {
       recovery: 'Halt the sequence, move to SUPPRESSED, and block every pending effect for the entity.',
       escalationCondition: 'Any executed attempt to a suppressed contact.',
       authorityRequired: 4,
-      terminalState: 'SUPPRESSED.',
+      recoveryPath: {
+        shape: 'MOVES',
+        moves: [
+          { from: 'ELIGIBILITY_REVIEW', to: 'SUPPRESSED' },
+          // Found by this validator, and the same defect class as gap 0. `prevention` and
+          // `detection` above both declare a consent re-check at DESPATCH time, which happens
+          // from SCHEDULED — and nothing performs SCHEDULED -> SUPPRESSED. dp-t06 is the only
+          // way out of SCHEDULED and it carries the consent re-check as a GUARD, so a record
+          // whose consent goes stale after scheduling fails that guard and has nowhere to go.
+          // Marked rather than fixed, for the same reason as the two below.
+          { from: 'SCHEDULED', to: 'SUPPRESSED', unbuildable: true },
+        ],
+        note: 'Only the eligibility-review screen is exercised by a scenario; it is the movement the built path takes.',
+      },
       verificationTest:
         "Verified — tests/dormant-pipeline-recovery.test.ts, 'suppressed recovery': consent is evaluated before the re-entry reason, a textbook-qualifying recycle trigger is recorded and then overridden, and zero side effects are produced.",
     },
@@ -205,7 +218,10 @@ const RAW = {
       retryPolicy: 'Bounded retry; the key makes retries safe.',
       escalationCondition: 'Duplicate outreach rate above zero.',
       authorityRequired: 3,
-      terminalState: 'No state change; attempt recorded as SUPPRESSED_DUPLICATE.',
+      recoveryPath: {
+        shape: 'HOLDS_POSITION',
+        note: 'No state change; the attempt is recorded as SUPPRESSED_DUPLICATE. Holding position is the recovery — moving would itself be the duplicate.',
+      },
       verificationTest:
         "Verified — tests/dormant-pipeline-recovery.test.ts, 'redelivering the same triggering event produces zero additional customer-facing outreach': the same business event delivered twice claims the same idempotency key once and is refused the second time.",
     },
@@ -220,7 +236,14 @@ const RAW = {
       recovery: 'Abort the attempt, return to eligibility review.',
       escalationCondition: 'Repeated staleness on a segment, indicating too long a build-to-send gap.',
       authorityRequired: 2,
-      terminalState: 'ELIGIBILITY_REVIEW.',
+      recoveryPath: {
+        shape: 'MOVES',
+        // Gap 0. The abort is detected at despatch, so the record is in SCHEDULED — and no
+        // transition returns it to eligibility review. Marked rather than fixed by inventing
+        // one: a transition exists to be exercised, and adding it to satisfy this entry would
+        // invert the relationship between canon and code.
+        moves: [{ from: 'SCHEDULED', to: 'ELIGIBILITY_REVIEW', unbuildable: true }],
+      },
       verificationTest: 'Pending — scenario not yet authored.',
     },
     {
@@ -234,7 +257,11 @@ const RAW = {
       recovery: 'Route to human review with all candidates attached.',
       escalationCondition: 'Any ambiguous match involving commercially sensitive history.',
       authorityRequired: 2,
-      terminalState: 'NEEDS_HUMAN.',
+      recoveryPath: {
+        shape: 'MOVES',
+        moves: [{ from: 'ELIGIBILITY_REVIEW', to: 'NEEDS_HUMAN' }],
+        note: 'Identity resolves before any policy question, so the ambiguity is caught at eligibility review with every candidate attached.',
+      },
       verificationTest:
         "Verified — tests/dormant-pipeline-recovery.test.ts, the ambiguous-entity-match scenario: two candidates both clear the configured match threshold, the cycle routes to NEEDS_HUMAN with every candidate attached, and zero side effects occur. Resolving to the closest or highest-confidence candidate is named as a forbidden action rather than merely left unselected, and the guard is proven not to fire on the two scenarios that supply no competing candidates. Identity is asserted to resolve BEFORE the consent screen, because consent, account status, and the re-entry reason are all questions about a specific party.",
     },
@@ -249,7 +276,11 @@ const RAW = {
       recovery: 'Archive the record from the sequence and route to the account owner.',
       escalationCondition: 'Any executed attempt to an active customer.',
       authorityRequired: 3,
-      terminalState: 'ARCHIVED.',
+      recoveryPath: {
+        shape: 'MOVES',
+        moves: [{ from: 'ELIGIBILITY_REVIEW', to: 'ARCHIVED' }],
+        note: 'Active-customer status is an eligibility exclusion, evaluated before the re-entry reason.',
+      },
       verificationTest:
         "Verified — tests/dormant-pipeline-recovery.test.ts, 'excludes an account that is already active elsewhere': the active-account exclusion runs before the re-entry reason is evaluated and produces zero side effects.",
     },
@@ -265,7 +296,14 @@ const RAW = {
       retryPolicy: 'Honour the provider\u2019s retry-after; bounded attempts with increasing delay.',
       escalationCondition: 'The limit is reached on consecutive cycles, indicating the segment is too large for the window.',
       authorityRequired: 2,
-      terminalState: 'SCHEDULED \u2014 unsent records return to the queue rather than being marked attempted.',
+      recoveryPath: {
+        shape: 'MOVES',
+        // Gap 0. Unsent records are meant to return to the queue rather than be marked
+        // attempted, but nothing performs REACTIVATION_ATTEMPTED -> SCHEDULED. Marked, not
+        // fixed, for the same reason as dp-fm-stale-data above.
+        moves: [{ from: 'REACTIVATION_ATTEMPTED', to: 'SCHEDULED', unbuildable: true }],
+        note: 'Unsent records should return to the queue rather than being marked attempted.',
+      },
       verificationTest: 'Pending \u2014 scenario not yet authored.',
     },
   ],
