@@ -85,7 +85,7 @@ Coverage: 23 distinct failure classes across 43 entries.
 | **Escalates when** | Repeated malformed payloads from the same channel, indicating an upstream contract change. |
 | **Authority required** | 2 · PREPARE / HUMAN APPROVES |
 | **Resolves into** | New → Failed — recoverable → Normalised · Failed — recoverable → Needs human · Failed — recoverable → Failed — terminal. The raw payload is retained throughout. A retry inside the bounded budget returns the case to NORMALIZED; exhausting it reaches a person or a recorded terminal failure, never silence. |
-| **Verification** | Pending — malformed-payload scenario not yet authored. |
+| **Verification** | Verified — tests/lead-rescue-malformed-retry.test.ts: a payload missing every required field enters FAILED_RECOVERABLE with the raw payload retained and zero side effects; a corrected redelivery returns it to NORMALIZED via lr-t30; repeated failures below the configured budget deliberately do not move the case; and exhausting the budget routes to NEEDS_HUMAN via lr-t32 with the validation errors and attempt count attached. The budget is read from profile.operatingParameters.malformedRetryBudget — raising it in a cloned profile is proven to delay the escalation, so the number cannot be hard-coded in the handler. |
 
 ### MISSING REQUIRED FIELD — The enquiry is legitimate but omits facts required to route or scope it.
 

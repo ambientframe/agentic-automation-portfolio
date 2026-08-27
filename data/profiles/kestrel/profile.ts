@@ -565,6 +565,16 @@ const RAW = {
       appliesTo: 'Owner Revenue Intelligence aggregation rules and any cross-client reporting.',
     },
     {
+      id: 'kestrel-malformed-intake',
+      statement:
+        'An intake payload that fails validation is retained and retried a bounded number of times, never discarded and never retried indefinitely. When the budget is exhausted the enquiry is handed to a person with the raw payload and the validation errors attached — the system does not close a lead it could not read.',
+      provenance: 'CLIENT_POLICY',
+      verification: 'NOT_APPLICABLE',
+      sourceIds: [],
+      appliesTo:
+        'Lead Rescue intake validation. A malformed payload usually means a misconfigured integration rather than a bad enquiry, so the demand behind it is real and someone is waiting on a reply. Retrying forever hides the misconfiguration; giving up silently loses the lead this system exists to catch.',
+    },
+    {
       id: 'kestrel-entity-resolution',
       statement:
         'A dormant record is matched to a party only on a stable identifier. Where more than one candidate meets the match threshold, or none does, the record is routed to a person with every candidate attached — never resolved to the closest one.',
@@ -622,6 +632,7 @@ const RAW = {
     { key: 'proposalAuthorityCeiling', label: 'Maximum authority for outbound commercial documents', value: 2, unit: 'authority level', policyId: 'kestrel-proposal-authority' },
     { key: 'inputStalenessToleranceHours', label: 'Analysis input staleness tolerance', value: 96, unit: 'hours', policyId: 'kestrel-analysis-freshness' },
     { key: 'exceptionVarianceThresholdPct', label: 'Exception-candidate variance threshold', value: 12, unit: 'percent', policyId: 'kestrel-exception-materiality' },
+    { key: 'malformedRetryBudget', label: 'Attempts on a malformed intake payload before a person is asked', value: 3, unit: 'attempts', policyId: 'kestrel-malformed-intake' },
   ],
 } satisfies Parameters<typeof BusinessProfileSchema.parse>[0];
 

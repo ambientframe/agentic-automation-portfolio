@@ -157,12 +157,45 @@ function handleEnquiry(ctx: HandlerContext): HandlerOutcome {
   const parsed = EnquiryPayloadSchema.safeParse(event.payload);
 
   if (!parsed.success) {
+    /**
+     * `lr-fm-malformed`. Entering FAILED_RECOVERABLE has always worked; what did not exist is
+     * anything that ever left it. A case parked there with no exit is indistinguishable from
+     * outside from a case being patiently retried — it READS as handling.
+     *
+     * The budget is why this is bounded in both directions. Retrying a payload that will never
+     * validate is a loop, not resilience; giving up quietly drops the lead this system exists
+     * to catch. So attempts are counted as a durable fact, compared against a configured
+     * policy, and exhaustion reaches a PERSON rather than a terminal state the system picked
+     * for itself.
+     */
+    const attempts = Number(state.facts.malformedAttempts ?? '0') + 1;
+    const budget = numberParam(profile, 'malformedRetryBudget');
+    const exhausted = attempts > budget;
+
+    // From NEW the case must first reach FAILED_RECOVERABLE — there is no NEW -> NEEDS_HUMAN
+    // transition, and inventing one to shortcut a small budget would be a canon change made to
+    // suit a handler. Below budget the case deliberately does not move: staying put IS the
+    // retry state.
+    const transitionTo =
+      state.lifecycleState === 'NEW' ? 'FAILED_RECOVERABLE' : exhausted ? 'NEEDS_HUMAN' : undefined;
+
+    const errors = parsed.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join('; ');
+    const missing = parsed.error.issues.map((i) => i.path.join('.')).filter((p) => p.length > 0);
+
     steps.push({
       id: id('validate'),
       label: 'Validation',
       atOffsetSeconds: 0,
-      transitionTo: 'FAILED_RECOVERABLE',
-      summary: 'Payload failed schema validation. Raw payload retained for retry.',
+      ...(transitionTo === undefined ? {} : { transitionTo }),
+      summary: exhausted
+        ? `Payload failed schema validation ${attempts} times against a budget of ${budget}. Handed to a person with the raw payload attached.`
+        : `Payload failed schema validation (attempt ${attempts} of ${budget}). Raw payload retained for retry.`,
+      statePatch: {
+        facts: { malformedAttempts: String(attempts) },
+        ...(exhausted
+          ? { awaitingHuman: `Intake payload could not be read after ${attempts} attempts.` }
+          : {}),
+      },
       decisions: [
         decision({
           id: id('d-validate'),
@@ -173,14 +206,24 @@ function handleEnquiry(ctx: HandlerContext): HandlerOutcome {
           evidenceRefs: [`event.payload`, `event.schemaVersion=${event.schemaVersion}`],
           deterministicFacts: [
             { label: 'Schema version', value: event.schemaVersion },
-            { label: 'Validation errors', value: parsed.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join('; ') },
+            { label: 'Validation errors', value: errors },
+            { label: 'Attempt', value: `${attempts} of ${budget}` },
           ],
-          missingInformation: parsed.error.issues.map((i) => i.path.join('.')).filter((p) => p.length > 0),
-          permittedActions: ['retain_raw_payload', 'enter_failed_recoverable'],
-          forbiddenActions: ['infer_missing_fields', 'discard_event'],
-          selectedAction: 'enter_failed_recoverable',
-          applicablePolicy: ['A malformed payload is retained and retried, never dropped.'],
-          escalationReason: 'Payload could not be validated against the declared schema.',
+          missingInformation: missing,
+          permittedActions: exhausted
+            ? ['retain_raw_payload', 'route_to_human_after_retry_budget']
+            : ['retain_raw_payload', 'enter_failed_recoverable'],
+          forbiddenActions: exhausted
+            ? ['infer_missing_fields', 'discard_event', 'retry_indefinitely', 'close_as_terminal_failure']
+            : ['infer_missing_fields', 'discard_event'],
+          selectedAction: exhausted ? 'route_to_human_after_retry_budget' : 'enter_failed_recoverable',
+          applicablePolicy: [
+            'A malformed payload is retained and retried, never dropped.',
+            `Retries are bounded at ${budget} by the operator's own configured policy; exhausting the budget asks a person rather than closing the lead.`,
+          ],
+          escalationReason: exhausted
+            ? `Payload could not be validated after ${attempts} attempts against a budget of ${budget}.`
+            : 'Payload could not be validated against the declared schema.',
           authority: 0,
         }),
       ],

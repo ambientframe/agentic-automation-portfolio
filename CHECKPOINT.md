@@ -3,7 +3,42 @@
 > One per accepted package (Constitution §14). Repository truth is authoritative; this file
 > is an index, not a source. Append the new checkpoint above the previous one.
 
-## Current — A build is only green if it is green somewhere else · 2026-08-27
+## Current — A malformed payload is retried, and the budget is real · 2026-08-27
+
+**Verified state.** `npm run verify`: 58 files, 921 passed / 1 skipped, exit 0. `npm run build`:
+exit 0. 10 new tests, 8 RED before implementation; 9 targeted mutations, all caught after a
+repair — 2 survived the first suite.
+
+**Proof claim earned.** `lr-fm-malformed` is closed. Entering `FAILED_RECOVERABLE` had worked
+since the system was written and nothing had ever left it: `lr-t30`/`lr-t31`/`lr-t32` were
+declared with no code, no event, no test. A case parked there with no exit is indistinguishable
+from one being patiently retried — it reads as handling.
+
+**Bounded in both directions.** `malformedRetryBudget` (3) is an operating parameter on a new
+`kestrel-malformed-intake` policy. Below budget the handler requests no transition, because
+staying put *is* the retry state. Exhausting it routes to `NEEDS_HUMAN` with the raw payload,
+the validation errors, and the attempt count — never a terminal state the system chose itself;
+`retry_indefinitely` and `close_as_terminal_failure` are named forbidden actions.
+
+**`lr-t30` needed no new code.** A corrected redelivery already reaches `NORMALIZED` through the
+ordinary success path, since the engine permits that transition from `FAILED_RECOVERABLE` too.
+
+**Two mutations survived first, and the tests were wrong.** Redacting the validation errors
+survived because the assertion read the serialised decision, where the same field names appear
+in `missingInformation`. Relinking the budget to an unrelated policy survived because the
+assertion only required *a* policy to exist. Both repaired to assert the specific field and the
+specific policy statement.
+
+**Maturity.** Unchanged. $0 spent, no provider crossed.
+
+**Pattern earned.** None — this exercises #18's graph and the existing authority/idempotency
+gates rather than adding residue.
+
+**Still open.** 7 pending standards, 2 structurally unbuildable.
+
+**Next package.** NOT SELECTED. Redeploy to publish this.
+
+## Earlier — A build is only green if it is green somewhere else · 2026-08-27
 
 **Verified state.** `npm run verify`: 57 files, 911 passed / 1 skipped, exit 0 — with and
 without Playwright installed. `npm run build`: exit 0 both ways. 9 new tests; 6 targeted

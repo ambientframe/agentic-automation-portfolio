@@ -1,6 +1,45 @@
 # Status
 
-**As of 2026-08-27 · A production deployment failed, and the defect was mine: a build that was
+**As of 2026-08-27 (latest pass, same day) · A malformed intake payload is now genuinely
+retried, and the retry budget is real.** `lr-fm-malformed` is closed — the last `Pending`
+standard on Lead Rescue that was buildable rather than blocked by a canon defect. Entering
+`FAILED_RECOVERABLE` has worked since the system was written; **nothing had ever left it.**
+`lr-t30`, `lr-t31`, and `lr-t32` were declared in canon with no code, no event, and no test, so
+"retained and retried" was half a sentence: the system retained, and nothing retried.
+
+**That is worse than it sounds.** A case parked in `FAILED_RECOVERABLE` with no exit is
+indistinguishable from outside from a case being patiently retried. It reads as handling — the
+same failure shape as the two Dormant Pipeline recoveries, arrived at from the opposite
+direction: there the recovery was declared and unbuildable, here it was buildable and never
+built.
+
+**The budget is bounded in both directions, and that is the point.** Retrying a payload that
+will never validate is a loop, not resilience; giving up quietly drops the lead this system
+exists to catch. `malformedRetryBudget` (3) is an operating parameter linked to a new
+`kestrel-malformed-intake` policy, compared in the engine, and exhausting it routes to
+`NEEDS_HUMAN` with the raw payload, the validation errors, and the attempt count attached —
+never to a terminal state the system chose for itself. `close_as_terminal_failure` and
+`retry_indefinitely` are recorded as forbidden actions rather than merely unselected.
+
+**`lr-t30` needed no new code, which is the useful finding.** A corrected redelivery already
+reaches `NORMALIZED` through the ordinary success path, because the engine permits that
+transition from `FAILED_RECOVERABLE` as well as from `NEW`. Below budget the handler
+deliberately requests no transition at all: staying put *is* the retry state, and re-entering
+`FAILED_RECOVERABLE` on every attempt would have been a move the graph does not declare.
+
+**Two mutations survived the first suite, and the tests were wrong, not the code.** Stripping
+the validation errors from the escalation survived, because the assertion read the serialised
+decision and the same field names also appear in `missingInformation` — the record looked
+informative while the diagnosis was gone. And relinking the budget to an unrelated cadence
+policy survived, because the assertion only checked that *a* policy existed. Both were
+repaired to assert the specific field and the specific policy statement; all nine mutations are
+now caught.
+
+`npm run verify`: 58 files, 921 passed / 1 skipped, exit 0. `npm run build`: exit 0. 8 of the 10
+new tests were RED before implementation. **7 pending standards remain**, 2 of them structurally
+unbuildable. Maturity unchanged: `INTERACTIVE_PROTOTYPE`, `NOT_LIVE`.
+
+**As of 2026-08-27 (earlier pass, same day) · A production deployment failed, and the defect was mine: a build that was
 green only on the machine that wrote it.** `scripts/capture-walkthrough.ts` referenced Playwright
 at the type level (`typeof import('playwright').chromium`). Playwright had been installed with
 `npm install --no-save` on purpose — this repository promises a stranger that `npm install` is
@@ -33,6 +72,14 @@ stripping is itself caught.
 
 `npm run verify`: 57 files, 911 passed / 1 skipped, exit 0, with and without Playwright
 installed. `npm run build`: exit 0 both ways.
+
+**One unresolved flake, recorded rather than explained away.** `npm run verify` returned 1 once
+while `typecheck`, `lint`, and `test` each independently returned 0 and the full output showed
+no failure. It did not reproduce in 36 subsequent runs, including four `build`-then-`verify`
+rounds aimed at the `.next/types` race this repository has hit before. Treated as an
+environment-level flake, not a defect in the tree. The real lesson was procedural: that commit
+went through because the gate was chained with `;` instead of `&&`, so a red gate did not stop
+it. Chain the gate to the commit.
 
 **As of 2026-08-26 (earlier pass) · A failure mode's declared recovery is now a claim
 about the transition graph, and the graph is asked.** `terminalState` was free prose
