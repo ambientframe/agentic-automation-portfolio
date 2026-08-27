@@ -29,6 +29,24 @@ scenarios against a second profile.
 **Your job is to author one more profile.** You are not extending the systems. You are supplying
 a different business for the existing ones to operate on.
 
+## 1a. Which half of this you are doing
+
+This runs in two stages, because the two halves need different things and only one of them needs
+the repository.
+
+**Stage A — grounding research.** No repository access required, a browser required. Produce a
+research brief on the assigned industry: what practitioners call things, typical engagement and
+retainer values, payment terms, what actually goes wrong, and the software such firms run. Every
+claim carries a retrievable source and a sentence saying what it establishes. **Do not write any
+TypeScript.** Your output is the brief, and it is the input to Stage B. Read §2, §3, §6, §11.
+
+**Stage B — profile authoring.** Repository access required. Take the Stage A brief and turn it
+into the profile file. You can read the schema, run the tests, and check your own arithmetic.
+Read everything.
+
+If you have been handed this document and are unsure which stage you are on: if you cannot open
+`lib/model/profile.ts`, you are on Stage A.
+
 ## 2. Rules that will get your work rejected
 
 These are not style preferences. They come from `COMMERCIAL_THESIS.md` and `CLAUDE.md`, both of
