@@ -1,6 +1,54 @@
 # Status
 
-**As of 2026-08-26 (latest pass, same day) · The execution boundary no longer tells the rest of
+**As of 2026-08-26 (latest pass, same day) · The other five systems now have a buyer-facing
+page, and the portfolio index no longer sends anyone to an engineering dossier first.** Until
+this pass Lead Rescue had `/lead-rescue`, written in the register a buyer reads, and the other
+five had only `/systems/<slug>`, which opens with paragraphs of engineering prose. Every row on
+the index linked to the dossier. A visitor comparing them concluded, correctly, that one system
+was real and five were write-ups — the outcome `PORTFOLIO_PM_CONSTITUTION.md` §1 names as
+failure by name.
+
+**The capability was never missing; only the register was.** `app/proof/[slug]/page.tsx` serves
+all five, and needed no new derivation logic: `deriveJourney` and `deriveCommercialGrammar` were
+already generic over `SystemDefinition`, `JourneyConsole` already accepted derived data, and
+`businessProblem` / `economicLeakage` / `buyerOutcome` / `fidelityNote` are required fields on
+every system. The three presentational primitives moved out of Lead Rescue's page into
+`components/proof/proof-chrome.tsx` and are now shared rather than copied. The index's own
+`proofHref` sends each system to its proof page; the dossier is one click away in every proof
+page's first line of navigation, but it is no longer the front door.
+
+**Nothing on these pages is authored per system.** The one piece of hand-written prose on Lead
+Rescue's equivalent — the "what this replaces it with" card — is computed here from the
+lifecycle instead: "Every case occupies one of the 11 positions this system declares in advance,
+and can arrive there only by one of its 17 declared moves." A reader can check that against the
+dossier, and unlike a sentence it cannot drift from the model. `fidelityNote` is the sole
+verbatim string, rendered deliberately because it is the system's own statement of its limits.
+
+**What these pages refuse to render, and why that is the point.** Lead Rescue's page has four
+layers; these have two, plus an explicit account of the absence. There is no capability fidelity
+ledger and no operator console, because these systems have no HTTP surface, no durable storage,
+no real provider, and no retained runtime evidence. An empty ledger, or one inferring `REAL` from
+the fixtures all six systems share, would be exactly the borrowed credibility this portfolio
+exists to refuse. The page says so in its own words and links to Lead Rescue as what the next
+fidelity level looks like once a system earns it. **A system earns a layer by acquiring the
+capability, not by acquiring the component.**
+
+**A sequencing estimate this pass falsified.** The launch audit written earlier the same day
+scored this work as expensive and gated it behind freezing Lead Rescue, on the reasoning that
+`lib/proof/` was still changing and generalising a moving target guarantees rework. Measuring
+the coupling rather than assuming it showed `journey.ts` contained zero Lead Rescue vocabulary,
+`commercial-grammar.ts` three occurrences (all example strings inside comments), and
+`journey-console.tsx` one in 1,063 lines. Only `operator-console.tsx` and `fidelity-ledger.ts`
+are genuinely coupled — correctly, since only Lead Rescue has the capabilities they describe.
+The generic layer already existed and had simply never been pointed at a second system. Recorded
+because the error was in the estimate, not in the work: measure coupling before sequencing
+around it.
+
+Maturity unchanged for all six: Lead Rescue `INTERACTIVE_PROTOTYPE`, the other five `SIMULATED`.
+A page is not a capability. `npm run verify`: 54 files, 860 passed / 1 skipped, exit 0.
+`npm run build`: exit 0, 35 routes (5 new).
+
+**As of 2026-08-26 (earlier pass, same day) · The execution boundary no longer tells the rest of
 the system it is safe to retry a message that may already have been delivered.** The defect the
 previous pass found by looking rather than by testing — and deliberately scoped out of — is
 fixed. `SmtpSideEffectExecutor` mapped `ESOCKET`, `ECONNECTION`, `ECONNRESET`, and `ETIMEDOUT`

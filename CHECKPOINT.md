@@ -3,7 +3,47 @@
 > One per accepted package (Constitution §14). Repository truth is authoritative; this file
 > is an index, not a source. Append the new checkpoint above the previous one.
 
-## Current — Execution-boundary classification corrected · 2026-08-26
+## Current — Buyer-facing proof route for the other five systems · 2026-08-26
+
+**Verified state.** `npm run verify`: 54 files, 860 passed / 1 skipped, exit 0.
+`npm run build`: exit 0, 35 routes (5 new). All five new pages return 200 from a production
+server; the index's six rows resolve to `/lead-rescue` and five `/proof/<slug>` and no longer to
+any dossier.
+
+**Proof claim earned.** The commercial register is a projection of any `SystemDefinition` plus a
+real engine run, not a Lead Rescue asset. `app/proof/[slug]/page.tsx` serves the other five with
+no new derivation logic — `deriveJourney` and `deriveCommercialGrammar` were already generic,
+`JourneyConsole` already took derived data, and the four fields the page reads are required on
+every system. Three presentational primitives moved from Lead Rescue's page into
+`components/proof/proof-chrome.tsx` and are shared rather than copied.
+
+**Nothing authored per system.** The one hand-written card on Lead Rescue's own page is computed
+here from the lifecycle instead ("one of the 11 positions this system declares in advance,
+reachable only by one of its 17 declared moves"), so it cannot drift from the model.
+`fidelityNote` is the only verbatim string, rendered deliberately.
+
+**What it refuses to render.** No capability ledger, no operator console. These systems have no
+HTTP surface, no durable storage, no real provider, and no retained runtime evidence; an empty
+ledger or one inferring REAL from shared fixtures would be borrowed credibility. The page states
+the absence and links to Lead Rescue as what the next level looks like once earned. A system
+earns a layer by acquiring the capability, not the component.
+
+**An estimate this pass falsified.** The same-day launch audit scored this as expensive and gated
+it behind freezing Lead Rescue. Measuring the coupling showed `journey.ts` at zero Lead Rescue
+mentions, `commercial-grammar.ts` at three (all comment examples), `journey-console.tsx` at one in
+1,063 lines. The generic layer already existed and had never been pointed at a second system.
+Measure coupling before sequencing around it.
+
+**Maturity.** Unchanged for all six — a page is not a capability. Lead Rescue
+`INTERACTIVE_PROTOTYPE`, the other five `SIMULATED`. $0 spent, no provider crossed.
+
+**Pattern earned.** #15, and it discharges the "Cross-domain generalisation of the proof surface"
+row from NOT YET EARNED (§8's ≥2-domain gate is now met by six).
+
+**Next package.** NOT SELECTED — PM sequences from the §6 scorecard. Track L's last open item is
+a reachable URL; deploy is prepared and awaits the owner (spine `LAUNCH_PLAN.md` SOP-6).
+
+## Previous — Execution-boundary classification corrected · 2026-08-26
 
 **Verified state.** `main` clean at time of commit. `npm run verify`: 54 files, 860 passed /
 1 skipped, exit 0. `npm run build`: exit 0. Five tests were RED before implementation; five
@@ -55,7 +95,7 @@ until the repo moves off iCloud. See spine `LAUNCH_PLAN.md`.
 **Next package.** NOT SELECTED — PM sequences from the §6 scorecard. Track L (a reachable URL)
 awaits an owner decision; see spine `LAUNCH_PLAN.md`.
 
-## Previous — Observation integrity, deterministic alerting, abnormal-delivery evidence · 2026-08-26
+## Earlier — Observation integrity, deterministic alerting, abnormal-delivery evidence · 2026-08-26
 
 **Verified state.** `main` clean. `npm run verify`: 54 files, 836 passed / 1 skipped.
 `npm run build`: 30/30 pages, exit 0. Both new falsification suites were RED before

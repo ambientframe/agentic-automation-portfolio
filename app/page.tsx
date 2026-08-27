@@ -1,7 +1,8 @@
 import Link from 'next/link';
 import { ALL_SYSTEMS } from '@/data/systems';
+import type { SystemDefinition } from '@/lib/model/system';
 import { KESTREL } from '@/data/profiles/kestrel/profile';
-import { ALL_RUNNABLE_SCENARIOS } from '@/lib/engine/registry';
+import { ALL_RUNNABLE_SCENARIOS, RUNNABLE_SYSTEMS } from '@/lib/engine/registry';
 import { MaturityBadge, ProvenanceBadge } from '@/components/badges';
 
 /**
@@ -70,7 +71,7 @@ export default function PortfolioPage() {
         <ol>
           {ALL_SYSTEMS.map((system) => (
             <li key={system.id}>
-              <Link href={`/systems/${system.slug}`} className="index-row group block py-6 px-2 -mx-2">
+              <Link href={proofHref(system)} className="index-row group block py-6 px-2 -mx-2">
                 <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-2">
                   <h3 className="display text-xl group-hover:opacity-70">
                     <span className="instrument mr-3" style={{ color: 'var(--ink-faint)' }}>
@@ -166,4 +167,22 @@ function Field({ label, value }: { label: string; value: string }) {
       </p>
     </div>
   );
+}
+
+/**
+ * Where a system's row sends a visitor.
+ *
+ * This used to be `/systems/<slug>` for all six — the technical dossier. That made the
+ * engineering register the default first impression for every system in the portfolio, which
+ * is precisely backwards for the audience this is built for: the dossier answers "how is this
+ * wired", and a buyer's first question is "what expensive thing does this prevent".
+ *
+ * The dossier is not hidden — every proof page links to it in its first line of navigation.
+ * It is just no longer the front door.
+ */
+function proofHref(system: SystemDefinition): string {
+  if (system.slug === 'lead-rescue') return '/lead-rescue';
+  return RUNNABLE_SYSTEMS.some((r) => r.system.slug === system.slug)
+    ? `/proof/${system.slug}`
+    : `/systems/${system.slug}`;
 }

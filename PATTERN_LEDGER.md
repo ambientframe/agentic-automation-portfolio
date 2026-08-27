@@ -127,6 +127,15 @@
 - **Limits (recorded, not hidden):** the phase is only as good as the transport's own reporting, *and* only as good as your understanding of what that reporting means. An adapter whose provider surfaces no trustworthy equivalent must fall back to the conservative rule and accept the extra uncertainty; it may not invent a phase.
 - **Reusable for 2–6:** the shape generalises to every `SideEffectExecutor` any system adds. The question "does this failure prove non-execution, or merely suggest it?" is the same for a CRM write, an SMS gateway, and a calendar invite; only the phase evidence differs.
 
+### 15. A buyer-facing proof route derived from any system definition
+- **Earned:** proof-surface generalisation package, 2026-08-26
+- **Implementation:** `app/proof/[slug]/page.tsx` · `components/proof/proof-chrome.tsx` (shared primitives extracted from Lead Rescue) · `proofHref` in `app/page.tsx`
+- **Establishes:** the commercial register is not a Lead Rescue asset, it is a projection of any `SystemDefinition` plus a real engine run. One route serves the other five systems: `deriveJourney` and `deriveCommercialGrammar` were already generic over `SystemDefinition`, `JourneyConsole` already took derived data, and `businessProblem` / `economicLeakage` / `buyerOutcome` / `fidelityNote` are required on every system. The portfolio index now sends every one of the six to a buyer-facing page rather than to an engineering dossier.
+- **Nothing is authored per system.** The third problem card — hand-written prose on Lead Rescue's own page — is computed here from the lifecycle ("one of the 11 positions this system declares in advance, reachable only by one of its 17 declared moves"). A reader can check that against the dossier; a sentence cannot drift from a model it is derived from.
+- **What it deliberately refuses to render:** no capability ledger and no operator console. Those systems have no HTTP surface, no durable storage, no real provider, and no retained runtime evidence, so an empty ledger — or one inferring REAL from the fixtures all six share — would be borrowed credibility. The page states that absence explicitly instead, and links to Lead Rescue as what the next fidelity level looks like once earned. **A system earns a layer by acquiring the capability, not the component.**
+- **Limits (recorded, not hidden):** layers A and B only. Lead Rescue keeps its own richer route and is excluded from this one, so two page implementations exist until the remaining systems earn layers C and D. That duplication is deliberate and bounded, not an oversight.
+- **Cost, for the record:** the audit that preceded this estimated the port as expensive and gated it behind freezing Lead Rescue. It was neither — the generic layer already existed and had simply never been pointed at a second system. Measure coupling before sequencing around it.
+
 ## NOT YET EARNED
 
 | Candidate | Why not |
@@ -135,4 +144,3 @@
 | Alert delivery into a channel | #13 raises conditions on a surface a person must still open. No pager, inbox, webhook, or escalation path exists, so "somebody is told" remains untrue. |
 | Third-party corroboration of an execution outcome | The receiver in #12/#13's capture is a purpose-built local SMTP fault server. It is an independent observer of the socket and it genuinely contradicted the application once; it is not a vendor contract, and `lead-rescue-smtp-execution.json` remains the only capture where a third-party product (Mailpit) issued the receipt. |
 | External identity provider integration | `lead-rescue-operator-authentication.json` records `externalIdentityProvider = false` and every principal as `syntheticIdentity = true`. The credential mechanism is real (#4); the identity source is not. |
-| Cross-domain generalisation of the proof surface | Constitution §8: generalise only after ≥2 domains justify it. Only Lead Rescue has a proof surface today. |
