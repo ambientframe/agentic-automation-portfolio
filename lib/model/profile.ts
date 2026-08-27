@@ -181,6 +181,45 @@ export const BusinessProfileSchema = z.strictObject({
       }),
     )
     .min(1),
+
+  /**
+   * WHOSE DESK A SPECIFIC ACTION LANDS ON, AND WHOSE DESK IT GOES TO NEXT.
+   *
+   * `resolveEscalationOwner` answers a different question — "which role has ENOUGH AUTHORITY
+   * for this?" — and deliberately refuses to break a tie between equally-qualified roles. That
+   * refusal is correct and unchanged. But it left a real question unanswerable: Kestrel's
+   * Operations Coordinator and Finance both cap at authority 2, so asking "who approves a
+   * proposal?" by authority alone returns an honest ambiguity, and neither of them approves
+   * proposals. The profile's own prose already said who does. Prose is not checkable.
+   *
+   * This is NOT a tie-break relocated into configuration, which `resolveEscalationOwner`'s
+   * docstring rightly warns against. It ranks nothing, and it grants nothing: an accountable
+   * role's `authorityCeiling` is untouched, so naming somebody accountable can never give them
+   * authority they do not have. It records one fact a real business genuinely knows and this
+   * model could not previously express.
+   *
+   * Optional, because a profile that has not thought about a given action should say nothing
+   * rather than be forced to invent an answer — the consumer then falls back to authority
+   * resolution and, if that is ambiguous, reports the ambiguity honestly.
+   */
+  accountabilities: z
+    .array(
+      z.strictObject({
+        /** Vertical-agnostic action id, e.g. `PROPOSAL_APPROVAL`. */
+        action: z.string().min(1),
+        /** Must resolve to an id in `roles`. Enforced by validateProfileConsistency. */
+        roleId: z.string().min(1),
+        /**
+         * Who an unactioned case goes to next. Must have a STRICTLY higher `authorityCeiling`
+         * than `roleId` — a sideways handoff is a transfer, not an escalation, and letting a
+         * timeout call it one would report progress it did not make.
+         */
+        escalatesToRoleId: z.string().min(1).optional(),
+        /** Must resolve to an id in `policies`. An accountability with no policy is an assumption. */
+        policyId: z.string().min(1),
+      }),
+    )
+    .optional(),
 });
 
 export type BusinessProfile = z.infer<typeof BusinessProfileSchema>;
@@ -312,7 +351,85 @@ export function validateProfileConsistency(profile: BusinessProfile): ProfileIss
     seenKeys.add(parameter.key);
   }
 
+  // 12. Every declared accountability must name real people and escalate genuinely upward.
+  const rolesById = new Map(profile.roles.map((role) => [role.id, role]));
+  const seenActions = new Set<string>();
+  for (const entry of profile.accountabilities ?? []) {
+    const accountable = rolesById.get(entry.roleId);
+    if (accountable === undefined) {
+      push(
+        'ACCOUNTABILITY_ROLE_REF',
+        `accountability for "${entry.action}" names role "${entry.roleId}", which this profile does not declare`,
+      );
+    }
+    if (!policyIds.has(entry.policyId)) {
+      push(
+        'ACCOUNTABILITY_POLICY_REF',
+        `accountability for "${entry.action}" references policy "${entry.policyId}", which does not exist. An accountability with no stated policy is an assumption about who is responsible.`,
+      );
+    }
+    if (entry.escalatesToRoleId !== undefined) {
+      const escalatesTo = rolesById.get(entry.escalatesToRoleId);
+      if (escalatesTo === undefined) {
+        push(
+          'ACCOUNTABILITY_ESCALATION_REF',
+          `accountability for "${entry.action}" escalates to role "${entry.escalatesToRoleId}", which this profile does not declare`,
+        );
+      } else if (accountable !== undefined && escalatesTo.authorityCeiling <= accountable.authorityCeiling) {
+        // A sideways handoff is a transfer, not an escalation. Permitting it would let a
+        // timeout report that a case was raised when it was merely moved.
+        push(
+          'ACCOUNTABILITY_ESCALATION_NOT_UPWARD',
+          `accountability for "${entry.action}" escalates from "${entry.roleId}" (authority ${accountable.authorityCeiling}) to "${entry.escalatesToRoleId}" (authority ${escalatesTo.authorityCeiling}), which is not upward. Escalation must reach strictly higher authority.`,
+        );
+      }
+    }
+    if (seenActions.has(entry.action)) {
+      push('ACCOUNTABILITY_DUPLICATE', `two accountabilities are declared for action "${entry.action}"`);
+    }
+    seenActions.add(entry.action);
+  }
+
   return issues;
+}
+
+// ---------------------------------------------------------------------------
+// Accountability resolution
+// ---------------------------------------------------------------------------
+
+export interface AccountabilityResolution {
+  /** The role this business holds accountable for the action. */
+  readonly accountable: Role;
+  /** Where an unactioned case goes next. Absent when the profile declares no next step. */
+  readonly escalatesTo?: Role;
+}
+
+/**
+ * Answers "whose desk does this action land on?" from declared fact, never from rank.
+ *
+ * Returns `undefined` when the profile has said nothing about the action — which is a real
+ * answer, not a failure. A caller that gets `undefined` should fall back to authority
+ * resolution and, if that is ambiguous, report the ambiguity rather than choosing for the
+ * business. Pure and synchronous, like every other profile utility here.
+ */
+export function resolveAccountableRole(
+  profile: BusinessProfile,
+  action: string,
+): AccountabilityResolution | undefined {
+  const entry = profile.accountabilities?.find((candidate) => candidate.action === action);
+  if (entry === undefined) return undefined;
+
+  const accountable = profile.roles.find((role) => role.id === entry.roleId);
+  // A dangling reference is a profile defect `validateProfileConsistency` reports; resolving it
+  // to a plausible role here would hide the defect behind a working-looking answer.
+  if (accountable === undefined) return undefined;
+
+  const escalatesTo =
+    entry.escalatesToRoleId === undefined
+      ? undefined
+      : profile.roles.find((role) => role.id === entry.escalatesToRoleId);
+
+  return escalatesTo === undefined ? { accountable } : { accountable, escalatesTo };
 }
 
 // ---------------------------------------------------------------------------

@@ -289,7 +289,7 @@ const RAW = {
         holdsAt: ['AWAITING_APPROVAL'],
         note: 'The draft stays in AWAITING_APPROVAL. Escalation changes who is asked, not where the case is — a timeout must never decide a proposal on its own. Escalation is strictly upward, resolved above the assigned approver’s own authority ceiling, so a draft can never be escalated to the person who is already not responding.',
       },
-      verificationTest: 'tests/call-to-proposal-approval-timeout.test.ts — routing records the approver and the window; a check inside the window takes no action; past it, a named approver escalates strictly above their own ceiling, an approver at the top of the ladder records an exhausted chain and notifies nobody, and a draft that was never assigned reports that condition rather than a late reviewer. No branch sets a lifecycle transition. Replayable as the approval-window-elapses-unassigned scenario.',
+      verificationTest: 'tests/call-to-proposal-approval-timeout.test.ts — routing records the approver, the window, and the declared next approver; a check inside the window takes no action; past it, escalation goes strictly past the assignee, an approver at the top of the ladder records an exhausted chain and notifies nobody, and a business that has named no approver reports an unowned draft rather than a late reviewer. No branch sets a lifecycle transition. Replayable as the approval-window-elapses scenario.',
     },
   ],
 

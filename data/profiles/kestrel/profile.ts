@@ -645,6 +645,29 @@ const RAW = {
     { key: 'exceptionVarianceThresholdPct', label: 'Exception-candidate variance threshold', value: 12, unit: 'percent', policyId: 'kestrel-exception-materiality' },
     { key: 'malformedRetryBudget', label: 'Attempts on a malformed intake payload before a person is asked', value: 3, unit: 'attempts', policyId: 'kestrel-malformed-intake' },
   ],
+
+  /**
+   * Whose desk a specific action lands on, and whose desk it goes to next.
+   *
+   * Added 2026-08-27, because the model could not previously answer "who approves a proposal
+   * here?". Asking by authority alone ties the Operations Coordinator and Finance at ceiling 2
+   * — and neither of them approves proposals. This firm's own role descriptions already said
+   * who does: the Client Partner "owns named accounts through qualification, scoping, and
+   * proposal", and the founder "approves all commercial commitments" and is "the final
+   * escalation point". That was prose. This is the same fact, checkable.
+   *
+   * It grants nobody anything: the Client Partner's authority ceiling is unchanged at 3, and
+   * despatch is still capped at authority 2 by kestrel-proposal-authority regardless of who is
+   * accountable for deciding.
+   */
+  accountabilities: [
+    {
+      action: 'PROPOSAL_APPROVAL',
+      roleId: 'client-partner',
+      escalatesToRoleId: 'founder',
+      policyId: 'kestrel-proposal-authority',
+    },
+  ],
 } satisfies Parameters<typeof BusinessProfileSchema.parse>[0];
 
 export const KESTREL: BusinessProfile = BusinessProfileSchema.parse(RAW);

@@ -1,6 +1,48 @@
 # Status
 
-**As of 2026-08-27 (latest pass, same day) · A side effect finally leaves this machine.** Every
+**As of 2026-08-27 (latest pass, same day) · The firm can finally say who approves a proposal.**
+`resolveEscalationOwner` answers "who has enough authority?" and rightly refuses to break a tie
+between equally-qualified roles. That left a different question unanswerable: Kestrel's
+Operations Coordinator and Finance both clear the proposal authority bar, and **neither of them
+approves proposals**. The model returned an honest ambiguity where the business had a real answer
+all along, sitting in prose nobody could check — the Client Partner "owns named accounts through
+qualification, scoping, and proposal", escalating to the founder who "approves all commercial
+commitments". `accountabilities` makes that same fact data, validated, and checkable.
+
+**It is not a tie-break relocated into configuration.** It ranks nothing and grants nothing: the
+Client Partner's authority ceiling is unchanged at 3, despatch is still capped at authority 2 by
+`kestrel-proposal-authority`, and a test pins that naming somebody accountable can never give
+them authority they do not have. Declared beats derived, and rank is asked only when the business
+has said nothing.
+
+**A sideways handoff is not an escalation.** An escalation target whose authority ceiling is not
+strictly higher is refused by the build. Permitting it would let a timeout report that a case was
+raised when it had merely been moved.
+
+**The scenario got better, not just different.** `approval-window-elapses-unassigned` became
+`approval-window-elapses`: a draft routed to the Client Partner with a 48-hour window, a check at
+24 hours that does nothing and says how far into the window it looked, and a check at 50 hours
+that escalates **past** the Client Partner to the Managing Principal — with the draft not moving.
+A visitor now watches the mechanism work rather than watching it confess.
+
+**The honesty machinery did not soften.** The unowned-draft path — a business that has never
+decided, two roles tied at the required authority — was Kestrel's own condition before this pass
+and is still fully proven, now on a synthetic profile. A fiction fixing itself must never be
+allowed to retire the mechanism that reported the problem.
+
+**What the mutation pass caught.** On Kestrel the declared next approver and the rank-derived one
+AGREE, so a mutation that ignored the declaration entirely still passed — the test had checked
+the label rather than the behaviour. Repaired with a profile where the two disagree by
+construction: the business declares a Client Partner at ceiling 2 escalating straight to the
+founder, while rank would stop at Head of Delivery on the way.
+
+`npm run verify`: 67 files, 1048 passed / 1 skipped, exit 0. `npm run build`: exit 0. 13 new
+tests written RED first; 7 targeted mutations, two survivors, both repaired, files restored
+byte-for-byte and verified by SHA-256.
+
+---
+
+**As of 2026-08-27 (earlier pass, same day) · A side effect finally leaves this machine.** Every
 execution claim in this repository has carried the same unstated bound: the SMTP proof crossed a
 real socket to a real capture server, but always at `127.0.0.1`. With the owner's explicit
 in-session go-ahead, an authorized Lead Rescue notification now leaves this machine over HTTPS,

@@ -95,12 +95,13 @@ async function runWithChecks(
 }
 
 /**
- * A profile whose approval authority resolves to exactly one role, with a strictly higher
- * role above it. This is the case Kestrel itself cannot produce (see the Kestrel block below)
- * and the only one in which "the next approver in the authority chain" has a real answer.
+ * A profile that declares NO accountability and whose approval authority resolves to exactly
+ * one role, with a strictly higher role above it. This exercises the authority-only fallback:
+ * a business that has not said who approves, but whose ranks happen to answer unambiguously.
  */
 const SINGLE_APPROVER: BusinessProfile = {
   ...KESTREL,
+  accountabilities: undefined,
   roles: [
     { id: 'client-partner', name: 'Client Partner', responsibilities: 'Owns named accounts through proposal.', authorityCeiling: 2 },
     { id: 'founder', name: 'Managing Principal (founder)', responsibilities: 'Final escalation point.', authorityCeiling: 4 },
@@ -110,7 +111,24 @@ const SINGLE_APPROVER: BusinessProfile = {
 /** A profile whose only qualifying approver is already at the top of the ladder. */
 const TOP_OF_CHAIN_APPROVER: BusinessProfile = {
   ...KESTREL,
+  accountabilities: undefined,
   roles: [
+    { id: 'founder', name: 'Managing Principal (founder)', responsibilities: 'Final escalation point.', authorityCeiling: 4 },
+  ],
+};
+
+/**
+ * A business that has never decided who approves a proposal — no accountability declared, and
+ * two roles tied at the required authority. This was Kestrel's own condition until the profile
+ * gained a declared accountability, and the case must stay provable after it: the mechanism
+ * that reports an unowned draft is not allowed to rot just because this fiction fixed itself.
+ */
+const UNDECIDED_BUSINESS: BusinessProfile = {
+  ...KESTREL,
+  accountabilities: undefined,
+  roles: [
+    { id: 'ops-coordinator', name: 'Operations Coordinator', responsibilities: 'Runs onboarding logistics.', authorityCeiling: 2 },
+    { id: 'finance', name: 'Finance (fractional bookkeeper)', responsibilities: 'Issues invoices.', authorityCeiling: 2 },
     { id: 'founder', name: 'Managing Principal (founder)', responsibilities: 'Final escalation point.', authorityCeiling: 4 },
   ],
 };
@@ -126,19 +144,27 @@ describe('Call-to-Proposal approval attention timeout — cp-fm-approval-timeout
       expect(run.finalState.facts['approvalRoutedAt']).toBe(ROUTED_AT);
     });
 
-    it('records who the draft is waiting on, resolved at the profile’s proposal authority', async () => {
+    it('prefers the approver the business actually declared over anything inferred from rank', async () => {
+      const run = await runWithChecks([]);
+      expect(run.finalState.facts['approvalAssignmentStatus']).toBe('DECLARED_ACCOUNTABILITY');
+      expect(run.finalState.facts['approvalAssignedTo']).toBe('Client Partner');
+      expect(run.finalState.facts['approvalAssigneeCeiling']).toBe('3');
+      expect(run.finalState.facts['approvalEscalatesTo']).toBe('Managing Principal (founder)');
+    });
+
+    it('falls back to authority when the business has declared no accountability', async () => {
       const run = await runWithChecks([], SINGLE_APPROVER);
       expect(run.finalState.facts['approvalAssignmentStatus']).toBe('RESOLVED');
       expect(run.finalState.facts['approvalAssignedTo']).toBe('Client Partner');
       expect(run.finalState.facts['approvalAssigneeCeiling']).toBe('2');
+      expect(run.finalState.facts['approvalEscalatesTo']).toBeUndefined();
     });
 
-    it('states plainly that no approver was named when the profile cannot name one, and invents nobody', async () => {
-      // Kestrel ties Operations Coordinator and Finance at the proposal authority ceiling.
-      // `resolveEscalationOwner` refuses to break that tie, so the declared cause of this very
-      // failure mode — "no named approver assigned at routing time" — is Kestrel's standing
-      // condition, not a hypothetical. It must be recorded as such, never papered over.
-      const run = await runWithChecks([]);
+    it('states plainly that no approver was named when the business has never decided, and invents nobody', async () => {
+      // The declared cause of this very failure mode — "no named approver assigned at routing
+      // time". Kestrel's own condition until its profile named one; kept provable here so the
+      // mechanism cannot rot just because this particular fiction was fixed.
+      const run = await runWithChecks([], UNDECIDED_BUSINESS);
       expect(run.finalState.facts['approvalAssignmentStatus']).toBe('UNRESOLVED_AMBIGUOUS_OWNER');
       expect(run.finalState.facts['approvalAssignedTo']).toContain('Operations Coordinator');
       expect(run.finalState.facts['approvalAssigneeCeiling']).toBeUndefined();
@@ -207,11 +233,60 @@ describe('Call-to-Proposal approval attention timeout — cp-fm-approval-timeout
     });
 
     it('reports an unassigned draft as unassigned, not as a slow reviewer', async () => {
-      const run = await runWithChecks([approvalCheck('late', hoursAfter(ROUTED_AT, WINDOW_HOURS + 1))]);
+      const run = await runWithChecks(
+        [approvalCheck('late', hoursAfter(ROUTED_AT, WINDOW_HOURS + 1))],
+        UNDECIDED_BUSINESS,
+      );
       const decision = run.decisions.find((d) => d.selectedAction === 'escalate_unassigned_draft');
-      expect(decision, 'Kestrel names no approver, so the overdue condition is a different one').toBeDefined();
+      expect(decision, 'this business names no approver, so the overdue condition is a different one').toBeDefined();
       expect(decision?.escalationReason).toContain('never assigned');
       expect(run.sideEffects).toHaveLength(1);
+    });
+
+    it('uses the declared next approver even when rank would name someone else', async () => {
+      // The assertion that can actually fail. On Kestrel the declared target (founder) and the
+      // rank-derived one (authority 3 + 1 → founder) AGREE, so a mutation that ignored the
+      // declaration survived a test which only checked the label. Here they disagree by
+      // construction: the business declares Client Partner (ceiling 2) escalates to the
+      // founder, while rank would stop at Head of Delivery on the way. The business wins.
+      const declaredSkipsARank: BusinessProfile = {
+        ...KESTREL,
+        roles: [
+          { id: 'analyst', name: 'Compliance Analyst', responsibilities: 'Collects evidence.', authorityCeiling: 1 },
+          { id: 'client-partner', name: 'Client Partner', responsibilities: 'Owns proposals.', authorityCeiling: 2 },
+          { id: 'head-of-delivery', name: 'Head of Delivery', responsibilities: 'Owns staffing.', authorityCeiling: 3 },
+          { id: 'founder', name: 'Managing Principal (founder)', responsibilities: 'Final escalation point.', authorityCeiling: 4 },
+        ],
+        accountabilities: [
+          {
+            action: 'PROPOSAL_APPROVAL',
+            roleId: 'client-partner',
+            escalatesToRoleId: 'founder',
+            policyId: 'kestrel-proposal-authority',
+          },
+        ],
+      };
+      const run = await runWithChecks(
+        [approvalCheck('late', hoursAfter(ROUTED_AT, WINDOW_HOURS + 1))],
+        declaredSkipsARank,
+      );
+      expect(run.sideEffects[0]?.target).toBe('Managing Principal (founder)');
+      expect(run.sideEffects[0]?.target).not.toBe('Head of Delivery');
+    });
+
+    it('escalates to the declared next approver rather than re-deriving one from rank', async () => {
+      // Kestrel declares Client Partner -> founder. Deriving from the ceiling alone would also
+      // reach authority 4 here, so the assertion that matters is the DECISION: the escalation
+      // must cite the declared accountability, not a rank lookup that happens to agree.
+      const run = await runWithChecks([approvalCheck('late', hoursAfter(ROUTED_AT, WINDOW_HOURS + 1))]);
+      const decision = run.decisions.find((d) => d.selectedAction === 'escalate_attention_to_next_approver');
+      expect(decision).toBeDefined();
+      expect(decision?.escalationReason).toContain('Client Partner');
+      expect(run.sideEffects[0]?.target).toBe('Managing Principal (founder)');
+      expect(
+        decision?.deterministicFacts.some((f) => f.value.includes('declared accountability')),
+        'the escalation must say the target came from a declared accountability',
+      ).toBe(true);
     });
   });
 
@@ -236,7 +311,7 @@ describe('Call-to-Proposal approval attention timeout — cp-fm-approval-timeout
     it('holds position across the authored scenario a visitor can actually watch', async () => {
       // The shelf item, run exactly as the simulator runs it. Without this the scenario is
       // decoration: `expectedFinalState` alone would pass even if both checks did nothing.
-      const authored = callToProposalScenarioBySlug('approval-window-elapses-unassigned');
+      const authored = callToProposalScenarioBySlug('approval-window-elapses');
       expect(authored, 'the approval-timeout scenario must be on the shelf').toBeDefined();
       if (authored === undefined) return;
 
@@ -251,8 +326,8 @@ describe('Call-to-Proposal approval attention timeout — cp-fm-approval-timeout
       expect(run.finalState.lifecycleState).toBe('AWAITING_APPROVAL');
       // One check inside the window that does nothing, one past it that escalates.
       expect(run.decisions.filter((d) => d.selectedAction === 'remain_awaiting_approval')).toHaveLength(1);
-      expect(run.decisions.filter((d) => d.selectedAction === 'escalate_unassigned_draft')).toHaveLength(1);
-      expect(run.decisions.filter((d) => d.selectedAction === 'escalate_attention_to_next_approver')).toEqual([]);
+      expect(run.decisions.filter((d) => d.selectedAction === 'escalate_attention_to_next_approver')).toHaveLength(1);
+      expect(run.decisions.filter((d) => d.selectedAction === 'escalate_unassigned_draft')).toEqual([]);
       expect(run.sideEffects.filter((e) => e.status === 'EXECUTED')).toHaveLength(1);
     });
 

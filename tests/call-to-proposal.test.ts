@@ -39,7 +39,7 @@ describe('Call-to-Proposal Revenue Agent scenarios', () => {
     expect(CALL_TO_PROPOSAL_SCENARIOS.map((s) => s.slug)).toEqual([
       'discovery-to-approved-proposal',
       'unsupported-scope-claim-blocked',
-      'approval-window-elapses-unassigned',
+      'approval-window-elapses',
     ]);
   });
 

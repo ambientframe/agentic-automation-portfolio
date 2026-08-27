@@ -3,7 +3,52 @@
 > One per accepted package (Constitution §14). Repository truth is authoritative; this file
 > is an index, not a source. Append the new checkpoint above the previous one.
 
-## Current — A side effect finally leaves this machine · 2026-08-27
+## Current — The firm can finally say who approves a proposal · 2026-08-27
+
+**Verified state.** `npm run verify`: 67 files, 1048 passed / 1 skipped, exit 0. `npm run build`:
+exit 0.
+
+**Owner decision, delegated and taken.** The owner asked for a recommendation on the outstanding
+canon questions and accepted it: give Kestrel a nameable proposal approver so the working path is
+demonstrable, and keep the ambiguity provable on a synthetic profile rather than deleting it.
+
+**The gap this closes.** `resolveEscalationOwner` answers "who has enough authority?" and rightly
+refuses to break a tie. Kestrel's Operations Coordinator and Finance both clear the proposal
+authority bar and neither approves proposals — so the model returned an honest ambiguity where
+the business had a real answer all along, sitting in prose nobody could check: the Client Partner
+owns proposals, escalating to the founder who approves all commercial commitments.
+`accountabilities` makes that same fact data.
+
+**It grants nobody anything.** The Client Partner's authority ceiling is unchanged at 3, and
+despatch is still capped at authority 2. Accountability says whose desk an action lands on; it is
+not a back door to authority, and a test pins that.
+
+**The scenario got better, not just different.** `approval-window-elapses-unassigned` became
+`approval-window-elapses`: a draft routed to the Client Partner with a 48-hour window, a check at
+24 hours that does nothing and says so, and a check at 50 hours that escalates **past** the Client
+Partner to the Managing Principal — with the draft not moving an inch. A visitor now watches the
+mechanism work rather than watching it confess.
+
+**The honesty machinery did not soften.** The unowned-draft path is still fully proven, now on a
+profile that has genuinely never decided. A fiction fixing itself must not retire the mechanism
+that reported the problem.
+
+**Falsification and mutation.** 13 new tests written RED first. 7 targeted mutations; **two
+survived** and were repaired. One is worth recording: on Kestrel the declared next approver and
+the rank-derived one AGREE, so a mutation that ignored the declaration passed a test which had
+only checked the label. Repaired with a profile where the two disagree by construction.
+
+**Maturity.** Unchanged. $0 spent, no provider crossed.
+
+**Pattern earned.** #24 — who is accountable is a fact a business knows, not an inference from
+rank.
+
+**Next package.** Closing two of the four published abandonable parked states, per the same
+accepted recommendation: `call-to-proposal/NEEDS_HUMAN` (reuse within a system) and
+`client-onboarding/NEEDS_HUMAN` (reuse across systems, the stronger claim). The other two stay
+published as backlog.
+
+## Earlier — A side effect finally leaves this machine · 2026-08-27
 
 **Verified state.** `npm run verify`: 66 files, 1032 passed / 1 skipped, exit 0. `npm run build`:
 exit 0. New runtime artifact: `n8n/evidence/lead-rescue-remote-execution.json`.

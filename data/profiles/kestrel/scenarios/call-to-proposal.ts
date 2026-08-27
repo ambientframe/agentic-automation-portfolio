@@ -216,7 +216,7 @@ const scenarioB: Scenario = ScenarioSchema.parse({
 });
 
 // ---------------------------------------------------------------------------
-// Scenario C — approval window elapses on a draft nobody owns
+// Scenario C — the approval window elapses and the case is raised, not decided
 // ---------------------------------------------------------------------------
 
 const HALLOWAY_SEGMENTS = [
@@ -238,6 +238,12 @@ const HALLOWAY_SEGMENTS = [
  * established and cited, the buyer's timing is stated plainly, and no claim expands scope.
  * That is the point — this scenario's subject is not extraction quality but what happens
  * AFTER a clean draft reaches AWAITING_APPROVAL and no person acts on it.
+ *
+ * The unowned-draft variant this scenario used to demonstrate — a firm whose roles tie at the
+ * approval authority, so nobody can be named — moved to `tests/call-to-proposal-approval-timeout.test.ts`
+ * when Kestrel's profile gained a declared accountability. It is still proven; it is simply no
+ * longer THIS firm's condition, and authoring a scenario around a state Kestrel cannot reach
+ * would have been a demonstration of nothing.
  */
 const HALLOWAY_EXTRACTION: ExtractionResult = {
   judgmentId: 'jud-cp-halloway-extract',
@@ -263,17 +269,17 @@ const HALLOWAY_EXTRACTION: ExtractionResult = {
 };
 
 const scenarioC: Scenario = ScenarioSchema.parse({
-  id: 'cp-scenario-approval-window-elapses-unassigned',
-  slug: 'approval-window-elapses-unassigned',
+  id: 'cp-scenario-approval-window-elapses',
+  slug: 'approval-window-elapses',
   systemId: 'call-to-proposal',
-  title: 'Approval window elapses on a draft nobody owns',
+  title: 'The approval window elapses, and the case is raised rather than decided',
   summary:
-    'A clean discovery call produces an admissible proposal draft, and then nothing happens to it. The 48-hour approval window elapses and the system escalates — but the condition it reports is not "the reviewer is late". It is that this firm’s own role definitions cannot say who the approver is, so the draft was never assigned to anyone. The draft does not move.',
+    'A clean discovery call produces an admissible proposal draft, routed to the Client Partner with a 48-hour review window. Nobody acts. A check at 24 hours does nothing and says so; a check at 50 hours escalates past the Client Partner to the Managing Principal. The draft does not move an inch — a timeout raises the fact that nobody has acted, and never decides a commercial document on a person’s behalf.',
   demonstrates: [
-    'Routing records when the approval wait started and who the draft is waiting on',
-    'Two roles tie at the required approval authority, so the system names nobody rather than picking one',
+    'Routing records when the approval wait started, who the draft is waiting on, and who it escalates to',
+    'The approver comes from what the firm declared, not from whoever happens to clear the authority bar',
     'A check inside the window takes no action and says how far into the window it looked',
-    'Past the window, the escalation reports an unowned draft, not an unresponsive reviewer',
+    'Escalation goes strictly past the unresponsive approver — never back to them',
     'A timeout escalates attention and never decides the proposal — the draft stays AWAITING_APPROVAL',
   ],
   events: [
