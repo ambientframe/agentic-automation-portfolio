@@ -152,7 +152,9 @@ with instructions if it is missing. Frames are written at a fixed 1440×900 view
 the colour scheme pinned, so two captures of an unchanged page differ only where the page
 differs.
 
-**Captured from commit `0195146` against a local production build.** Frame 6 shows a runtime
+**Captured from commit `0195146` against a local production build, and re-captured
+byte-identical at `1a948df`** — two packages later, none of these eight viewports had moved.
+Frame 6 shows a runtime
 store that had been used, which is why it has a case in it; a freshly deployed instance carries
 no runtime state and its operator console starts empty, filling only from use of the demo
 itself. That was chosen over seeding it, because authored history presented as a record would
