@@ -1,7 +1,9 @@
 import { z } from 'zod';
+import { numberParam, resolveEscalationOwner } from '@/lib/model/profile';
+import type { AuthorityLevel } from '@/lib/model/system';
 import type { DecisionRecord } from '@/lib/model/runtime';
 import type { ResolvedProvision } from '@/lib/ports/resource-provisioner';
-import type { HandlerContext, HandlerOutcome, HandlerStep, ProposedEffect, SystemHandlers } from '../types';
+import type { EventHandler, HandlerContext, HandlerOutcome, HandlerStep, ProposedEffect, SystemHandlers } from '../types';
 
 /**
  * CLIENT ONBOARDING OPERATOR — operating logic.
@@ -1645,14 +1647,223 @@ function handleHumanDecision(ctx: HandlerContext): HandlerOutcome {
   };
 }
 
+// ---------------------------------------------------------------------------
+// onboarding.review.reevaluated — co-fm-review-timeout
+// ---------------------------------------------------------------------------
+
+/** The final escalation point. Matching Lead Rescue's value and its reasoning. */
+const FINAL_ESCALATION_AUTHORITY: AuthorityLevel = 4;
+
+/**
+ * When this engagement entered human review. The peer of Lead Rescue's `reviewStartedAt` and
+ * Call-to-Proposal's fact of the same name.
+ */
+const REVIEW_STARTED_AT_FACT = 'humanReviewStartedAt';
+
+/**
+ * Stamps the review clock onto whichever step actually enters human review.
+ *
+ * Applied ONCE at the handler boundary rather than at each entry point, because this handler
+ * has three ways into NEEDS_HUMAN — a contradiction at intake, a contradiction surviving
+ * clarification, and a provisioning outcome that cannot be confirmed — and a fourth is
+ * entirely plausible. Hand-stamping would mean a future entry point arrives with no clock, and
+ * a parked case whose window never starts can never be overdue: silently the exact condition
+ * this mechanism exists to catch.
+ *
+ * It only ever ADDS a fact to a step the handler already decided to route into review. It
+ * cannot create, redirect, or suppress a transition.
+ */
+function stampReviewStart(steps: readonly HandlerStep[], occurredAt: string): HandlerStep[] {
+  return steps.map((step) =>
+    step.transitionTo === 'NEEDS_HUMAN'
+      ? {
+          ...step,
+          statePatch: {
+            ...step.statePatch,
+            facts: { ...step.statePatch?.facts, [REVIEW_STARTED_AT_FACT]: occurredAt },
+          },
+        }
+      : step,
+  );
+}
+
+/**
+ * THE HUMAN-REVIEW ATTENTION TIMEOUT. Closes `co-fm-review-timeout`, and with it the
+ * `client-onboarding/NEEDS_HUMAN` entry `data/parked-state-attention.ts` published.
+ *
+ * Nobody in particular was asked here: an engagement reaches NEEDS_HUMAN because the system
+ * refused to resolve something on a person's behalf — a same-rank contradiction it will not
+ * settle by recency, or a resource whose state it will not overwrite. There is no assignee to
+ * escalate past, so this escalates to the final escalation point, exactly as Lead Rescue's
+ * review timeout does.
+ *
+ * Sets no `transitionTo`, in any branch. An engagement nobody has looked at is an operational
+ * attention failure, never a licence to resolve a contradiction or overwrite a resource.
+ */
+function handleReviewAttentionTimeout(ctx: HandlerContext): HandlerOutcome {
+  const { event, state, profile } = ctx;
+  const id = (suffix: string) => `${event.eventId}:${suffix}`;
+  const windowHours = numberParam(profile, 'humanReviewTimeoutHours');
+  const startedAt = state.facts[REVIEW_STARTED_AT_FACT];
+
+  if (state.lifecycleState !== 'NEEDS_HUMAN' || startedAt === undefined) {
+    const why =
+      state.lifecycleState !== 'NEEDS_HUMAN'
+        ? `Current lifecycle state (${state.lifecycleState}) is not human review. No action taken.`
+        : 'No recorded review-start timestamp on this engagement. No action taken.';
+    return {
+      steps: [
+        {
+          id: id('review-check-inert'),
+          label: 'Review attention check',
+          atOffsetSeconds: 0,
+          summary: why,
+          decisions: [
+            decision({
+              id: id('d-review-check-inert'),
+              eventId: event.eventId,
+              mechanism: 'DETERMINISTIC_RULE',
+              objective: 'Determine whether the configured human-review window has elapsed.',
+              relevantState: state.lifecycleState,
+              evidenceRefs: [`state.facts.${REVIEW_STARTED_AT_FACT}`],
+              deterministicFacts: [
+                { label: 'Lifecycle state', value: state.lifecycleState },
+                { label: 'Review started', value: startedAt ?? 'not recorded' },
+              ],
+              missingInformation: [...state.missingInformation],
+              permittedActions: ['record_unresolvable_check'],
+              forbiddenActions: ['guess_review_start', 'escalate_without_evidence'],
+              selectedAction: 'record_unresolvable_check',
+              applicablePolicy: ['A review attention check that cannot be computed concludes nothing and takes no action.'],
+              authority: 0,
+            }),
+          ],
+          effects: [],
+          verifications: [],
+        },
+      ],
+    };
+  }
+
+  const elapsedMs = Date.parse(event.occurredAt) - Date.parse(startedAt);
+  const elapsedHours = Math.round((elapsedMs / (60 * 60 * 1000)) * 10) / 10;
+  const timingFacts = [
+    { label: 'Review started', value: startedAt },
+    { label: 'Checked at', value: event.occurredAt },
+    { label: 'Elapsed', value: `${elapsedHours} hours` },
+    { label: 'Configured window', value: `${windowHours} hours` },
+  ];
+
+  if (elapsedMs < windowHours * 60 * 60 * 1000) {
+    return {
+      steps: [
+        {
+          id: id('review-check'),
+          label: 'Review attention check',
+          atOffsetSeconds: 0,
+          summary: `Checked ${elapsedHours}h into a ${windowHours}h review window. Still within policy — no action taken.`,
+          decisions: [
+            decision({
+              id: id('d-review-check'),
+              eventId: event.eventId,
+              mechanism: 'DETERMINISTIC_RULE',
+              objective: 'Determine whether the configured human-review window has elapsed.',
+              relevantState: state.lifecycleState,
+              evidenceRefs: [`state.facts.${REVIEW_STARTED_AT_FACT}`, 'event.occurredAt'],
+              deterministicFacts: timingFacts,
+              missingInformation: [...state.missingInformation],
+              permittedActions: ['remain_under_review'],
+              forbiddenActions: ['escalate_before_window_elapses', 'resolve_contradiction', 'overwrite_resource'],
+              selectedAction: 'remain_under_review',
+              applicablePolicy: [
+                `CLIENT_POLICY kestrel-review-timeout-window: attention escalation is eligible only once the configured ${windowHours}-hour review window has genuinely elapsed.`,
+              ],
+              authority: 3,
+            }),
+          ],
+          effects: [],
+          verifications: [],
+        },
+      ],
+    };
+  }
+
+  const escalationOwner = resolveEscalationOwner(profile, FINAL_ESCALATION_AUTHORITY);
+
+  return {
+    steps: [
+      {
+        id: id('review-overdue'),
+        label: 'Review attention overdue',
+        atOffsetSeconds: 0,
+        // Deliberately NO transitionTo. The engagement stays exactly where it is.
+        summary: `No human decision within the configured ${windowHours}-hour review window (checked at ${elapsedHours}h). Escalated to ${escalationOwner.target} as an overdue attention condition — the engagement remains NEEDS_HUMAN, pending an actual human decision.`,
+        decisions: [
+          decision({
+            id: id('d-review-overdue'),
+            eventId: event.eventId,
+            mechanism: 'DETERMINISTIC_RULE',
+            objective: 'Determine whether the configured human-review window has elapsed.',
+            relevantState: state.lifecycleState,
+            evidenceRefs: [`state.facts.${REVIEW_STARTED_AT_FACT}`, 'event.occurredAt', 'profile.roles'],
+            deterministicFacts: [
+              ...timingFacts,
+              { label: 'Escalation reaches', value: escalationOwner.target },
+              { label: 'Escalation basis', value: 'final escalation point — no reviewer was ever assigned to go past' },
+            ],
+            missingInformation: [...state.missingInformation],
+            permittedActions: ['escalate_review_attention'],
+            forbiddenActions: ['resolve_contradiction', 'overwrite_resource', 'transition_lifecycle_state'],
+            selectedAction: 'escalate_review_attention',
+            applicablePolicy: [
+              `CLIENT_POLICY kestrel-review-timeout-window: an engagement held for human review past the configured ${windowHours}-hour window is escalated as an attention condition. It is never auto-resolved.`,
+            ],
+            escalationReason: `An engagement has been held for human review for ${elapsedHours} hours with no named reviewer assigned to it, past the configured ${windowHours}-hour window.`,
+            authority: 2,
+          }),
+        ],
+        effects: [
+          {
+            id: id('effect:notify-review-overdue'),
+            kind: 'NOTIFICATION',
+            description: 'Notify the final escalation point that an engagement held for human review has exceeded the configured window.',
+            target: escalationOwner.target,
+            idempotencyKey: `notify:${event.entityId}:review-overdue`,
+            authority: 3,
+            policyPermits: true,
+            verification: {
+              check: 'Confirm the notification reached a named owner rather than a shared queue.',
+              expect: 'Notification addressed to a named owner.',
+            },
+          },
+        ],
+        verifications: [],
+      },
+    ],
+  };
+}
+
+/**
+ * Wraps a handler so any step it routes into review carries a review clock.
+ *
+ * Applied at the registration boundary rather than inside each handler, so that a new entry
+ * point into NEEDS_HUMAN — or a whole new handler — cannot arrive without one. It only adds a
+ * fact to a step the wrapped handler already decided to route into review; it cannot create,
+ * redirect, or suppress a transition, and every other step passes through untouched.
+ */
+function withReviewClock(handler: EventHandler): EventHandler {
+  return (ctx) => ({ steps: stampReviewStart(handler(ctx).steps, ctx.event.occurredAt) });
+}
+
 export const CLIENT_ONBOARDING_HANDLERS: SystemHandlers = {
   systemId: 'client-onboarding',
   initialState: 'AGREEMENT_SIGNED',
   handlers: {
-    'engagement.signed': handleEngagementSigned,
-    'customer.intake.supplied': handleCustomerIntakeSupplied,
-    'access.grant.confirmed': handleAccessGrantConfirmed,
-    'onboarding.task.completed': handleTaskCompleted,
-    'human.decision.recorded': handleHumanDecision,
+    'engagement.signed': withReviewClock(handleEngagementSigned),
+    'customer.intake.supplied': withReviewClock(handleCustomerIntakeSupplied),
+    'access.grant.confirmed': withReviewClock(handleAccessGrantConfirmed),
+    'onboarding.task.completed': withReviewClock(handleTaskCompleted),
+    'human.decision.recorded': withReviewClock(handleHumanDecision),
+    'onboarding.review.reevaluated': handleReviewAttentionTimeout,
   },
 };

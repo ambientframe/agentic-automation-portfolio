@@ -1,6 +1,44 @@
 # Status
 
-**As of 2026-08-27 (latest pass, same day) · The firm can finally say who approves a proposal.**
+**As of 2026-08-27 (latest pass, same day) · Two of the four published gaps, closed — and the
+audit had to say so.** `call-to-proposal/NEEDS_HUMAN` and `client-onboarding/NEEDS_HUMAN` now
+declare a `HUMAN_APPROVAL_TIMEOUT` and implement it. The assertion that carries the weight in
+each suite is not that the mechanism works; it is that **`abandonableStateIds` stopped listing
+the state**. A gap that could be closed without moving the audit's own number would have been
+measuring something other than what it claimed.
+
+**Two of four, and a test pins that too.** `dormant-pipeline-recovery/NEEDS_HUMAN` and
+`owner-revenue-intelligence/AWAITING_OWNER_DECISION` remain published. The point of publishing a
+gap is that it gets worked, not that it quietly empties.
+
+**The escalation deliberately differs from the approval timeout.** `AWAITING_APPROVAL` had a
+named assignee, so escalation goes strictly PAST them. `NEEDS_HUMAN` has none — the case is
+waiting for whoever picks it up — so escalation goes to the final escalation point, exactly as
+Lead Rescue does. Two mechanisms because two situations, decided by what routing actually
+recorded rather than by which state happens to be involved.
+
+**Client Onboarding stamps its review clock at the handler boundary, not at each entry point.**
+It has three ways into NEEDS_HUMAN and a fourth is entirely plausible. Hand-stamping would let a
+future entry point arrive with no clock — and **a parked case whose window never starts can never
+be overdue**, which is silently the exact condition this mechanism exists to catch.
+
+**What the mutation pass caught, and it is embarrassing in a useful way.** The `<` / `<=` window
+boundary slipped through. It is the same weakness caught and fixed on the approval timeout a few
+hours earlier, which was then not carried across when the shape was reused. Reuse copies the gaps
+in the tests as faithfully as it copies the code; both systems now have the boundary pinned.
+
+**What this does not prove.** Neither timeout is driven by a real scheduler — the checks are
+scenario- or test-authored, and nothing sweeps parked cases on its own. Neither is wired into the
+durable wait-incident store that gives Lead Rescue cross-process resumption. The escalation is
+still recorded and rendered, not delivered to anyone.
+
+`npm run verify`: 69 files, 1067 passed / 1 skipped, exit 0. `npm run build`: exit 0. 18 new
+tests written RED first; 8 targeted mutations, one survivor, repaired in both systems, files
+restored byte-for-byte and verified by SHA-256.
+
+---
+
+**As of 2026-08-27 (earlier pass, same day) · The firm can finally say who approves a proposal.**
 `resolveEscalationOwner` answers "who has enough authority?" and rightly refuses to break a tie
 between equally-qualified roles. That left a different question unanswerable: Kestrel's
 Operations Coordinator and Finance both clear the proposal authority bar, and **neither of them

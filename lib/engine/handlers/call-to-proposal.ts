@@ -339,6 +339,13 @@ const APPROVAL_ASSIGNEE_FACT = 'approvalAssignedTo';
 const APPROVAL_CEILING_FACT = 'approvalAssigneeCeiling';
 /** Where the business says an unactioned approval goes next. Written only when declared. */
 const APPROVAL_ESCALATES_TO_FACT = 'approvalEscalatesTo';
+/**
+ * When this package entered human review. Written once at every GENUINE entry into
+ * NEEDS_HUMAN — a failed extraction and a refused claim alike — and never rewritten by a
+ * later check, so re-reading a case does not grant it a fresh window. The direct peer of Lead
+ * Rescue's `reviewStartedAt`.
+ */
+const REVIEW_STARTED_AT_FACT = 'humanReviewStartedAt';
 
 /**
  * The action id this system asks the profile about. A business that has decided who approves a
@@ -527,7 +534,13 @@ function reviewClaimsAndRouteForApproval(
     ],
     effects: [],
     verifications: [],
-    statePatch: { facts: writeClaims(candidateScope) },
+    statePatch: {
+      facts: {
+        ...writeClaims(candidateScope),
+        // A refused claim is a genuine entry into human review, so the review clock starts here.
+        ...(rejected === undefined ? {} : { [REVIEW_STARTED_AT_FACT]: event.occurredAt }),
+      },
+    },
   });
 
   if (rejected !== undefined) return steps;
@@ -775,6 +788,8 @@ function handleTranscriptReceived(ctx: HandlerContext): HandlerOutcome {
       ],
       effects: [],
       verifications: [],
+      // The other genuine entry into human review. Same clock, same rule.
+      statePatch: { facts: { [REVIEW_STARTED_AT_FACT]: event.occurredAt } },
     });
     return { steps };
   }
@@ -1212,6 +1227,165 @@ function handleHumanDecision(ctx: HandlerContext): HandlerOutcome {
 const FINAL_ESCALATION_AUTHORITY: AuthorityLevel = 4;
 
 /**
+ * THE HUMAN-REVIEW ATTENTION TIMEOUT. Closes `cp-fm-review-timeout`, and with it the
+ * `call-to-proposal/NEEDS_HUMAN` entry `data/parked-state-attention.ts` published as a place
+ * work could be parked with nothing declared about being abandoned.
+ *
+ * WHY IT ESCALATES DIFFERENTLY FROM THE APPROVAL TIMEOUT, WHICH IS THE INTERESTING PART.
+ *
+ * `handleApprovalAttentionTimeout` escalates strictly PAST the assignee, because a specific
+ * person was asked and notifying them again would be a no-op wearing the costume of an action.
+ * Here NOBODY was asked: the package failed a gate — an unavailable extraction, or a claim that
+ * could not be admitted — and is waiting for whoever picks it up. There is no assignee to go
+ * past, so this escalates to the final escalation point, exactly as Lead Rescue's review
+ * timeout does and for exactly the same reason.
+ *
+ * The difference is derived from what routing actually recorded, never from which state happens
+ * to be involved. And like every attention mechanism in this repository it sets no
+ * `transitionTo`: a package nobody has looked at is an operational attention failure, never a
+ * licence for this system to decide a commercial document on a person's behalf.
+ */
+function handleReviewAttentionTimeout(ctx: HandlerContext): HandlerOutcome {
+  const { event, state, profile } = ctx;
+  const id = (suffix: string) => `${event.eventId}:${suffix}`;
+  // Kestrel's EXISTING human-review window, under its existing policy. A firm that holds a case
+  // for review has one rule about how long that may go unanswered; a second number for the same
+  // rule would be a policy nobody set.
+  const windowHours = numberParam(profile, 'humanReviewTimeoutHours');
+  const startedAt = state.facts[REVIEW_STARTED_AT_FACT];
+
+  const timingFacts = (elapsed: string) => [
+    { label: 'Review started', value: startedAt ?? 'not recorded' },
+    { label: 'Checked at', value: event.occurredAt },
+    { label: 'Elapsed', value: elapsed },
+    { label: 'Configured window', value: `${windowHours} hours` },
+  ];
+
+  if (startedAt === undefined) {
+    return {
+      steps: [
+        {
+          id: id('review-check-invalid'),
+          label: 'Review attention check',
+          atOffsetSeconds: 0,
+          summary: 'No recorded review-start timestamp on this package. No action taken.',
+          decisions: [
+            decision({
+              id: id('d-review-check-invalid'),
+              eventId: event.eventId,
+              mechanism: 'DETERMINISTIC_RULE',
+              objective: 'Determine whether the configured human-review window has elapsed.',
+              relevantState: state.lifecycleState,
+              evidenceRefs: [`state.facts.${REVIEW_STARTED_AT_FACT}`],
+              deterministicFacts: timingFacts('not computable'),
+              missingInformation: [...state.missingInformation],
+              permittedActions: ['record_unresolvable_check'],
+              forbiddenActions: ['guess_review_start', 'escalate_without_evidence'],
+              selectedAction: 'record_unresolvable_check',
+              applicablePolicy: ['A review attention check with no recorded review start cannot conclude anything and takes no action.'],
+              authority: 0,
+            }),
+          ],
+          effects: [],
+          verifications: [],
+        },
+      ],
+    };
+  }
+
+  const elapsedMs = Date.parse(event.occurredAt) - Date.parse(startedAt);
+  const elapsedHours = Math.round((elapsedMs / (60 * 60 * 1000)) * 10) / 10;
+
+  if (elapsedMs < windowHours * 60 * 60 * 1000) {
+    return {
+      steps: [
+        {
+          id: id('review-check'),
+          label: 'Review attention check',
+          atOffsetSeconds: 0,
+          summary: `Checked ${elapsedHours}h into a ${windowHours}h review window. Still within policy — no action taken.`,
+          decisions: [
+            decision({
+              id: id('d-review-check'),
+              eventId: event.eventId,
+              mechanism: 'DETERMINISTIC_RULE',
+              objective: 'Determine whether the configured human-review window has elapsed.',
+              relevantState: state.lifecycleState,
+              evidenceRefs: [`state.facts.${REVIEW_STARTED_AT_FACT}`, 'event.occurredAt'],
+              deterministicFacts: timingFacts(`${elapsedHours} hours`),
+              missingInformation: [...state.missingInformation],
+              permittedActions: ['remain_under_review'],
+              forbiddenActions: ['escalate_before_window_elapses', 'synthesize_decision'],
+              selectedAction: 'remain_under_review',
+              applicablePolicy: [
+                `CLIENT_POLICY kestrel-review-timeout-window: attention escalation is eligible only once the configured ${windowHours}-hour review window has genuinely elapsed.`,
+              ],
+              authority: 3,
+            }),
+          ],
+          effects: [],
+          verifications: [],
+        },
+      ],
+    };
+  }
+
+  const escalationOwner = resolveEscalationOwner(profile, FINAL_ESCALATION_AUTHORITY);
+
+  return {
+    steps: [
+      {
+        id: id('review-overdue'),
+        label: 'Review attention overdue',
+        atOffsetSeconds: 0,
+        // Deliberately NO transitionTo. The package stays exactly where it is.
+        summary: `No human decision within the configured ${windowHours}-hour review window (checked at ${elapsedHours}h). Escalated to ${escalationOwner.target} as an overdue attention condition — the package remains NEEDS_HUMAN, pending an actual human decision.`,
+        decisions: [
+          decision({
+            id: id('d-review-overdue'),
+            eventId: event.eventId,
+            mechanism: 'DETERMINISTIC_RULE',
+            objective: 'Determine whether the configured human-review window has elapsed.',
+            relevantState: state.lifecycleState,
+            evidenceRefs: [`state.facts.${REVIEW_STARTED_AT_FACT}`, 'event.occurredAt', 'profile.roles'],
+            deterministicFacts: [
+              ...timingFacts(`${elapsedHours} hours`),
+              { label: 'Escalation reaches', value: escalationOwner.target },
+              { label: 'Escalation basis', value: 'final escalation point — no reviewer was ever assigned to go past' },
+            ],
+            missingInformation: [...state.missingInformation],
+            permittedActions: ['escalate_review_attention'],
+            forbiddenActions: ['synthesize_decision', 'apply_default_disposition', 'transition_lifecycle_state'],
+            selectedAction: 'escalate_review_attention',
+            applicablePolicy: [
+              `CLIENT_POLICY kestrel-review-timeout-window: a case held for human review past the configured ${windowHours}-hour window is escalated as an attention condition. The case itself is never auto-decided.`,
+            ],
+            escalationReason: `A package has been held for human review for ${elapsedHours} hours with no named reviewer assigned to it, past the configured ${windowHours}-hour window.`,
+            authority: 2,
+          }),
+        ],
+        effects: [
+          {
+            id: id('effect:notify-review-overdue'),
+            kind: 'NOTIFICATION',
+            description: 'Notify the final escalation point that a package held for human review has exceeded the configured window.',
+            target: escalationOwner.target,
+            idempotencyKey: `notify:${event.entityId}:review-overdue`,
+            authority: 3,
+            policyPermits: true,
+            verification: {
+              check: 'Confirm the notification reached a named owner rather than a shared queue.',
+              expect: 'Notification addressed to a named owner.',
+            },
+          },
+        ],
+        verifications: [],
+      },
+    ],
+  };
+}
+
+/**
  * THE APPROVAL ATTENTION TIMEOUT. Closes `cp-fm-approval-timeout`.
  *
  * This function NEVER sets `transitionTo`, in any branch. That is the executable form of the
@@ -1281,6 +1455,11 @@ function handleApprovalAttentionTimeout(ctx: HandlerContext): HandlerOutcome {
       },
     ],
   });
+
+  // A package held for human review is a different condition with a different remedy — see
+  // `handleReviewAttentionTimeout`. Dispatching on the state the case is ACTUALLY in keeps the
+  // two mechanisms from having to know about each other.
+  if (state.lifecycleState === 'NEEDS_HUMAN') return handleReviewAttentionTimeout(ctx);
 
   // A check that arrives after the reviewer has already acted is a safe no-op, not an error.
   if (state.lifecycleState !== 'AWAITING_APPROVAL') {

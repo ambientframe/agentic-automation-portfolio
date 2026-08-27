@@ -198,6 +198,24 @@ const RAW = {
 
   failureModes: [
     {
+      id: 'co-fm-review-timeout',
+      class: 'HUMAN_APPROVAL_TIMEOUT',
+      failure: 'An engagement routed to a person is never picked up, and onboarding stalls silently.',
+      cause: 'The system refused to resolve something on a person\u2019s behalf \u2014 a same-rank contradiction it will not settle by recency, or a resource whose state it will not overwrite \u2014 and nobody in particular was asked to deal with it.',
+      businessImpact: 'A signed client waits while the system reports the engagement as correctly parked. The delay lands at exactly the moment a new client is forming their opinion of how the firm operates.',
+      prevention: 'A review clock starts at every genuine entry into review, stamped at the handler boundary so a future entry point cannot arrive without one.',
+      detection: 'Age of engagements in NEEDS_HUMAN against the configured review window.',
+      recovery: 'Escalate to the final escalation point as an attention condition. There is no assignee to escalate past.',
+      escalationCondition: 'Review window elapsed without a decision.',
+      authorityRequired: 2,
+      recoveryPath: {
+        shape: 'HOLDS_POSITION',
+        holdsAt: ['NEEDS_HUMAN'],
+        note: 'The engagement stays in NEEDS_HUMAN. Escalation raises the fact that nobody has looked at it; it never resolves the contradiction, overwrites the resource, or abandons the engagement. A contradiction this system deliberately refuses to settle does not become settleable because it has been waiting.',
+      },
+      verificationTest: 'tests/client-onboarding-review-timeout.test.ts \u2014 a genuine same-rank contradiction enters review with a clock stamped at the handler boundary, a check inside the window takes no action, a check past it escalates to the final escalation point, the engagement never transitions, and repeated checks escalate once.',
+    },
+    {
       id: 'co-fm-credential-leak',
       class: 'CREDENTIAL_FAILURE',
       failure: 'Credential material is captured into workflow state, a ticket, an email thread, or a log.',

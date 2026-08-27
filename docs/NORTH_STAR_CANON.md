@@ -76,7 +76,7 @@ Maturity is descriptive, not aspirational.
 - 139 declared lifecycle transitions
 - 62 metric definitions, each with an explicit formula and a named system of record
 - 39 operating standards, of which 20 assert external evidence
-- 43 named failure modes
+- 45 named failure modes
 - 20 sources in the ledger
 
 ## The demonstration environment
@@ -721,7 +721,7 @@ Regardless of confidence, the system may never:
 
 ### Known failure modes
 
-See [FAILURE_MODE_REGISTER.md](FAILURE_MODE_REGISTER.md) for the full entries. This system declares 5: `AI_UNSUPPORTED_INFERENCE`, `AI_MALFORMED_OUTPUT`, `MISSING_REQUIRED_FIELD`, `POLICY_VIOLATION`, `HUMAN_APPROVAL_TIMEOUT`.
+See [FAILURE_MODE_REGISTER.md](FAILURE_MODE_REGISTER.md) for the full entries. This system declares 6: `AI_UNSUPPORTED_INFERENCE`, `AI_MALFORMED_OUTPUT`, `MISSING_REQUIRED_FIELD`, `POLICY_VIOLATION`, `HUMAN_APPROVAL_TIMEOUT`, `HUMAN_APPROVAL_TIMEOUT`.
 
 ---
 
@@ -916,7 +916,7 @@ Regardless of confidence, the system may never:
 
 ### Known failure modes
 
-See [FAILURE_MODE_REGISTER.md](FAILURE_MODE_REGISTER.md) for the full entries. This system declares 7: `CREDENTIAL_FAILURE`, `RETRY_DUPLICATE_SIDE_EFFECT`, `CONTRADICTORY_DATA`, `POLICY_VIOLATION`, `PARTIAL_SIDE_EFFECT`, `TIMEOUT`, `POLICY_VIOLATION`.
+See [FAILURE_MODE_REGISTER.md](FAILURE_MODE_REGISTER.md) for the full entries. This system declares 8: `HUMAN_APPROVAL_TIMEOUT`, `CREDENTIAL_FAILURE`, `RETRY_DUPLICATE_SIDE_EFFECT`, `CONTRADICTORY_DATA`, `POLICY_VIOLATION`, `PARTIAL_SIDE_EFFECT`, `TIMEOUT`, `POLICY_VIOLATION`.
 
 ---
 

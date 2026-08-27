@@ -3,7 +3,46 @@
 > One per accepted package (Constitution §14). Repository truth is authoritative; this file
 > is an index, not a source. Append the new checkpoint above the previous one.
 
-## Current — The firm can finally say who approves a proposal · 2026-08-27
+## Current — Two of the four published gaps, closed · 2026-08-27
+
+**Verified state.** `npm run verify`: 69 files, 1067 passed / 1 skipped, exit 0. `npm run build`:
+exit 0.
+
+**Proof claim earned.** `call-to-proposal/NEEDS_HUMAN` and `client-onboarding/NEEDS_HUMAN` — two
+of the four states #22 published as places work could be parked with nothing declared about
+being abandoned — now declare a `HUMAN_APPROVAL_TIMEOUT` and implement it. The assertion that
+matters in each suite is not that the mechanism works but that **the audit's own output
+changed**: a gap that could be closed without moving the number was measuring something else.
+
+**Two of four, and a test pins that.** The other two stay published as backlog. Publishing a gap
+is only worth anything if it gets worked rather than quietly emptied.
+
+**The cross-system reuse is the real test of #21.** Call-to-Proposal was the easy half. Client
+Onboarding is a different lifecycle, a different entry path, and a handler that had never had an
+attention mechanism. The pattern carried unmodified.
+
+**Client Onboarding stamps its clock at the handler boundary.** Three ways into NEEDS_HUMAN
+exist and a fourth is plausible; hand-stamping would let one arrive with no clock, and a parked
+case whose window never starts can never be overdue — silently the exact condition the mechanism
+exists to catch.
+
+**Falsification and mutation.** 18 new tests written RED first. 8 targeted mutations; one
+survived — the `<`/`<=` window boundary, the same weakness caught and fixed on the approval
+timeout, which I then failed to carry across when reusing the shape. Reuse copies the gaps in
+the tests as faithfully as it copies the code. Repaired in both systems.
+
+**Maturity.** Unchanged. $0 spent, no provider crossed.
+
+**Pattern earned.** #25 — a published gap is a backlog, and closing it must change what the
+audit reports.
+
+**Next package.** NOT SELECTED. The strongest remaining candidate is the one named two
+checkpoints ago and still open: give the remote receiver a lookup by idempotency key so
+`attemptVerify` can stop throwing and an `OUTCOME_UNKNOWN` can actually be narrowed — the last
+structural hole in the execution boundary. The two remaining abandonable states need a canon
+decision, not machinery.
+
+## Earlier — The firm can finally say who approves a proposal · 2026-08-27
 
 **Verified state.** `npm run verify`: 67 files, 1048 passed / 1 skipped, exit 0. `npm run build`:
 exit 0.

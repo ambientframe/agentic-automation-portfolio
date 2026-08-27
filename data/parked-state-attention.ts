@@ -32,8 +32,8 @@
 export const ABANDONABLE_PARKED_STATES: Readonly<Record<string, readonly string[]>> = {
   'lead-rescue': [],
   'dormant-pipeline-recovery': ['NEEDS_HUMAN'],
-  'call-to-proposal': ['NEEDS_HUMAN'],
-  'client-onboarding': ['NEEDS_HUMAN'],
+  'call-to-proposal': [],
+  'client-onboarding': [],
   'receivables-recovery': [],
   'owner-revenue-intelligence': ['AWAITING_OWNER_DECISION'],
 };

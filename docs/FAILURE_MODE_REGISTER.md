@@ -36,7 +36,7 @@ recorded rather than hidden: an unverified recovery path is a claim, not a capab
 - `UNEXPECTED_HUMAN_REPLY`
 - `WRONG_ENTITY_MATCH`
 
-Coverage: 23 distinct failure classes across 43 entries.
+Coverage: 23 distinct failure classes across 45 entries.
 
 ---
 
@@ -395,6 +395,20 @@ Coverage: 23 distinct failure classes across 43 entries.
 | **Resolves into** | Claims review → Needs human. Assembly is blocked and the offending passage is identified for the reviewer. |
 | **Verification** | tests/call-to-proposal.test.ts — the claim-admission gate blocks any claim value containing a prohibited-commitment phrase, regardless of source or citation |
 
+### HUMAN APPROVAL TIMEOUT — A package routed to a person for review is never picked up.
+
+| Field | Value |
+| --- | --- |
+| **Cause** | The package failed a gate — an unavailable extraction, or a claim that could not be admitted — and is waiting for whoever gets to it. Unlike an approval, nobody in particular was asked. |
+| **Business impact** | The conversation that produced it goes cold while the system reports the package as correctly parked. This is the failure the system was bought to remove, arriving one step earlier than the approval timeout. |
+| **Prevention** | A review clock starts at every genuine entry into review and is never restarted by re-reading the case. |
+| **Detection signal** | Age of packages in NEEDS_HUMAN against the configured review window. |
+| **Recovery** | Escalate to the final escalation point as an attention condition. There is no assignee to escalate past, so this differs deliberately from cp-fm-approval-timeout. |
+| **Escalates when** | Review window elapsed without a decision. |
+| **Authority required** | 2 · PREPARE / HUMAN APPROVES |
+| **Resolves into** | The package stays in NEEDS_HUMAN. Escalation raises the fact that nobody has looked at it; it never resolves the claim, supplies the missing fact, or decides the package. Distinct from cp-fm-approval-timeout, which escalates PAST a named approver — here nobody was named, so escalation goes to the top of the chain rather than one rung above somebody. |
+| **Verification** | tests/call-to-proposal-review-timeout.test.ts — the review clock starts at both genuine entries into NEEDS_HUMAN, a check inside the window takes no action, a check past it escalates to the final escalation point and says plainly that no reviewer was ever assigned, the package never transitions, and repeated checks escalate once. |
+
 ### HUMAN APPROVAL TIMEOUT — A draft waits for approval past the promised delivery window.
 
 | Field | Value |
@@ -412,6 +426,20 @@ Coverage: 23 distinct failure classes across 43 entries.
 ---
 
 ## Client Onboarding Operator
+
+### HUMAN APPROVAL TIMEOUT — An engagement routed to a person is never picked up, and onboarding stalls silently.
+
+| Field | Value |
+| --- | --- |
+| **Cause** | The system refused to resolve something on a person’s behalf — a same-rank contradiction it will not settle by recency, or a resource whose state it will not overwrite — and nobody in particular was asked to deal with it. |
+| **Business impact** | A signed client waits while the system reports the engagement as correctly parked. The delay lands at exactly the moment a new client is forming their opinion of how the firm operates. |
+| **Prevention** | A review clock starts at every genuine entry into review, stamped at the handler boundary so a future entry point cannot arrive without one. |
+| **Detection signal** | Age of engagements in NEEDS_HUMAN against the configured review window. |
+| **Recovery** | Escalate to the final escalation point as an attention condition. There is no assignee to escalate past. |
+| **Escalates when** | Review window elapsed without a decision. |
+| **Authority required** | 2 · PREPARE / HUMAN APPROVES |
+| **Resolves into** | The engagement stays in NEEDS_HUMAN. Escalation raises the fact that nobody has looked at it; it never resolves the contradiction, overwrites the resource, or abandons the engagement. A contradiction this system deliberately refuses to settle does not become settleable because it has been waiting. |
+| **Verification** | tests/client-onboarding-review-timeout.test.ts — a genuine same-rank contradiction enters review with a clock stamped at the handler boundary, a check inside the window takes no action, a check past it escalates to the final escalation point, the engagement never transitions, and repeated checks escalate once. |
 
 ### CREDENTIAL FAILURE — Credential material is captured into workflow state, a ticket, an email thread, or a log.
 

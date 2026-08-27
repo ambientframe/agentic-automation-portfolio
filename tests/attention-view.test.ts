@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { ALL_SYSTEMS } from '@/data/systems';
-import { LEAD_RESCUE, CALL_TO_PROPOSAL, CLIENT_ONBOARDING } from '@/data/systems';
+import { LEAD_RESCUE, CALL_TO_PROPOSAL, DORMANT_PIPELINE_RECOVERY } from '@/data/systems';
 import { deriveAttentionView } from '@/lib/proof/attention-view';
 import type { SystemDefinition } from '@/lib/model/system';
 
@@ -40,7 +40,7 @@ describe('parked-state attention view', () => {
   });
 
   it('names each exposed state with its label and its exits, so a row can be checked', () => {
-    const view = deriveAttentionView(CLIENT_ONBOARDING);
+    const view = deriveAttentionView(DORMANT_PIPELINE_RECOVERY);
     const row = view.abandonable.find((r) => r.stateId === 'NEEDS_HUMAN');
     expect(row).toBeDefined();
     expect(row?.stateLabel).toBe('Needs human');
@@ -51,10 +51,20 @@ describe('parked-state attention view', () => {
   });
 
   it('counts every parked state, not only the exposed ones, so the ratio is honest', () => {
-    const view = deriveAttentionView(CALL_TO_PROPOSAL);
-    // AWAITING_CLARIFICATION, AWAITING_APPROVAL, NEEDS_HUMAN — one of which is exposed.
-    expect(view.parked).toBe(3);
+    // SCHEDULED, AWAITING_RESPONSE, COOLING_OFF, NEEDS_HUMAN — one of which is exposed.
+    const view = deriveAttentionView(DORMANT_PIPELINE_RECOVERY);
+    expect(view.parked).toBe(4);
     expect(view.abandonable.map((r) => r.stateId)).toEqual(['NEEDS_HUMAN']);
+  });
+
+  it('reports a system whose gaps were actually closed as clean, without shrinking its denominator', () => {
+    // Call-to-Proposal was exposed at NEEDS_HUMAN and is no longer. The denominator must not
+    // move: closing a gap means declaring what happens in a parked state, never reclassifying
+    // the state out of the count.
+    const view = deriveAttentionView(CALL_TO_PROPOSAL);
+    expect(view.parked).toBe(3);
+    expect(view.abandonable).toEqual([]);
+    expect(view.clean).toBe(true);
   });
 
   it('carries the limit that makes the panel honest, in the panel itself', () => {
