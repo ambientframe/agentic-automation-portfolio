@@ -29,8 +29,29 @@ import type { OperationalView } from '@/lib/observability/operational-view';
 
 export const RUNTIME_EVIDENCE_RELATIVE_PATH = 'n8n/evidence/lead-rescue-runtime-execution.json';
 
+/**
+ * Every artifact this module reads lives in `n8n/evidence`. Resolving against a LITERAL prefix
+ * lets the bundler see that directory statically; joining a variable relative path onto
+ * `process.cwd()` made it trace the whole project into the server bundle, which on a
+ * deployment ships every source file and the public folder as server code.
+ *
+ * The prefix is asserted, not assumed — a path from outside that directory throws rather than
+ * silently resolving somewhere unintended.
+ */
+const EVIDENCE_DIR_SEGMENTS = ['n8n', 'evidence'] as const;
+const EVIDENCE_DIR_PREFIX = `${EVIDENCE_DIR_SEGMENTS.join('/')}/`;
+
+function evidenceFilePath(repoRelativePath: string): string {
+  if (!repoRelativePath.startsWith(EVIDENCE_DIR_PREFIX)) {
+    throw new Error(
+      `n8n-evidence reads only from ${EVIDENCE_DIR_PREFIX}; got "${repoRelativePath}". Widening this would restore whole-project bundle tracing.`,
+    );
+  }
+  return path.join(process.cwd(), 'n8n', 'evidence', repoRelativePath.slice(EVIDENCE_DIR_PREFIX.length));
+}
+
 function evidencePath(): string {
-  return path.join(process.cwd(), ...RUNTIME_EVIDENCE_RELATIVE_PATH.split('/'));
+  return evidenceFilePath(RUNTIME_EVIDENCE_RELATIVE_PATH);
 }
 
 /** One orchestration run, reduced to what a reader can actually check. */
@@ -228,7 +249,7 @@ function strings(source: unknown, key: string): readonly string[] {
 }
 
 export async function readEvaluationEvidence(): Promise<EvaluationEvidence> {
-  const file = path.join(process.cwd(), ...LIVE_CLASSIFICATION_EVIDENCE_RELATIVE_PATH.split('/'));
+  const file = evidenceFilePath(LIVE_CLASSIFICATION_EVIDENCE_RELATIVE_PATH);
 
   let text: string;
   try {
@@ -320,7 +341,7 @@ export type OperationalViewEvidence =
     };
 
 export async function readOperationalViewEvidence(): Promise<OperationalViewEvidence> {
-  const file = path.join(process.cwd(), ...OPERATIONAL_VIEW_EVIDENCE_RELATIVE_PATH.split('/'));
+  const file = evidenceFilePath(OPERATIONAL_VIEW_EVIDENCE_RELATIVE_PATH);
 
   let text: string;
   try {
@@ -497,7 +518,7 @@ function toAbnormalCase(raw: unknown, receiverKey: string): AbnormalDeliveryCase
 }
 
 export async function readObservationIntegrityEvidence(): Promise<ObservationIntegrityEvidence> {
-  const file = path.join(process.cwd(), ...OBSERVATION_INTEGRITY_EVIDENCE_RELATIVE_PATH.split('/'));
+  const file = evidenceFilePath(OBSERVATION_INTEGRITY_EVIDENCE_RELATIVE_PATH);
 
   let text: string;
   try {

@@ -460,9 +460,28 @@ export function loadRuntimeProof(): RuntimeProofResolution {
  * statically generated), never inside a request. A missing or unreadable artifact returns
  * `undefined` so `deriveRuntimeProof` can resolve UNAVAILABLE rather than throwing the build.
  */
+/**
+ * Resolved against a LITERAL `n8n/evidence` prefix rather than by joining the caller's whole
+ * relative path onto `process.cwd()`. Functionally identical — every artifact this module reads
+ * lives there — but the bundler can see the directory statically. Joining a variable path
+ * caused it to trace the entire project into the server bundle, which on a deployment means
+ * every source file and the whole public folder ship as server code.
+ *
+ * The prefix is asserted rather than assumed: a caller that ever passes a path outside that
+ * directory gets a thrown error, not a silently wrong file.
+ */
+const EVIDENCE_DIR_SEGMENTS = ['n8n', 'evidence'] as const;
+const EVIDENCE_DIR_PREFIX = `${EVIDENCE_DIR_SEGMENTS.join('/')}/`;
+
 function readJsonOrUndefined(repoRelativePath: string): unknown {
+  if (!repoRelativePath.startsWith(EVIDENCE_DIR_PREFIX)) {
+    throw new Error(
+      `runtime-proof reads only from ${EVIDENCE_DIR_PREFIX}; got "${repoRelativePath}". Widening this would restore whole-project bundle tracing.`,
+    );
+  }
   try {
-    return JSON.parse(readFileSync(path.join(process.cwd(), repoRelativePath), 'utf8'));
+    const file = repoRelativePath.slice(EVIDENCE_DIR_PREFIX.length);
+    return JSON.parse(readFileSync(path.join(process.cwd(), 'n8n', 'evidence', file), 'utf8'));
   } catch {
     return undefined;
   }

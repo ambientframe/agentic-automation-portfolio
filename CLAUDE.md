@@ -37,7 +37,7 @@ instruction**. Canon wins; if you diverge from an input, record it in
 ```bash
 npm run dev        # develop
 npm run verify     # typecheck + lint + tests — run before every commit
-npm run build      # 15 pages prerender; the engine executes at build time
+npm run build      # 30 pages prerender; the engine executes at build time
 npm run docs       # regenerate canon after ANY change under data/
 ```
 
