@@ -1,6 +1,43 @@
 # Status
 
-**As of 2026-08-26 (latest pass, same day) · Dormant Pipeline Recovery will not guess which
+**As of 2026-08-26 (latest pass, same day) · The portfolio is reachable by someone who has not
+cloned it.** It is deployed at
+[agentic-automation-portfolio.vercel.app](https://agentic-automation-portfolio.vercel.app),
+publicly, with no deployment protection. Until now every claim in this document was true of a
+build that only existed on one laptop, which the same-day launch audit named as the binding
+constraint on the whole portfolio: not build depth, but the fact that nothing could be seen.
+
+**Verified against the deployed instance, not the local one.** `/`, `/lead-rescue`,
+`/lead-rescue/wait`, `/proof/*`, `/systems/*`, `/simulator/*` all return 200, as do the dynamic
+API routes. The masthead reads `6 SYSTEMS · 5 SIMULATED · 1 INTERACTIVE PROTOTYPE`. The fidelity
+ledger reads **REAL 10 · FIXTURE-BACKED 2 · SIMULATED 1 · UNVERIFIED 1** — byte-identical to the
+cold-environment prediction made before deploying, which is the useful part: a stranger sees the
+same capability claims the author does, not a reduced set.
+
+**What this does not change, stated plainly.** Maturity is unchanged: Lead Rescue
+`INTERACTIVE_PROTOTYPE`, the other five `SIMULATED`, everything `NOT_LIVE`. Being *reachable* is
+not being *live*. The `Customer deployment` row on the fidelity ledger remains `UNVERIFIED` and
+still bounds every other row on that page: nothing has run for a paying customer, no live trigger
+is connected to a real channel, there is no production scheduler, and there is no client data of
+any kind in this build. A deployment is a demonstration surface, not operation, and the ledger
+was deliberately not touched to celebrate it.
+
+**Two deliberate absences on the hosted instance.** `.data/` is gitignored runtime state and does
+not exist there, so the operator console starts empty and fills only from use of the demo itself
+— chosen over seeding it, because seeded history presented as live would violate this project's
+first invariant. And no environment variables are set, so both real-provider boundaries sit at
+their fail-closed defaults: the model classifier is `fixture` and outbound execution is
+`simulated`. A credential is not an activation, and a public deployment is the last place to
+weaken that.
+
+**One preparatory fix this required.** Five Turbopack warnings that a variable
+`path.join(process.cwd(), …)` in the two evidence readers traced the whole project into the
+server bundle — harmless locally, bundle bloat or a size-limit failure on a host. Both now
+resolve against a literal `n8n/evidence` prefix, asserted rather than assumed. Warnings 5 → 0.
+
+`npm run verify`: 54 files, 868 passed / 1 skipped, exit 0. `npm run build`: exit 0.
+
+**As of 2026-08-26 (earlier pass, same day) · Dormant Pipeline Recovery will not guess which
 company a dormant record belongs to.** `dp-fm-wrong-entity` — declared since the system was
 written, marked `Pending — scenario not yet authored`, never built — is closed. A dormant record
 whose only contact detail is a shared role address matches two legally distinct accounts at 0.94

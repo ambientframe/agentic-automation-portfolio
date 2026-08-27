@@ -4,8 +4,11 @@ Six small-business operating systems, modelled so that a visitor can watch a rea
 incident move through state, decisions, policy, bounded AI judgment, human authority,
 actions, verification, and recovery — and then open it up and check the wiring.
 
-**Start here: [`/lead-rescue`](app/lead-rescue/page.tsx).** It is the reference
-implementation and the only one built to full depth. It answers a buyer's four questions in
+**Live: [agentic-automation-portfolio.vercel.app](https://agentic-automation-portfolio.vercel.app)**
+— no install required.
+
+**Start here: [`/lead-rescue`](https://agentic-automation-portfolio.vercel.app/lead-rescue).** It
+is the reference implementation and the only one built to full depth. It answers a buyer's four questions in
 the order they actually arrive: what expensive thing does this prevent, what happened to one
 specific lead, what can an operator actually do, and which parts of this are real. That last
 one is a capability-by-capability ledger that states its own limits — including the ones
@@ -166,7 +169,11 @@ byte-for-byte; they are provenance, not instruction.
 Deliberately, and stated precisely — this section is easy to leave stale, so it names only
 what is genuinely absent as of the current `STATUS.md`.
 
-- **No deployment.** Nothing is hosted. The build prerenders and serves locally.
+- **No customer deployment.** The site is hosted so a visitor can reach it without a clone, but
+  that is a demonstration, not operation. Nothing has run for a paying customer, no live trigger
+  is connected to a real channel, there is no production scheduler, and there is no client data
+  of any kind. The hosted instance carries no runtime store, so its operator console starts
+  empty and fills only from use of the demo itself.
 - **No real outbound customer messaging.** SMTP execution has run only against a
   purpose-built receiver bound to loopback with no relay. Wiring a routable provider is the
   highest-stakes remaining boundary and requires an explicit decision, not a config change.

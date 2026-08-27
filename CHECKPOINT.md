@@ -3,7 +3,34 @@
 > One per accepted package (Constitution §14). Repository truth is authoritative; this file
 > is an index, not a source. Append the new checkpoint above the previous one.
 
-## Current — Entity resolution precedes every policy question · 2026-08-26
+## Current — Deployed and publicly reachable · 2026-08-26
+
+**Verified state.** Live at https://agentic-automation-portfolio.vercel.app, public, no
+deployment protection. All page routes and both probed API routes return 200 against the deployed
+instance. `npm run verify`: 54 files, 868 passed / 1 skipped, exit 0. `npm run build`: exit 0.
+
+**Proof claim earned.** The portfolio can be seen by someone who has not cloned it. The launch
+audit named this as the binding constraint on the whole project — not build depth, but that
+nothing could be reached — and it is now discharged. The fidelity ledger on the deployed instance
+reads REAL 10 / FIXTURE-BACKED 2 / SIMULATED 1 / UNVERIFIED 1, byte-identical to the
+cold-environment prediction made before deploying: a stranger sees the same capability claims the
+author does.
+
+**What it does not change.** Maturity unchanged — Lead Rescue `INTERACTIVE_PROTOTYPE`, the other
+five `SIMULATED`, everything `NOT_LIVE`. Reachable is not live. The `Customer deployment` ledger
+row stays `UNVERIFIED` and still bounds every other row; it was deliberately not touched.
+
+**Two deliberate absences on the host.** No `.data/` runtime store, so the operator console starts
+empty and fills only from use of the demo — chosen over seeding, which would have presented
+authored history as live. And no environment variables, so both real-provider boundaries sit at
+their fail-closed defaults. A credential is not an activation, and a public host is the last place
+to weaken that.
+
+**Next package.** NOT SELECTED. Track L is complete apart from a walkthrough recording. The
+open Track D item with the clearest shape is making `terminalState` structured so
+`validateLifecycle` can check failure-mode recoveries against the transition graph (STATUS gap 0).
+
+## Previous — Entity resolution precedes every policy question · 2026-08-26
 
 **Verified state.** `npm run verify`: 54 files, 868 passed / 1 skipped, exit 0. `npm run build`:
 exit 0. 8 new tests, 7 RED before implementation; five targeted mutations of the shipped guard
@@ -41,7 +68,7 @@ than unblocking them by quietly adding transitions.
 **Next package.** NOT SELECTED. Track L's last item is a reachable URL, prepared and awaiting a
 credential (spine `LAUNCH_PLAN.md` SOP-6).
 
-## Previous — Buyer-facing proof route for the other five systems · 2026-08-26
+## Earlier — Buyer-facing proof route for the other five systems · 2026-08-26
 
 **Verified state.** `npm run verify`: 54 files, 860 passed / 1 skipped, exit 0.
 `npm run build`: exit 0, 35 routes (5 new). All five new pages return 200 from a production
