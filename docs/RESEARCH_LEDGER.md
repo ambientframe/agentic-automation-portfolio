@@ -388,6 +388,7 @@ engine actually compares against is linked to the policy it implements.
 | Minimum confidence to accept an entity match | 0.9 | probability | `kestrel-entity-resolution` |
 | Escalation to founder past due | 45 | days past due | `kestrel-collection-cadence` |
 | Maximum authority for outbound commercial documents | 2 | authority level | `kestrel-proposal-authority` |
+| Proposal approval attention timeout | 48 | hours | `kestrel-proposal-approval-window` |
 | Analysis input staleness tolerance | 96 | hours | `kestrel-analysis-freshness` |
 | Exception-candidate variance threshold | 12 | percent | `kestrel-exception-materiality` |
 | Attempts on a malformed intake payload before a person is asked | 3 | attempts | `kestrel-malformed-intake` |

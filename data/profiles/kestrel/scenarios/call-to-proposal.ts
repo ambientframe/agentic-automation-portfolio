@@ -5,11 +5,12 @@ import { ScenarioSchema, type Scenario } from '@/lib/model/runtime';
 /**
  * CALL-TO-PROPOSAL REVENUE AGENT — Kestrel scenarios.
  *
- * Two scenarios, per the same discipline as Lead Rescue and Dormant Pipeline Recovery:
- * a normal path that reaches approved despatch, and a guardrail path proving the system
- * cannot hallucinate its way into a proposal. Both discovery calls are authored with
- * genuine conversational messiness — hedging, a deferred budget question, an explicit
- * refusal to promise an outcome — rather than a buyer reciting database fields.
+ * Three scenarios, per the same discipline as Lead Rescue and Dormant Pipeline Recovery:
+ * a normal path that reaches approved despatch, a guardrail path proving the system cannot
+ * hallucinate its way into a proposal, and an attention path proving that a draft nobody
+ * approves does not quietly rot. All three discovery calls are authored with genuine
+ * conversational messiness — hedging, a deferred budget question, an explicit refusal to
+ * promise an outcome — rather than a buyer reciting database fields.
  *
  * Extraction results are fixture data, exactly like Lead Rescue's classification fixtures
  * and Dormant Pipeline Recovery's reply-interpretation fixtures: authored here, replayed
@@ -214,11 +215,131 @@ const scenarioB: Scenario = ScenarioSchema.parse({
   expectedFinalState: 'NEEDS_HUMAN',
 });
 
-export const CALL_TO_PROPOSAL_SCENARIOS: readonly Scenario[] = [scenarioA, scenarioB];
+// ---------------------------------------------------------------------------
+// Scenario C — approval window elapses on a draft nobody owns
+// ---------------------------------------------------------------------------
+
+const HALLOWAY_SEGMENTS = [
+  { id: 'seg-01', speaker: 'Rina Okonjo (COO)', text: "So — Halloway Diagnostics. We make imaging analysis software, and we've just signed our first two hospital groups in the Netherlands. Which is great, except their procurement people have both now asked for ISO 27001 and we don't have it." },
+  { id: 'seg-02', speaker: 'Marcus (Kestrel)', text: 'Both asking for the certificate itself, or for evidence you are working toward it?' },
+  { id: 'seg-03', speaker: 'Rina Okonjo (COO)', text: "The certificate, eventually. They've been clear it's a condition of renewal rather than of going live, so we have some runway — but not unlimited. Renewal is at the six-month mark, call it twenty-six weeks." },
+  { id: 'seg-04', speaker: 'Marcus (Kestrel)', text: "Okay. And internally — who owns security today?" },
+  { id: 'seg-05', speaker: 'Rina Okonjo (COO)', text: "Me, in the sense that it lands on my desk. We have no security hire. That's part of why I'm calling rather than someone more qualified." },
+  { id: 'seg-06', speaker: 'Marcus (Kestrel)', text: "That's more common than you'd think. Given the twenty-six week runway and starting from no formal programme, ISO 27001 readiness is the right shape of engagement — scoping the ISMS, control design, the internal audit cycle, and getting you audit-ready. Our side of that typically runs about twenty-four weeks." },
+  { id: 'seg-07', speaker: 'Rina Okonjo (COO)', text: "That's tight but it sounds workable. What does it cost?" },
+  { id: 'seg-08', speaker: 'Marcus (Kestrel)', text: "I'll put the commercial terms in writing rather than quote you a number now — but it will be in the range we publish, not a bespoke figure." },
+  { id: 'seg-09', speaker: 'Rina Okonjo (COO)', text: 'Fine. Send me a proposal and I will take it to our board — we meet on the fifteenth.' },
+  { id: 'seg-10', speaker: 'Marcus (Kestrel)', text: "Will do. So the next step is a written proposal for ISO 27001 readiness, and you're the one taking it to the board?" },
+  { id: 'seg-11', speaker: 'Rina Okonjo (COO)', text: "Yes, that's me. Just — please get it to me with a few days' room before the fifteenth. I don't want to be reading it in the car." },
+];
+
+/**
+ * A deliberately UNREMARKABLE extraction. Nothing here is a trap: every required field is
+ * established and cited, the buyer's timing is stated plainly, and no claim expands scope.
+ * That is the point — this scenario's subject is not extraction quality but what happens
+ * AFTER a clean draft reaches AWAITING_APPROVAL and no person acts on it.
+ */
+const HALLOWAY_EXTRACTION: ExtractionResult = {
+  judgmentId: 'jud-cp-halloway-extract',
+  extracted: [
+    { field: 'buyerCompanyName', value: 'Halloway Diagnostics', evidenceRefs: ['seg-01'], confidence: 0.97 },
+    { field: 'primaryContact', value: 'Rina Okonjo — COO, owns security by default with no security hire', evidenceRefs: ['seg-01', 'seg-05'], confidence: 0.94 },
+    { field: 'currentSituation', value: 'Two newly signed Netherlands hospital groups have made ISO 27001 certification a condition of renewal; Halloway has no formal security programme and no security hire.', evidenceRefs: ['seg-01', 'seg-03', 'seg-05'], confidence: 0.95 },
+    { field: 'desiredOutcome', value: 'Be audit-ready for ISO 27001 before the six-month renewal decision, protecting both hospital contracts.', evidenceRefs: ['seg-03', 'seg-06'], confidence: 0.93 },
+    { field: 'timing', value: '26 weeks', evidenceRefs: ['seg-03'], confidence: 0.92 },
+    { field: 'serviceInterest', value: 'iso27001', evidenceRefs: ['seg-06'], confidence: 0.94 },
+    { field: 'agreedNextStep', value: 'Kestrel sends a written proposal for ISO 27001 readiness, several days ahead of the board meeting on the fifteenth.', evidenceRefs: ['seg-09', 'seg-10', 'seg-11'], confidence: 0.96 },
+    { field: 'nextStepOwner', value: 'Rina Okonjo', evidenceRefs: ['seg-11'], confidence: 0.95 },
+    { field: 'decisionMakerInvolved', value: 'Board decision at the meeting on the fifteenth; Rina Okonjo presents.', evidenceRefs: ['seg-09'], confidence: 0.89 },
+  ],
+  missingFields: ['budgetDiscussed', 'employeeCount', 'currentTooling'],
+  declinedToInfer: [
+    'A price figure — the seller explicitly deferred to written commercial terms and quoted no number on the call.',
+    'Headcount — never discussed, and not inferable from "no security hire".',
+  ],
+  overallConfidence: 0.93,
+  rationaleSummary:
+    'A straightforward, well-established discovery call: every required field is supported by a cited passage, the buyer stated their own timeline explicitly, and the one commercial question was deferred to writing rather than answered on the call.',
+};
+
+const scenarioC: Scenario = ScenarioSchema.parse({
+  id: 'cp-scenario-approval-window-elapses-unassigned',
+  slug: 'approval-window-elapses-unassigned',
+  systemId: 'call-to-proposal',
+  title: 'Approval window elapses on a draft nobody owns',
+  summary:
+    'A clean discovery call produces an admissible proposal draft, and then nothing happens to it. The 48-hour approval window elapses and the system escalates — but the condition it reports is not "the reviewer is late". It is that this firm’s own role definitions cannot say who the approver is, so the draft was never assigned to anyone. The draft does not move.',
+  demonstrates: [
+    'Routing records when the approval wait started and who the draft is waiting on',
+    'Two roles tie at the required approval authority, so the system names nobody rather than picking one',
+    'A check inside the window takes no action and says how far into the window it looked',
+    'Past the window, the escalation reports an unowned draft, not an unresponsive reviewer',
+    'A timeout escalates attention and never decides the proposal — the draft stays AWAITING_APPROVAL',
+  ],
+  events: [
+    {
+      eventId: 'evt-cp-halloway-001',
+      correlationId: 'inc-cp-halloway',
+      entityId: 'opp-halloway',
+      type: 'sales.call.transcript.received',
+      source: 'call-recording-system',
+      sourceEventId: 'call-2026-08-18-halloway',
+      occurredAt: '2026-08-18T10:20:00-04:00',
+      receivedAt: '2026-08-18T10:26:00-04:00',
+      schemaVersion: '2026-08-01',
+      actor: 'SYSTEM',
+      executionMode: 'SIMULATED',
+      payload: {
+        extraction: {
+          judgmentId: 'jud-cp-halloway-extract',
+          objective: 'Map the discovery call transcript onto the structured commercial record, citing the passage supporting each populated field.',
+          sourceArtifactId: 'transcript-halloway-2026-08-18',
+          segments: HALLOWAY_SEGMENTS,
+          requiredFields: [...CP_REQUIRED_FIELDS],
+        },
+      },
+    },
+    {
+      // 24h in. Half a window is not a window.
+      eventId: 'evt-cp-halloway-002',
+      correlationId: 'inc-cp-halloway',
+      entityId: 'opp-halloway',
+      type: 'proposal.approval.reevaluated',
+      source: 'scheduler',
+      sourceEventId: 'approval-check-2026-08-19-1020',
+      occurredAt: '2026-08-19T10:20:00-04:00',
+      receivedAt: '2026-08-19T10:20:00-04:00',
+      schemaVersion: '2026-08-01',
+      actor: 'SYSTEM',
+      executionMode: 'SIMULATED',
+      payload: {},
+    },
+    {
+      // 50h in. The board meets on the fifteenth and Rina asked for days of room.
+      eventId: 'evt-cp-halloway-003',
+      correlationId: 'inc-cp-halloway',
+      entityId: 'opp-halloway',
+      type: 'proposal.approval.reevaluated',
+      source: 'scheduler',
+      sourceEventId: 'approval-check-2026-08-20-1220',
+      occurredAt: '2026-08-20T12:20:00-04:00',
+      receivedAt: '2026-08-20T12:20:00-04:00',
+      schemaVersion: '2026-08-01',
+      actor: 'SYSTEM',
+      executionMode: 'SIMULATED',
+      payload: {},
+    },
+  ],
+  judgments: {},
+  expectedFinalState: 'AWAITING_APPROVAL',
+});
+
+export const CALL_TO_PROPOSAL_SCENARIOS: readonly Scenario[] = [scenarioA, scenarioB, scenarioC];
 
 export const CALL_TO_PROPOSAL_EXTRACTIONS: Readonly<Record<string, ExtractionResult>> = {
   [BRAMWELL_EXTRACTION.judgmentId]: BRAMWELL_EXTRACTION,
   [LARKSPUR_EXTRACTION.judgmentId]: LARKSPUR_EXTRACTION,
+  [HALLOWAY_EXTRACTION.judgmentId]: HALLOWAY_EXTRACTION,
 };
 
 export function callToProposalScenarioBySlug(slug: string): Scenario | undefined {

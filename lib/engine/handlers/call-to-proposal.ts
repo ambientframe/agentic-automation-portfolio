@@ -1,7 +1,8 @@
 import { z } from 'zod';
-import { numberParam } from '@/lib/model/profile';
+import { numberParam, resolveEscalationOwner } from '@/lib/model/profile';
 import type { BusinessProfile } from '@/lib/model/profile';
 import type { DecisionRecord } from '@/lib/model/runtime';
+import { AUTHORITY_LEVELS, type AuthorityLevel } from '@/lib/model/system';
 import type { HandlerContext, HandlerOutcome, HandlerStep, ProposedEffect, SystemHandlers } from '../types';
 
 /**
@@ -324,6 +325,53 @@ function decision(partial: DecisionRecord): DecisionRecord {
 
 const MIN_TRANSCRIPT_SEGMENTS = 3;
 
+// ---------------------------------------------------------------------------
+// Approval assignment — the facts cp-fm-approval-timeout is measured against
+// ---------------------------------------------------------------------------
+
+/** When the draft entered AWAITING_APPROVAL. The approval window is measured from here. */
+const APPROVAL_ROUTED_AT_FACT = 'approvalRoutedAt';
+/** `EscalationOwnerResolution.status` at routing — RESOLVED, or which way it failed. */
+const APPROVAL_STATUS_FACT = 'approvalAssignmentStatus';
+/** The resolution's target string: a role name, or an honest statement that there is none. */
+const APPROVAL_ASSIGNEE_FACT = 'approvalAssignedTo';
+/** The assignee's own authority ceiling. Written ONLY when an approver was actually named. */
+const APPROVAL_CEILING_FACT = 'approvalAssigneeCeiling';
+
+/**
+ * An operating parameter is a number; the authority ladder is a closed set. A profile that
+ * configures an approval ceiling off the ladder is a configuration error that must surface
+ * here rather than be clamped into range — clamping would silently move where approval sits.
+ */
+function asAuthorityLevel(value: number, key: string): AuthorityLevel {
+  const level = AUTHORITY_LEVELS.find((candidate) => candidate === value);
+  if (level === undefined) {
+    throw new Error(
+      `Operating parameter "${key}" is ${value}, which is not a declared authority level (${AUTHORITY_LEVELS.join(', ')}).`,
+    );
+  }
+  return level;
+}
+
+/**
+ * The next rung strictly above `level`, or null at the top of the ladder.
+ *
+ * This is the whole difference between Lead Rescue's attention timeout and this one. Lead
+ * Rescue escalates to a fixed LEVEL (`NEXT_OWNER_ESCALATION_AUTHORITY`), which is correct
+ * there because nothing was ever assigned to a particular person. Here canon says "escalate
+ * to the NEXT approver in the authority chain", and "next" is only meaningful relative to
+ * whoever was already asked. Deriving the target from the assignee's own ceiling makes it
+ * structurally impossible to escalate a person to themselves — the qualifying set at
+ * `ceiling + 1` cannot contain a role whose ceiling is `ceiling`.
+ *
+ * Returning null rather than saturating at 4 is deliberate, and the type system enforces it:
+ * `AuthorityLevel` has no rung above 4, so "the approver is already the final escalation
+ * point" cannot be expressed as a level and must be handled as its own condition.
+ */
+function nextAuthorityAbove(level: AuthorityLevel): AuthorityLevel | null {
+  return AUTHORITY_LEVELS.find((candidate) => candidate > level) ?? null;
+}
+
 /**
  * Compares a service line's typical delivery duration against the buyer's own stated
  * timing. A DERIVED fact: neither party asserted it directly, and it is only as good as
@@ -466,31 +514,68 @@ function reviewClaimsAndRouteForApproval(
     statePatch: { facts: writeArtifact(artifact) },
   });
 
+  // cp-fm-approval-timeout's declared PREVENTION is "Named approver and review window
+  // assigned at the moment of routing" — so routing is where both are established, or where
+  // it becomes a matter of record that they could not be. `resolveEscalationOwner` refuses to
+  // break a tie between equally-qualified roles, and that refusal is load-bearing here: an
+  // ambiguous result is not a degraded name, it is the failure mode's own declared cause
+  // ("no named approver assigned at routing time") occurring at the moment it is declared to.
+  const approvalAuthority = asAuthorityLevel(numberParam(profile, 'proposalAuthorityCeiling'), 'proposalAuthorityCeiling');
+  const approver = resolveEscalationOwner(profile, approvalAuthority);
+  const windowHours = numberParam(profile, 'proposalApprovalTimeoutHours');
+
   steps.push({
     id: id('route'),
     label: 'Routed for approval',
     atOffsetSeconds: atOffsetBase + 2,
     transitionTo: 'AWAITING_APPROVAL',
-    summary: 'Draft complete and held at authority level 2. Nothing may leave the firm from here without a person acting.',
+    summary:
+      approver.status === 'RESOLVED'
+        ? `Draft complete and held at authority level ${approvalAuthority}, assigned to ${approver.target} with a ${windowHours}-hour review window. Nothing may leave the firm from here without a person acting.`
+        : `Draft complete and held at authority level ${approvalAuthority}, but NO named approver could be assigned: ${approver.target}. The ${windowHours}-hour review window still starts — the promise made to the buyer does not pause because the firm cannot say whose desk this is on.`,
     decisions: [
       decision({
         id: id('d-route'),
         eventId: event.eventId,
         mechanism: 'DETERMINISTIC_RULE',
-        objective: 'Route the completed draft to a person with the required approval authority.',
+        objective: 'Route the completed draft to a person with the required approval authority, and start the review window.',
         relevantState: 'DRAFT_PREPARED',
-        evidenceRefs: [`artifact.id=${artifact.id}`],
-        deterministicFacts: [{ label: 'Proposal authority ceiling', value: String(numberParam(profile, 'proposalAuthorityCeiling')) }],
-        missingInformation: [],
+        evidenceRefs: [`artifact.id=${artifact.id}`, `profile.roles`],
+        deterministicFacts: [
+          { label: 'Proposal authority ceiling', value: String(approvalAuthority) },
+          { label: 'Approver assignment', value: approver.status },
+          { label: 'Assigned to', value: approver.target },
+          { label: 'Review window', value: `${windowHours} hours` },
+          { label: 'Routed at', value: event.occurredAt },
+        ],
+        missingInformation: approver.status === 'RESOLVED' ? [] : ['Which named person owns approval of this draft'],
         permittedActions: ['await_human_approval'],
-        forbiddenActions: ['auto_approve', 'despatch_at_this_authority_level'],
+        forbiddenActions: ['auto_approve', 'despatch_at_this_authority_level', 'invent_an_approver'],
         selectedAction: 'await_human_approval',
-        applicablePolicy: ['CLIENT_POLICY kestrel-proposal-authority: no proposal leaves the firm without named human approval.'],
+        applicablePolicy: [
+          'CLIENT_POLICY kestrel-proposal-authority: no proposal leaves the firm without named human approval.',
+          `CLIENT_POLICY kestrel-proposal-approval-window: the review window starts at routing and runs for ${windowHours} hours.`,
+        ],
+        escalationReason:
+          approver.status === 'RESOLVED'
+            ? undefined
+            : `No approver could be named at routing: ${approver.target}`,
         authority: 2,
       }),
     ],
     effects: [],
     verifications: [],
+    statePatch: {
+      facts: {
+        [APPROVAL_ROUTED_AT_FACT]: event.occurredAt,
+        [APPROVAL_STATUS_FACT]: approver.status,
+        [APPROVAL_ASSIGNEE_FACT]: approver.target,
+        // Written ONLY when a role was actually resolved. An unresolved assignment has no
+        // ceiling, and writing a placeholder would hand the timeout a number to escalate
+        // above — manufacturing a chain position for a person who does not exist.
+        ...(approver.role === undefined ? {} : { [APPROVAL_CEILING_FACT]: String(approver.role.authorityCeiling) }),
+      },
+    },
   });
 
   return steps;
@@ -1063,6 +1148,232 @@ function handleHumanDecision(ctx: HandlerContext): HandlerOutcome {
   };
 }
 
+// ---------------------------------------------------------------------------
+// proposal.approval.reevaluated — cp-fm-approval-timeout
+// ---------------------------------------------------------------------------
+
+/**
+ * The last rung of the ladder — where an unassigned draft's overdue condition goes, because
+ * there is no assignee to escalate "past". Matches Lead Rescue's `NEXT_OWNER_ESCALATION_
+ * AUTHORITY` in value and in spirit: the final escalation point, not a preference.
+ */
+const FINAL_ESCALATION_AUTHORITY: AuthorityLevel = 4;
+
+/**
+ * THE APPROVAL ATTENTION TIMEOUT. Closes `cp-fm-approval-timeout`.
+ *
+ * This function NEVER sets `transitionTo`, in any branch. That is the executable form of the
+ * failure mode's declared `recoveryPath.shape: 'HOLDS_POSITION'` — and it is structural, not
+ * a promise: with no `transitionTo` the engine's transition-legality gate is never invoked,
+ * so there is no lifecycle move for it to authorise or refuse. A draft sitting unapproved is
+ * an OPERATIONAL ATTENTION failure ("nobody has acted"), never a licence for this system to
+ * approve, revise, or reject a commercial document on a person's behalf. Escalation here
+ * changes WHO IS ASKED. It never changes WHERE THE CASE IS.
+ *
+ * Four verdicts, because the failure mode declares two causes and the authority ladder has an
+ * end:
+ *
+ *   1. Still inside the window            -> no action. The window is checked, not assumed.
+ *   2. Overdue, approver named            -> escalate strictly ABOVE that approver's own
+ *                                            ceiling. Never to them: they are the one not
+ *                                            responding, and notifying them again is a no-op
+ *                                            wearing the costume of an action.
+ *   3. Overdue, approver named, at the top -> the chain is exhausted. Recorded as its own
+ *                                            condition and NOT notified, because the only
+ *                                            person it could reach is the one already asked.
+ *                                            An empty escalation is not a quiet success.
+ *   4. Overdue, no approver ever named    -> a materially different report: this draft was
+ *                                            never assigned, which is the failure mode's own
+ *                                            second declared cause. Saying "your reviewer is
+ *                                            late" here would name a reviewer who does not
+ *                                            exist.
+ *
+ * The idempotency key is anchored on the entity and the condition, never on the check, so a
+ * scheduler that asks hourly escalates once — the ledger in the engine core enforces that,
+ * not this handler.
+ */
+function handleApprovalAttentionTimeout(ctx: HandlerContext): HandlerOutcome {
+  const { event, state, profile } = ctx;
+  const id = (suffix: string) => `${event.eventId}:${suffix}`;
+  const windowHours = numberParam(profile, 'proposalApprovalTimeoutHours');
+  const routedAt = state.facts[APPROVAL_ROUTED_AT_FACT];
+
+  const inertStep = (suffix: string, summary: string, facts: readonly { label: string; value: string }[]): HandlerOutcome => ({
+    steps: [
+      {
+        id: id(suffix),
+        label: 'Approval attention check',
+        atOffsetSeconds: 0,
+        summary,
+        decisions: [
+          decision({
+            id: id(`d-${suffix}`),
+            eventId: event.eventId,
+            mechanism: 'DETERMINISTIC_RULE',
+            objective: 'Determine whether the configured proposal approval window has elapsed.',
+            relevantState: state.lifecycleState,
+            evidenceRefs: [`state.facts.${APPROVAL_ROUTED_AT_FACT}`, 'event.occurredAt'],
+            deterministicFacts: [...facts],
+            missingInformation: [...state.missingInformation],
+            permittedActions: ['remain_awaiting_approval'],
+            forbiddenActions: ['synthesize_approval', 'auto_revise', 'transition_lifecycle_state'],
+            selectedAction: 'remain_awaiting_approval',
+            applicablePolicy: [
+              `CLIENT_POLICY kestrel-proposal-approval-window: attention escalation is eligible only once the configured ${windowHours}-hour review window has genuinely elapsed.`,
+            ],
+            authority: 3,
+          }),
+        ],
+        effects: [],
+        verifications: [],
+      },
+    ],
+  });
+
+  // A check that arrives after the reviewer has already acted is a safe no-op, not an error.
+  if (state.lifecycleState !== 'AWAITING_APPROVAL') {
+    return inertStep('approval-check-moved-on', `Current lifecycle state (${state.lifecycleState}) is not awaiting approval. No action taken.`, [
+      { label: 'Lifecycle state', value: state.lifecycleState },
+    ]);
+  }
+
+  if (routedAt === undefined) {
+    return inertStep('approval-check-invalid', 'No recorded approval-routing timestamp on this draft. No action taken.', [
+      { label: 'Routed at', value: 'not recorded' },
+    ]);
+  }
+
+  const elapsedMs = Date.parse(event.occurredAt) - Date.parse(routedAt);
+  const elapsedHours = Math.round((elapsedMs / (60 * 60 * 1000)) * 10) / 10;
+  const assignmentStatus = state.facts[APPROVAL_STATUS_FACT] ?? 'UNRECORDED';
+  const assignedTo = state.facts[APPROVAL_ASSIGNEE_FACT] ?? 'not recorded';
+
+  const timingFacts = [
+    { label: 'Routed at', value: routedAt },
+    { label: 'Checked at', value: event.occurredAt },
+    { label: 'Elapsed', value: `${elapsedHours} hours` },
+    { label: 'Configured window', value: `${windowHours} hours` },
+    { label: 'Approver assignment', value: assignmentStatus },
+    { label: 'Assigned to', value: assignedTo },
+  ];
+
+  if (elapsedMs < windowHours * 60 * 60 * 1000) {
+    return inertStep(
+      'approval-check',
+      `Checked ${elapsedHours}h into a ${windowHours}h approval window. Still within policy — no action taken.`,
+      timingFacts,
+    );
+  }
+
+  const ceilingFact = state.facts[APPROVAL_CEILING_FACT];
+  const assigneeCeiling = ceilingFact === undefined ? null : asAuthorityLevel(Number(ceilingFact), APPROVAL_CEILING_FACT);
+  const nextAuthority = assigneeCeiling === null ? null : nextAuthorityAbove(assigneeCeiling);
+
+  // Verdict 3 — a named approver who is already the final escalation point.
+  if (assigneeCeiling !== null && nextAuthority === null) {
+    return {
+      steps: [
+        {
+          id: id('approval-chain-exhausted'),
+          label: 'Approval attention overdue',
+          atOffsetSeconds: 0,
+          summary: `No approval decision within the configured ${windowHours}-hour window (checked at ${elapsedHours}h). ${assignedTo} is the final escalation point, so there is no next approver to raise this to — the draft remains AWAITING_APPROVAL and the exhausted chain is recorded rather than escalated to the same person.`,
+          decisions: [
+            decision({
+              id: id('d-approval-chain-exhausted'),
+              eventId: event.eventId,
+              mechanism: 'DETERMINISTIC_RULE',
+              objective: 'Determine who the next approver in the authority chain is, once the approval window has elapsed.',
+              relevantState: state.lifecycleState,
+              evidenceRefs: [`state.facts.${APPROVAL_CEILING_FACT}`, 'profile.roles'],
+              deterministicFacts: [...timingFacts, { label: 'Assignee authority ceiling', value: String(assigneeCeiling) }],
+              missingInformation: [...state.missingInformation],
+              permittedActions: ['record_escalation_chain_exhausted'],
+              forbiddenActions: ['escalate_to_the_assignee', 'synthesize_approval', 'transition_lifecycle_state'],
+              selectedAction: 'record_escalation_chain_exhausted',
+              applicablePolicy: [
+                'CLIENT_POLICY kestrel-proposal-approval-window: escalation is strictly upward, so an approver at the top of the ladder has nobody above them to escalate to.',
+              ],
+              escalationReason: `${assignedTo} holds the highest configured authority (${assigneeCeiling}); there is no higher authority to escalate to, and re-notifying the unresponsive approver would not be an escalation.`,
+              authority: 2,
+            }),
+          ],
+          effects: [],
+          verifications: [],
+        },
+      ],
+    };
+  }
+
+  // Verdict 2 — escalate strictly past the person already asked. Verdict 4 — nobody was ever
+  // asked, so the report is about the assignment, not about a reviewer's timekeeping.
+  const assigned = assigneeCeiling !== null && nextAuthority !== null;
+  const escalationAuthority = nextAuthority ?? FINAL_ESCALATION_AUTHORITY;
+  const escalationOwner = resolveEscalationOwner(profile, escalationAuthority);
+
+  return {
+    steps: [
+      {
+        id: id('approval-overdue'),
+        label: 'Approval attention overdue',
+        atOffsetSeconds: 0,
+        // Deliberately NO transitionTo — see this section's note. The draft stays exactly
+        // where it is; only an operational attention condition is raised.
+        summary: assigned
+          ? `No approval decision within the configured ${windowHours}-hour window (checked at ${elapsedHours}h). Escalated past ${assignedTo} to ${escalationOwner.target} — the draft remains AWAITING_APPROVAL, pending an actual human decision.`
+          : `No approval decision within the configured ${windowHours}-hour window (checked at ${elapsedHours}h), and this draft was never assigned to a named approver (${assignedTo}). Escalated to ${escalationOwner.target} as an unassigned draft rather than as a late review — the draft remains AWAITING_APPROVAL.`,
+        decisions: [
+          decision({
+            id: id('d-approval-overdue'),
+            eventId: event.eventId,
+            mechanism: 'DETERMINISTIC_RULE',
+            objective: 'Determine who the next approver in the authority chain is, once the approval window has elapsed.',
+            relevantState: state.lifecycleState,
+            evidenceRefs: [`state.facts.${APPROVAL_STATUS_FACT}`, 'profile.roles', 'event.occurredAt'],
+            deterministicFacts: [
+              ...timingFacts,
+              { label: 'Assignee authority ceiling', value: assigneeCeiling === null ? 'none — no approver was named' : String(assigneeCeiling) },
+              { label: 'Escalating at authority', value: String(escalationAuthority) },
+              { label: 'Escalation reaches', value: escalationOwner.target },
+            ],
+            missingInformation: [...state.missingInformation],
+            permittedActions: [assigned ? 'escalate_attention_to_next_approver' : 'escalate_unassigned_draft'],
+            forbiddenActions: ['escalate_to_the_assignee', 'synthesize_approval', 'apply_default_disposition', 'transition_lifecycle_state'],
+            selectedAction: assigned ? 'escalate_attention_to_next_approver' : 'escalate_unassigned_draft',
+            applicablePolicy: [
+              `CLIENT_POLICY kestrel-proposal-approval-window: a draft held for approval past the configured ${windowHours}-hour window is escalated to the next approver in the authority chain. The draft itself is never auto-decided.`,
+            ],
+            escalationReason: assigned
+              ? `No approval decision recorded within ${windowHours} hours of routing to ${assignedTo}.`
+              : `This draft was never assigned to a named approver at routing (${assignedTo}), and ${windowHours} hours have elapsed. The overdue condition is an unowned draft, not an unresponsive reviewer.`,
+            authority: 2,
+          }),
+        ],
+        effects: [
+          {
+            id: id('effect:notify-approval-overdue'),
+            kind: 'NOTIFICATION',
+            description: assigned
+              ? 'Notify the next approver in the authority chain that a draft has exceeded the configured approval window.'
+              : 'Notify the final escalation point that a draft has exceeded the configured approval window without ever having been assigned to a named approver.',
+            target: escalationOwner.target,
+            // Anchored on the entity and the condition, never on the check that observed it,
+            // so an hourly scheduler escalates once rather than once an hour.
+            idempotencyKey: `notify:${event.entityId}:approval-overdue`,
+            authority: 3,
+            policyPermits: true,
+            verification: {
+              check: 'Confirm the notification reached an owner other than the assigned approver.',
+              expect: 'Notification addressed to an owner above the assigned approver.',
+            },
+          },
+        ],
+        verifications: [],
+      },
+    ],
+  };
+}
+
 export const CALL_TO_PROPOSAL_HANDLERS: SystemHandlers = {
   systemId: 'call-to-proposal',
   initialState: 'TRANSCRIPT_RECEIVED',
@@ -1070,5 +1381,6 @@ export const CALL_TO_PROPOSAL_HANDLERS: SystemHandlers = {
     'sales.call.transcript.received': handleTranscriptReceived,
     'human.clarification.supplied': handleClarificationSupplied,
     'human.decision.recorded': handleHumanDecision,
+    'proposal.approval.reevaluated': handleApprovalAttentionTimeout,
   },
 };

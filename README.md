@@ -45,7 +45,7 @@ npm install
 npm run dev
 ```
 
-Then open the printed URL. **21 incidents across 6 systems** replay through the engine. Each
+Then open the printed URL. **22 incidents across 6 systems** replay through the engine. Each
 one executes the real engine — same input, same result, every time.
 
 **Lead Rescue (10)** — `/simulator/after-hours-enquiry` · `duplicate-delivery` ·

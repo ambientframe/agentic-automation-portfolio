@@ -35,10 +35,11 @@ function claimsFrom(facts: Readonly<Record<string, string>>): Claim[] {
 }
 
 describe('Call-to-Proposal Revenue Agent scenarios', () => {
-  it('provides the two scenarios this iteration requires', () => {
+  it('provides the three scenarios this iteration requires', () => {
     expect(CALL_TO_PROPOSAL_SCENARIOS.map((s) => s.slug)).toEqual([
       'discovery-to-approved-proposal',
       'unsupported-scope-claim-blocked',
+      'approval-window-elapses-unassigned',
     ]);
   });
 

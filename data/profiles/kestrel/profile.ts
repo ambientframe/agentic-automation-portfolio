@@ -518,6 +518,16 @@ const RAW = {
         'Lead Rescue ready-but-undespatched attention timeout (the second half of lr-fm-approval-timeout\'s gap: a case can sit approved/ready as easily as it can sit unreviewed). The clock starts from bookingReadyAt — the existing readiness fact, never offerSentAt, which does not exist yet for an un-despatched case. Deliberately shorter than kestrel-booking-offer-window (48h): the decision to proceed has already been made by this point, and only the mechanical act of despatch remains outstanding, which should not wait a full business day.',
     },
     {
+      id: 'kestrel-proposal-approval-window',
+      statement:
+        'A proposal draft routed for approval that receives no decision within 48 hours is flagged as an overdue operational attention condition and escalated to the next approver in the authority chain. The draft is never auto-approved, auto-revised, or auto-rejected.',
+      provenance: 'CLIENT_POLICY',
+      verification: 'NOT_APPLICABLE',
+      sourceIds: [],
+      appliesTo:
+        'Call-to-Proposal approval attention timeout (canon failure mode cp-fm-approval-timeout, "HUMAN_APPROVAL_TIMEOUT"). The clock starts at routing — the approvalRoutedAt fact written when the draft enters AWAITING_APPROVAL — and is never restarted by a check. Deliberately longer than kestrel-review-timeout-window (24h): that window covers a triage decision on a single case, whereas this one covers a reviewer reading a complete commercial document they are personally accountable for, and the promise it protects is stated to buyers in days ("a written proposal by Friday"), not hours. Escalation here is strictly upward: it reaches an authority level ABOVE the assigned approver\'s own ceiling, because notifying the person who is already not responding is not an escalation.',
+    },
+    {
       id: 'kestrel-collection-cadence',
       statement:
         'Payment reminders issue 3 days before due date and again on days 1, 8, 15 and 30 past due, with escalation to the founder at day 45.',
@@ -630,6 +640,7 @@ const RAW = {
     { key: 'entityMatchThreshold', label: 'Minimum confidence to accept an entity match', value: 0.9, unit: 'probability', policyId: 'kestrel-entity-resolution' },
     { key: 'collectionEscalationDays', label: 'Escalation to founder past due', value: 45, unit: 'days past due', policyId: 'kestrel-collection-cadence' },
     { key: 'proposalAuthorityCeiling', label: 'Maximum authority for outbound commercial documents', value: 2, unit: 'authority level', policyId: 'kestrel-proposal-authority' },
+    { key: 'proposalApprovalTimeoutHours', label: 'Proposal approval attention timeout', value: 48, unit: 'hours', policyId: 'kestrel-proposal-approval-window' },
     { key: 'inputStalenessToleranceHours', label: 'Analysis input staleness tolerance', value: 96, unit: 'hours', policyId: 'kestrel-analysis-freshness' },
     { key: 'exceptionVarianceThresholdPct', label: 'Exception-candidate variance threshold', value: 12, unit: 'percent', policyId: 'kestrel-exception-materiality' },
     { key: 'malformedRetryBudget', label: 'Attempts on a malformed intake payload before a person is asked', value: 3, unit: 'attempts', policyId: 'kestrel-malformed-intake' },

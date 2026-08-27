@@ -3,7 +3,56 @@
 > One per accepted package (Constitution §14). Repository truth is authoritative; this file
 > is an index, not a source. Append the new checkpoint above the previous one.
 
-## Current — The published gap was used as a backlog: 15 → 18 of 37 · 2026-08-27
+## Current — The last Pending standard closes, and names nobody · 2026-08-27
+
+**Verified state.** `npm run verify`: 61 files, 956 passed / 1 skipped, exit 0. `npm run build`:
+exit 0, 39 static pages. Call-to-Proposal scenarios 2 → 3; portfolio 21 → 22. Lead Rescue
+coverage unchanged at 18 of 37; Call-to-Proposal unchanged at 8 of 18 — see below, that is the
+finding, not an omission.
+
+**Proof claim earned.** `cp-fm-approval-timeout` was the last Pending standard with a clear
+shape. Its declared prevention — "Named approver and review window assigned at the moment of
+routing" — is now executed at cp-t11, and its declared recovery — "escalate to the next approver
+in the authority chain" — is resolved strictly above the assigned approver's own authority
+ceiling, so a draft can never be escalated to the person who is already not responding.
+
+**Implementing the prevention faithfully found something.** Kestrel's Operations Coordinator and
+Finance tie at the proposal authority ceiling, so `resolveEscalationOwner` names nobody — which
+means the failure mode's own second declared cause, "no named approver assigned at routing
+time", is Kestrel's standing condition rather than an edge case. The routing step records that
+verbatim and invents no one; the overdue report says the draft was never assigned rather than
+that a reviewer is late. Whether to change the fiction so a proposal approver is nameable is an
+owner decision, deliberately not taken here.
+
+**The authority ladder is closed, which forced the honest branch.** `AuthorityLevel` has no rung
+above 4, so "this approver is already the final escalation point" could not be expressed as a
+level and became its own verdict: the exhausted chain is recorded and nobody is notified,
+because the only reachable person is the one already asked.
+
+**Zero transition coverage, by construction.** `recoveryPath.shape: 'HOLDS_POSITION'` means no
+branch sets `transitionTo`, so the engine's legality gate is never invoked — and a mechanism
+that makes no lifecycle move cannot register on a metric that counts lifecycle moves. The
+coverage guard did not fire, and that silence is now published rather than assumed.
+
+**Guards caught the collateral.** The generated docs, the Call-to-Proposal scenario-slug list,
+and the README's runnable total all failed on this change. None was found by reading.
+
+**Falsification and mutation.** 13 tests written RED first — the first RED was the profile
+refusing to let a threshold be hard-coded. 9 targeted mutations, all killed, file restored
+byte-for-byte and verified by SHA-256. One mutation (a one-tick window-boundary slip) survived
+the first pass and earned a boundary test rather than an explanation.
+
+**Maturity.** Unchanged. $0 spent, no provider crossed, no gated variable set.
+
+**Pattern earned.** #21 — Escalation is a sequence, not a level: a timeout must know who was
+already asked, and "nobody" changes the escalation rather than leaving a blank to fill.
+
+**Next package.** NOT SELECTED. Two candidates with a clear shape, in order of my preference:
+(a) inherit #21 into Client Onboarding's readiness sign-off, the obvious next taker and cheap;
+(b) the standing Execution 2 → 3 blocker — no side effect has crossed to anything off this
+machine — which is the only reference-exit blocker left and is not cheap. Owner sequences.
+
+## Earlier — The published gap was used as a backlog: 15 → 18 of 37 · 2026-08-27
 
 **Verified state.** `npm run verify`: 60 files, 943 passed / 1 skipped, exit 0. `npm run build`:
 exit 0. Lead Rescue coverage **15 → 18 of 37 (41% → 49%)**; scenarios 8 → 10, portfolio 19 → 21.

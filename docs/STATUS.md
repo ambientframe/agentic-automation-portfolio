@@ -1,6 +1,51 @@
 # Status
 
-**As of 2026-08-27 (latest pass, same day) · The coverage panel named three moves nobody could
+**As of 2026-08-27 (latest pass, same day) · The last Pending standard closes, and the honest
+answer is that this firm cannot say who approves a proposal.** `cp-fm-approval-timeout` declared
+a prevention nobody had implemented — "Named approver and review window assigned at the moment
+of routing" — and implementing it faithfully surfaced something the canon had not: Kestrel's
+Operations Coordinator and Finance tie at the proposal authority ceiling, so `resolveEscalationOwner`
+names nobody. The failure mode's own second declared cause, "no named approver assigned at
+routing time", is therefore Kestrel's standing condition, not a hypothetical edge.
+
+**The system records that rather than picking one.** Routing writes the resolution status
+verbatim — `UNRESOLVED_AMBIGUOUS_OWNER`, with both tied role names — starts the 48-hour window
+anyway (the promise made to a buyer does not pause because the firm cannot say whose desk the
+draft is on), and writes no authority ceiling at all, because an unresolved assignment has none
+and a placeholder would hand the timeout a chain position for a person who does not exist.
+
+**Escalation goes past the assignee, which is a different mechanism from Lead Rescue's.** Lead
+Rescue escalates to a fixed authority LEVEL, correct there because nothing was ever assigned to
+anyone in particular. Canon here says "the next approver in the authority chain", and "next" is
+only meaningful relative to whoever was already asked — so the target is resolved at the
+assignee's own ceiling plus one, making it structurally impossible to escalate a person to
+themselves. `AuthorityLevel` is a closed union ending at 4, so an approver already at the top
+could not be expressed as a level and became its own verdict: the chain is recorded as exhausted
+and **nobody is notified**, because the only reachable person is the one already unresponsive.
+
+**It bought zero transition coverage, and that is the point worth publishing.** The declared
+`recoveryPath.shape` is `HOLDS_POSITION`, so no branch sets `transitionTo` and the engine's
+legality gate is never invoked — a mechanism that deliberately makes no lifecycle move cannot
+register on a metric that counts lifecycle moves. Call-to-Proposal stays at 8 of 18. The
+coverage figure measures inspectability of the transition graph and is silent about correctness
+work between transitions; this is the first package to demonstrate that silence rather than
+assert it.
+
+**What this does not prove.** "Escalated" means recorded and rendered on a page — there is still
+no pager, inbox, or webhook, so nothing reaches a human off this machine. The clock is
+scenario-authored: nothing sweeps `AWAITING_APPROVAL` drafts on its own, and Call-to-Proposal is
+not wired into the durable wait-incident store that gives Lead Rescue cross-process resumption.
+And the "named approver" is a ROLE — the profile carries no individuals, so that is the most
+specific truthful identifier this data model has.
+
+`npm run verify`: 61 files, 956 passed / 1 skipped, exit 0. `npm run build`: exit 0, 39 static
+pages. 13 tests written RED first; 9 targeted mutations all killed, the handler restored
+byte-for-byte and verified by SHA-256. A one-tick window-boundary mutation survived the first
+pass and earned a boundary test rather than an explanation.
+
+---
+
+**As of 2026-08-27 (earlier pass, same day) · The coverage panel named three moves nobody could
 watch, and two authored scenarios closed them. Lead Rescue is 18 of 37.** The panel shipped
 reading **15 of 37** and listing `lr-t02`, `lr-t30` and `lr-t32` among the moves no scenario
 drives — the malformed-payload retry path, closed by direct test hours earlier, so it genuinely
