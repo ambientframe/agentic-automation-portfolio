@@ -1,6 +1,50 @@
 # Status
 
-**As of 2026-08-26 (latest pass, same day) · Lead Rescue can now say whether its own record is
+**As of 2026-08-26 (latest pass, same day) · The execution boundary no longer tells the rest of
+the system it is safe to retry a message that may already have been delivered.** The defect the
+previous pass found by looking rather than by testing — and deliberately scoped out of — is
+fixed. `SmtpSideEffectExecutor` mapped `ESOCKET`, `ECONNECTION`, `ECONNRESET`, and `ETIMEDOUT`
+to `FAILED_BEFORE_EFFECT` regardless of which SMTP phase failed. That verdict is not a
+description of a socket; it is a **permission**, read by every layer above as "nothing reached
+the recipient, so a retry is safe." None of those four codes carries phase information, and the
+retained abnormal-delivery capture shows this adapter issuing exactly that permission for a
+socket failure after DATA while the receiving process independently recorded that it was holding
+the message. The portfolio's headline reliability claim — exactly one customer-facing effect
+across a run — was therefore unsound at the only boundary where it would ever be tested against a
+real provider.
+
+**The fix reads the phase the transport actually reports rather than guessing from the code.**
+A first attempt routed every socket-class code to `OUTCOME_UNKNOWN`; that was sound but blunt,
+and it broke an existing test for a genuine connection refusal, because nodemailer collapses
+connect-phase failures into `ESOCKET` — a real `ECONNREFUSED` arrives as
+`{code: 'ESOCKET', syscall: 'connect', command: 'CONN'}`. Refusing every `ESOCKET` would park a
+case for a human who has nothing to decide. The shipped rule instead grants
+`FAILED_BEFORE_EFFECT` only where non-delivery is structural: codes that cannot follow DATA
+(`ECONNREFUSED`, `ENOTFOUND`, `EHOSTUNREACH`, `EDNS`, `EENVELOPE`, `EAUTH`), a `connect` syscall,
+or an error raised against an SMTP command that precedes DATA in the protocol. Everything else —
+including every unrecognised code and every error carrying no code at all — resolves to
+`OUTCOME_UNKNOWN`, which `resolveSend` already routes to the existing UNCERTAIN path that parks
+the case for a person and never auto-retries. A false uncertainty costs an operator a decision;
+a false certainty costs the customer a duplicate.
+
+**Verified.** 22 new tests in `tests/smtp-side-effect-executor.test.ts` (39 in that file, up from
+17). Five were RED before implementation and named the exact defect. Five targeted mutations were
+then applied to the shipped fix — re-admitting the socket codes, adding `DATA` to the pre-DATA
+command set, widening the syscall check, forcing the phase test true, and inverting the default —
+and **all five were caught; none survived.** `npm run verify`: 54 files, 858 passed / 1 skipped,
+exit 0. `npm run build`: exit 0.
+
+**One thing this pass did NOT do.** The retained abnormal-delivery artifact under `n8n/evidence/`
+still records the pre-fix classification, because it is a historical capture of a real run and
+altering it would be fabricating evidence. It remains accurate about what the system did that
+day, and it is the evidence that produced this fix. **Re-capturing it against the corrected
+classifier is the immediate next package** — until then, the proof surface's "Where the receiver
+disagreed with the system" panel is describing a defect that no longer exists in the code.
+
+Maturity unchanged: `INTERACTIVE_PROTOTYPE`, `NOT_LIVE`. No provider was crossed, $0 spent, no
+model invoked, and nothing left this machine.
+
+**As of 2026-08-26 (earlier pass, same day) · Lead Rescue can now say whether its own record is
 complete, and it has finally seen the two abnormal delivery states it always claimed to
 understand.** Three gaps closed in one run, none of them by assertion. (1) `record()` has always
 been allowed to drop an observation rather than block business work; that policy is unchanged,

@@ -46,8 +46,9 @@
 - **Implementation:** `lib/ports/smtp-side-effect-executor.ts` · `lib/config/side-effect-executor-config.ts`
 - **Tests:** `tests/smtp-side-effect-executor.test.ts` · `tests/smtp-runtime-evidence.test.ts`
 - **Runtime artifact:** `n8n/evidence/lead-rescue-smtp-execution.json` — capture-server-issued `messageId` and `captureServerId`, `executorMode = LIVE`, transport failure classified `FAILED_BEFORE_EFFECT`
-- **Establishes:** a side effect genuinely left the process and a separate mail server accepted it, proven by a receipt only that server could issue; a transport failure is classified as *before effect* rather than ambiguous.
+- **Establishes:** a side effect genuinely left the process and a separate mail server accepted it, proven by a receipt only that server could issue; a transport failure becomes typed data rather than an exception or a false success.
 - **Limits (recorded, not hidden):** the server is a local Mailpit sandbox bound to `127.0.0.1` with relay structurally disabled and a `.invalid` recipient. This earns the *boundary contract*, not third-party delivery.
+- **Qualified by #14 (2026-08-26):** this entry originally read "classified as *before effect* rather than ambiguous," which was true of the captured connection refusal and over-broad as a general claim. Only failures that provably precede DATA earn that verdict; the retained capture's refusal still does.
 - **Reusable for 2–6:** the provider-contract shape for any outbound action.
 
 ### 6. Non-authoritative execution journal
@@ -115,6 +116,15 @@
 - **Limits (recorded, not hidden):** it raises conditions on a surface, not into a channel. There is no pager, inbox, or webhook in this build, so a condition still waits for somebody to open the page. And an alert can be no more accurate than the observation under it — the retained capture contains one case where the execution boundary's own classification was contradicted by an independent receiver, and the alert faithfully repeats the executor's claim.
 - **Reusable for 2–6:** `deriveOperationalAlerts` takes an `OperationalView` and an `ObservationIntegrity`. A test scans its source for Lead Rescue vocabulary and for anything that can act, persist, or read a clock, and fails on any of them.
 
+### 14. A failure verdict that grants permission is earned structurally, never inferred from an error code
+- **Earned:** execution-boundary classification package, 2026-08-26
+- **Implementation:** `lib/ports/smtp-side-effect-executor.ts` — `SMTP_COMMANDS_BEFORE_DATA` plus the phase read in `attemptSend`'s catch
+- **Tests:** `tests/smtp-side-effect-executor.test.ts` (39 tests, up from 17; 5 RED before implementation, and 5 targeted mutations of the shipped fix each separately confirmed to fail it — re-admitting the socket codes, adding `DATA` to the pre-DATA set, widening the syscall check, forcing the phase test true, and inverting the default)
+- **Establishes:** `FAILED_BEFORE_EFFECT` is not a description of a socket, it is a **permission** — every layer above reads it as "nothing reached the recipient, a retry is safe." A permission may therefore only be issued where non-delivery is structural: a code that cannot follow DATA by protocol, a `connect` syscall, or an error raised against an SMTP command that precedes DATA. Everything else, including every unrecognised code and every error carrying no code at all, resolves to `OUTCOME_UNKNOWN` and parks for a person. The asymmetry is the point: a false uncertainty costs an operator one decision, a false certainty costs the customer a duplicate.
+- **Why not a wider blocklist:** the first attempt routed every socket-class code to uncertainty. It was sound and it broke a genuine connection-refusal test, because nodemailer collapses connect-phase failures into `ESOCKET` — a real `ECONNREFUSED` arrives as `{code: 'ESOCKET', syscall: 'connect', command: 'CONN'}`. A blocklist that parks every refused connection trains an operator to clear a queue of decisions that were never theirs to make. Reading the phase the transport already reports is both sounder and more precise than either blanket rule.
+- **Limits (recorded, not hidden):** the phase is only as good as the transport's own reporting. An adapter whose provider surfaces no equivalent of `command`/`syscall` must fall back to the conservative rule and accept the extra uncertainty; it may not invent a phase. The retained abnormal-delivery artifact still records the pre-fix classification and was deliberately not edited — it is a historical capture, and re-capturing it against the corrected classifier is the next package.
+- **Reusable for 2–6:** the shape generalises to every `SideEffectExecutor` any system adds. The question "does this failure prove non-execution, or merely suggest it?" is the same for a CRM write, an SMS gateway, and a calendar invite; only the phase evidence differs.
+
 ## NOT YET EARNED
 
 | Candidate | Why not |
@@ -122,8 +132,5 @@
 | Third-party provider contract (CRM, calendar, SMS) | No implementation. SMTP to a local sandbox with a non-routable recipient earns the boundary contract (#5), not third-party delivery. |
 | Alert delivery into a channel | #13 raises conditions on a surface a person must still open. No pager, inbox, webhook, or escalation path exists, so "somebody is told" remains untrue. |
 | Third-party corroboration of an execution outcome | The receiver in #12/#13's capture is a purpose-built local SMTP fault server. It is an independent observer of the socket and it genuinely contradicted the application once; it is not a vendor contract, and `lead-rescue-smtp-execution.json` remains the only capture where a third-party product (Mailpit) issued the receipt. |
-| Sound post-DATA execution classification | The capture proves the executor classifies a socket failure after DATA as `FAILED_BEFORE_EFFECT` while the receiver genuinely holds the message. Retained as a finding in `executionClassificationCheckedAgainstTheReceiver`; the fix belongs to the execution boundary, not to the record. |
-| External identity provider integration | `lead-rescue-operator-authentication.json` records `externalIdentityProvider = false` and every principal as `syntheticIdentity = true`. The credential mechanism is real (#4); the identity source is not. |
-| Cross-domain generalisation of the proof surface | Constitution §8: generalise only after ≥2 domains justify it. Only Lead Rescue has a proof surface today. |
 | External identity provider integration | `lead-rescue-operator-authentication.json` records `externalIdentityProvider = false` and every principal as `syntheticIdentity = true`. The credential mechanism is real (#4); the identity source is not. |
 | Cross-domain generalisation of the proof surface | Constitution §8: generalise only after ≥2 domains justify it. Only Lead Rescue has a proof surface today. |

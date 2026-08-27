@@ -63,6 +63,213 @@ function smtpExecutor(overrides: Partial<ConstructorParameters<typeof SmtpSideEf
   });
 }
 
+/**
+ * A transport that fails the way a real one does: an `Error` carrying a `code`, thrown from
+ * `sendMail`. Injected rather than mocked at module level, because the contract under test is
+ * this adapter's own error TAXONOMY, not nodemailer's behaviour.
+ */
+function throwingTransport(code: string, message = `simulated ${code}`) {
+  return {
+    sendMail: () => {
+      const err = new Error(message) as NodeJS.ErrnoException;
+      err.code = code;
+      return Promise.reject(err);
+    },
+  };
+}
+
+describe('SMTP execution boundary — a failure after DATA is never called a non-execution', () => {
+  /**
+   * THE DEFECT THIS SUITE EXISTS FOR.
+   *
+   * `FAILED_BEFORE_EFFECT` is not a description of a socket; it is a PERMISSION. It tells
+   * every layer above that nothing reached the recipient and a retry is therefore safe. The
+   * retained capture in `n8n/evidence/lead-rescue-observation-integrity.json` shows this
+   * adapter returning exactly that for a socket failure that occurred AFTER DATA — while the
+   * receiving process independently recorded that it was holding the message.
+   *
+   * That is the one misclassification this portfolio cannot afford, because the claim it
+   * leads with is "exactly one customer-facing effect across the whole run". A blanket
+   * pre-DATA verdict on a socket-class error turns that guarantee into a coin flip at the
+   * only boundary where it would ever be tested for real.
+   *
+   * The rule these tests pin: a code may claim `FAILED_BEFORE_EFFECT` only if it is
+   * STRUCTURALLY IMPOSSIBLE for it to follow DATA. Everything else must fall to
+   * `OUTCOME_UNKNOWN`, which `checkWaitIncident` already routes to a person and never
+   * auto-retries. Uncertainty is a worse user experience and a better guarantee.
+   */
+
+  const CANNOT_RULE_OUT_DATA = [
+    // Socket-level failures carry no phase information. nodemailer raises ESOCKET for a
+    // transport error at ANY point in the conversation, DATA included.
+    'ESOCKET',
+    'ECONNECTION',
+    // A peer reset arrives just as readily after the message body as before it.
+    'ECONNRESET',
+    // socketTimeout fires mid-DATA and is indistinguishable here from connectionTimeout.
+    'ETIMEDOUT',
+  ] as const;
+
+  for (const code of CANNOT_RULE_OUT_DATA) {
+    it(`9a. ${code} resolves to OUTCOME_UNKNOWN — it can occur after DATA, so a retry is not provably safe`, async () => {
+      const executor = smtpExecutor({ transport: throwingTransport(code) });
+      const outcome = await executor.attemptSend({
+        attemptId: `attempt-${code}`,
+        idempotencyKey: `key-${code}`,
+        provider: executor.id,
+        description: 'acknowledgement',
+      });
+
+      expect(outcome.kind).toBe('OUTCOME_UNKNOWN');
+      expect(outcome.kind).not.toBe('FAILED_BEFORE_EFFECT');
+    });
+  }
+
+  /**
+   * The other half of the guard. A fix that simply routes everything to OUTCOME_UNKNOWN would
+   * pass the block above while destroying the adapter's usefulness — every refused connection
+   * would park a case for a human who has nothing to decide. These pin the codes that
+   * genuinely precede DATA by protocol and must KEEP their retry permission.
+   */
+  const STRUCTURALLY_BEFORE_DATA = [
+    'ECONNREFUSED', // no connection was ever established
+    'ENOTFOUND', // the host never resolved
+    'EHOSTUNREACH', // no route to the host
+    'EDNS', // resolution failed
+    'EENVELOPE', // the server rejected MAIL FROM / RCPT TO, both of which precede DATA
+    'EAUTH', // authentication precedes MAIL FROM
+  ] as const;
+
+  for (const code of STRUCTURALLY_BEFORE_DATA) {
+    it(`9b. ${code} keeps FAILED_BEFORE_EFFECT — it cannot follow DATA, so retry permission is genuinely earned`, async () => {
+      const executor = smtpExecutor({ transport: throwingTransport(code) });
+      const outcome = await executor.attemptSend({
+        attemptId: `attempt-${code}`,
+        idempotencyKey: `key-${code}`,
+        provider: executor.id,
+        description: 'acknowledgement',
+      });
+
+      expect(outcome.kind).toBe('FAILED_BEFORE_EFFECT');
+    });
+  }
+
+  it('9c. an unrecognised code is never assumed safe — the default is uncertainty, not permission', async () => {
+    const executor = smtpExecutor({ transport: throwingTransport('ESOMETHINGNEW') });
+    const outcome = await executor.attemptSend({
+      attemptId: 'attempt-novel',
+      idempotencyKey: 'key-novel',
+      provider: executor.id,
+      description: 'acknowledgement',
+    });
+
+    expect(outcome.kind).toBe('OUTCOME_UNKNOWN');
+  });
+
+  /**
+   * The discrimination that keeps the fix from being a blunt instrument.
+   *
+   * nodemailer collapses connect-phase failures into ESOCKET: a genuine ECONNREFUSED arrives
+   * as `{code:'ESOCKET', syscall:'connect', command:'CONN'}`. Treating the code alone as
+   * post-DATA would park every refused connection for a human with nothing to decide. These
+   * pin that the adapter reads the phase the transport actually reports.
+   */
+  function phasedTransport(command: string, extra: Record<string, unknown> = {}) {
+    return {
+      sendMail: () => {
+        const err = new Error(`simulated failure at ${command}`) as NodeJS.ErrnoException;
+        err.code = 'ESOCKET';
+        Object.assign(err, { command, ...extra });
+        return Promise.reject(err);
+      },
+    };
+  }
+
+  for (const command of ['CONN', 'EHLO', 'STARTTLS', 'AUTH', 'MAIL FROM', 'RCPT TO']) {
+    it(`9f. ESOCKET raised at ${command} keeps FAILED_BEFORE_EFFECT — that command precedes DATA`, async () => {
+      const executor = smtpExecutor({ transport: phasedTransport(command) });
+      const outcome = await executor.attemptSend({
+        attemptId: `attempt-${command}`,
+        idempotencyKey: `key-${command}`,
+        provider: executor.id,
+        description: 'acknowledgement',
+      });
+
+      expect(outcome.kind).toBe('FAILED_BEFORE_EFFECT');
+    });
+  }
+
+  it('9g. ESOCKET raised at DATA is OUTCOME_UNKNOWN — the body was in flight and acceptance cannot be ruled out', async () => {
+    const executor = smtpExecutor({ transport: phasedTransport('DATA') });
+    const outcome = await executor.attemptSend({
+      attemptId: 'attempt-data',
+      idempotencyKey: 'key-data',
+      provider: executor.id,
+      description: 'acknowledgement',
+    });
+
+    expect(outcome.kind).toBe('OUTCOME_UNKNOWN');
+  });
+
+  it('9h. a connect-syscall failure is before-effect even when it reports no command', async () => {
+    const executor = smtpExecutor({
+      transport: phasedTransport('', { syscall: 'connect', command: undefined }),
+    });
+    const outcome = await executor.attemptSend({
+      attemptId: 'attempt-connect',
+      idempotencyKey: 'key-connect',
+      provider: executor.id,
+      description: 'acknowledgement',
+    });
+
+    expect(outcome.kind).toBe('FAILED_BEFORE_EFFECT');
+  });
+
+  it('9i. a write-syscall failure is NOT treated as before-effect — only `connect` proves no conversation happened', async () => {
+    const executor = smtpExecutor({
+      transport: phasedTransport('', { syscall: 'write', command: undefined }),
+    });
+    const outcome = await executor.attemptSend({
+      attemptId: 'attempt-write',
+      idempotencyKey: 'key-write',
+      provider: executor.id,
+      description: 'acknowledgement',
+    });
+
+    expect(outcome.kind).toBe('OUTCOME_UNKNOWN');
+  });
+
+  it('9d. an error with no code at all is never assumed safe', async () => {
+    const executor = smtpExecutor({
+      transport: { sendMail: () => Promise.reject(new Error('socket hang up')) },
+    });
+    const outcome = await executor.attemptSend({
+      attemptId: 'attempt-codeless',
+      idempotencyKey: 'key-codeless',
+      provider: executor.id,
+      description: 'acknowledgement',
+    });
+
+    expect(outcome.kind).toBe('OUTCOME_UNKNOWN');
+  });
+
+  it('9e. an OUTCOME_UNKNOWN from this boundary states that acceptance could not be ruled out, rather than asserting failure', async () => {
+    const executor = smtpExecutor({ transport: throwingTransport('ESOCKET', 'write EPIPE after DATA') });
+    const outcome = await executor.attemptSend({
+      attemptId: 'attempt-reason',
+      idempotencyKey: 'key-reason',
+      provider: executor.id,
+      description: 'acknowledgement',
+    });
+
+    expect(outcome.kind).toBe('OUTCOME_UNKNOWN');
+    if (outcome.kind === 'OUTCOME_UNKNOWN') {
+      expect(outcome.reason).toMatch(/cannot be ruled out|acceptance/i);
+      expect(outcome.reason).not.toMatch(/before the message was accepted/i);
+    }
+  });
+});
+
 describe('SMTP execution boundary — configuration gate', () => {
   it('1a. simulated execution is the default: an empty environment never selects SMTP', () => {
     const selection = resolveSideEffectExecutorSelection({});

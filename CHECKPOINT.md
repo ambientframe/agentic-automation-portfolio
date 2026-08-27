@@ -3,7 +3,45 @@
 > One per accepted package (Constitution §14). Repository truth is authoritative; this file
 > is an index, not a source. Append the new checkpoint above the previous one.
 
-## Current — Observation integrity, deterministic alerting, abnormal-delivery evidence · 2026-08-26
+## Current — Execution-boundary classification corrected · 2026-08-26
+
+**Verified state.** `main` clean at time of commit. `npm run verify`: 54 files, 858 passed /
+1 skipped, exit 0. `npm run build`: exit 0. Five tests were RED before implementation; five
+targeted mutations of the shipped fix were each confirmed to fail the suite, none survived.
+
+**Proof claim earned.** `FAILED_BEFORE_EFFECT` — the verdict that grants retry permission — is
+now issued only where non-delivery is structural: a code that cannot follow DATA, a `connect`
+syscall, or an SMTP command that precedes DATA. Every socket-class failure whose phase cannot be
+established resolves to `OUTCOME_UNKNOWN` and parks for a person. The previous behaviour could
+authorise a retry of a message the receiver already held, which is how a system promising exactly
+one customer-facing send delivers two.
+
+**Precision, not just safety.** The first attempt routed all socket codes to uncertainty and
+broke a genuine connection-refusal test, because nodemailer reports a real `ECONNREFUSED` as
+`ESOCKET`. The shipped fix reads `err.command` / `err.syscall`, so a refused connection keeps its
+retry permission and a post-DATA failure does not.
+
+**Maturity.** Unchanged: proof `INTERACTIVE_PROTOTYPE`, operational `NOT_LIVE`. $0 spent, no
+provider crossed, nothing left the machine.
+
+**Finding retained, not fixed.** The abnormal-delivery artifact under `n8n/evidence/` still
+records the pre-fix classification. It is a historical capture and was not edited. Re-capturing it
+against the corrected classifier is the next package; until then the proof surface's
+receiver-disagreement panel describes a defect no longer present in code.
+
+**Also this pass, outside the package.** Three legibility defects fixed in `1e24806`: the masthead
+counted 3 of 9 maturity levels and hid Lead Rescue entirely; the footer asserted "no record write
+is sent" on every page, false since durable persistence landed; the README understated the work by
+roughly 60% and denied n8n, live-model, and outbound work that exists.
+
+**Environmental hazard, unresolved.** The repository lives inside iCloud-synced `~/Desktop`, which
+conflict-duplicates build output as `* 2.*`. 543 such files inside gitignored `.next/` made
+`npm run verify` fail while `git status` reported clean. Cleared by rebuilding, but it will recur
+until the repo moves off iCloud. See spine `LAUNCH_PLAN.md`.
+
+**Next package.** Re-capture abnormal-delivery evidence against the corrected classifier.
+
+## Previous — Observation integrity, deterministic alerting, abnormal-delivery evidence · 2026-08-26
 
 **Verified state.** `main` clean. `npm run verify`: 54 files, 836 passed / 1 skipped.
 `npm run build`: 30/30 pages, exit 0. Both new falsification suites were RED before
@@ -38,7 +76,7 @@ evidenced. That is Lead Rescue's only remaining reference-exit blocker.
 
 **Next package.** NOT SELECTED — PM sequences from the §6 scorecard.
 
-## Previous — Aggregate operational observability · 2026-08-26
+## Earlier — Aggregate operational observability · 2026-08-26
 
 **Verified state.** `main` clean. `npm run verify`: 51 files, 777 passed / 1 skipped.
 `npm run build`: 30/30 pages, exit 0. Falsification suite was RED before implementation.

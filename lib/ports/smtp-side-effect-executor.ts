@@ -85,6 +85,24 @@ export interface SmtpExecutorConfig {
  * `SideEffect`), so an adapter that holds a real socket while reporting `SIMULATED` would make
  * every downstream truthfulness claim wrong at once.
  */
+/**
+ * SMTP commands that precede DATA in the protocol. A transport error raised against any of
+ * these is provably before the message body was written, so — and only so — retry permission
+ * is genuinely earned. `DATA` itself is deliberately absent: once the body is in flight,
+ * acceptance can no longer be ruled out from this side of the socket.
+ */
+const SMTP_COMMANDS_BEFORE_DATA: ReadonlySet<string> = new Set([
+  'CONN',
+  'EHLO',
+  'HELO',
+  'STARTTLS',
+  'AUTH',
+  'MAIL',
+  'MAIL FROM',
+  'RCPT',
+  'RCPT TO',
+]);
+
 export class SmtpSideEffectExecutor implements SideEffectExecutor {
   readonly id = 'lead-rescue-local-smtp-executor';
   readonly mode: ExecutionMode = 'LIVE';
@@ -176,18 +194,47 @@ export class SmtpSideEffectExecutor implements SideEffectExecutor {
       const err = error as NodeJS.ErrnoException;
       const detail = err?.message ?? 'unknown SMTP failure';
 
-      // Connect-phase failures: the server never accepted anything.
-      if (['ECONNREFUSED', 'ENOTFOUND', 'EHOSTUNREACH', 'ETIMEDOUT', 'ECONNRESET', 'EDNS'].includes(err?.code ?? '')) {
+      // `FAILED_BEFORE_EFFECT` is a PERMISSION, not a description: it tells every layer above
+      // that nothing reached the recipient and a retry is therefore safe. It may only be
+      // issued for a code that is STRUCTURALLY INCAPABLE of following DATA.
+      //
+      // This list previously also contained ESOCKET, ECONNECTION, ECONNRESET, and ETIMEDOUT.
+      // None of those carries phase information — nodemailer raises ESOCKET for a transport
+      // error anywhere in the conversation, a peer reset arrives as readily after the body as
+      // before it, and socketTimeout fires mid-DATA indistinguishably from connectionTimeout.
+      // The retained abnormal-delivery capture under `n8n/evidence/` caught exactly that: this
+      // adapter reported "confirmed non-execution" for a socket failure after DATA while the
+      // receiving process was independently holding the message. Granting
+      // retry permission there is how a system that promises exactly one customer-facing send
+      // delivers two.
+      if (['ECONNREFUSED', 'ENOTFOUND', 'EHOSTUNREACH', 'EDNS', 'EENVELOPE', 'EAUTH'].includes(err?.code ?? '')) {
         return { kind: 'FAILED_BEFORE_EFFECT', reason: `SMTP transport failed before the message was accepted (${err.code}): ${detail}` };
       }
-      // nodemailer's own pre-send classifications, all of which precede acceptance.
-      if (['ESOCKET', 'ECONNECTION', 'EENVELOPE', 'EAUTH'].includes(err?.code ?? '')) {
-        return { kind: 'FAILED_BEFORE_EFFECT', reason: `SMTP transport failed before the message was accepted (${err.code}): ${detail}` };
+      // Phase, when the transport actually reports it, rather than a guess from the code.
+      // nodemailer collapses most connect-phase failures into ESOCKET — a genuine
+      // ECONNREFUSED arrives as `{code: 'ESOCKET', syscall: 'connect', command: 'CONN'}` —
+      // so refusing every ESOCKET would park a case for a human who has nothing to decide.
+      // These two fields carry the discrimination the code alone cannot: a failure whose
+      // syscall is `connect` never opened a conversation, and a failure raised against a
+      // command that precedes DATA in the protocol cannot have written a body.
+      const phase = (err as { command?: unknown })?.command;
+      if (
+        (err as { syscall?: unknown })?.syscall === 'connect' ||
+        (typeof phase === 'string' && SMTP_COMMANDS_BEFORE_DATA.has(phase.toUpperCase()))
+      ) {
+        return {
+          kind: 'FAILED_BEFORE_EFFECT',
+          reason: `SMTP transport failed before the message body was sent${typeof phase === 'string' ? ` (at ${phase})` : ''}: ${detail}`,
+        };
       }
-      // Anything else happened at or after DATA. Refuse to guess.
+      // Everything else — including every socket-class code and every code this adapter has
+      // never seen — happened at a point where acceptance cannot be ruled out. Refuse to
+      // guess. `resolveSend` turns this into the existing UNCERTAIN path, which parks the case
+      // for a person and never auto-retries. A false uncertainty costs an operator a decision;
+      // a false certainty costs the customer a duplicate.
       return {
         kind: 'OUTCOME_UNKNOWN',
-        reason: `SMTP send failed in a phase where acceptance cannot be ruled out: ${detail}`,
+        reason: `SMTP send failed in a phase where acceptance cannot be ruled out${err?.code === undefined ? '' : ` (${err.code})`}: ${detail}`,
       };
     }
   }
