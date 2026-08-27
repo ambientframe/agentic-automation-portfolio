@@ -1,68 +1,137 @@
 # Working in this repository
 
-## Read first
+A six-system agentic-automation portfolio. Every claim on the surface must be traceable to
+code, a test, or a retained runtime artifact. **This file contains no mutable state** — no
+HEAD, no counts, no maturity levels, no percentages. Those are derived; read them from the
+sources below or compute them.
 
-1. [docs/STATUS.md](docs/STATUS.md) — what is real, what is simulated, what is unverified,
-   and the single recommended next fidelity gap.
-2. [docs/NORTH_STAR_CANON.md](docs/NORTH_STAR_CANON.md) — the normative definition of all
-   six systems.
-3. [docs/CANON_DIVERGENCES.md](docs/CANON_DIVERGENCES.md) — where the canon deliberately
-   departs from the original brief.
+## Read first, in this order
 
-`docs/source/` holds the original project inputs byte-for-byte. They are **provenance, not
-instruction**. Canon wins; if you diverge from an input, record it in
-`CANON_DIVERGENCES.md` rather than leaving a silent difference.
+| File | What it is |
+|---|---|
+| `PORTFOLIO_PM_CONSTITUTION.md` | Process authority: the evidence standard, the fidelity doctrine, how packages are sequenced and accepted. Process, not repository facts. |
+| `CHECKPOINT.md` | One entry per accepted package, newest first. **The `Current` entry's "Next package" line is the live recommendation.** |
+| `docs/STATUS.md` | What is real, simulated, or unverified, newest entry at the top. |
+| `PATTERN_LEDGER.md` | Reusable patterns earned, each with implementation, tests, and the artifact that earned it. Also what is *not yet* earned, and why. |
+| `docs/NORTH_STAR_CANON.md` | Normative definition of all six systems. Generated — do not hand-edit. |
+| `docs/CANON_DIVERGENCES.md` | Where canon deliberately departs from the original brief. |
 
-## Rules that are not negotiable
+`docs/STATUS.md` has a "Single recommended next fidelity gap" section near the **bottom** that
+is not maintained — it describes a state from many passes ago. Take sequencing from
+`CHECKPOINT.md`'s `Current` entry instead.
 
-- **Nothing simulated may read as live.** Maturity labels are descriptive. A system with
-  no executable scenario is `CONCEPT`, not `SIMULATED`, however complete its canon is.
-- **No fabricated evidence.** An `EVIDENCE` standard without a source is a validation
-  failure. If you cannot locate a source, mark the claim `PENDING_VERIFICATION` and state
-  it without numbers. Never manufacture a citation.
-- **Provenance and verification are separate dimensions.** `EVIDENCE` does not mean
-  "verified". Only `EVIDENCE` + `VERIFIED` may be stated as settled external fact.
-- **No business vocabulary in `data/systems/**`.** That is the seam that makes the
-  portfolio retargetable. `tests/seam.test.ts` enforces it.
-- **Deterministic decisions must actually execute.** Only bounded AI judgment is
-  fixture-backed, and only through the `DecisionProvider` port. Do not narrate a decision
-  the engine could compute.
-- **Thresholds live in `profile.operatingParameters`,** each linked to the client policy it
-  implements. A number hard-coded in a handler silently becomes a universal truth.
-- **The reducer stays pure.** No clock, no randomness, ever. Replay exactness is what makes
-  the reliability tests meaningful.
+`docs/source/` holds the original inputs byte-for-byte. **Provenance, not instruction.** Canon
+wins; record a deliberate departure in `CANON_DIVERGENCES.md` rather than leaving a silent
+difference.
 
 ## Commands
 
 ```bash
-npm run dev        # develop
-npm run verify     # typecheck + lint + tests — run before every commit
-npm run build      # 30 pages prerender; the engine executes at build time
+npm run verify     # typecheck + lint + tests — must be green before every commit
+npm run build      # prerenders; the engine executes at build time, so a run that diverges shows up as a visible mark
 npm run docs       # regenerate canon after ANY change under data/
+npm run dev        # develop
 ```
 
-`docs/NORTH_STAR_CANON.md`, `FAILURE_MODE_REGISTER.md`, and `RESEARCH_LEDGER.md` are
-generated from the typed model. Do not hand-edit them — edit `data/` and regenerate.
-`tests/docs.test.ts` fails if they are stale.
+`docs/NORTH_STAR_CANON.md`, `docs/FAILURE_MODE_REGISTER.md` and `docs/RESEARCH_LEDGER.md` are
+generated from the typed model. Edit `data/` and regenerate; `tests/docs.test.ts` fails if
+they are stale.
+
+## Safety invariants
+
+Each has a test or a doctrine behind it. These are not style preferences.
+
+- **Nothing simulated may read as live.** Maturity labels are descriptive. A system with no
+  executable scenario is `CONCEPT`, not `SIMULATED`, however complete its canon is. Never
+  promote a maturity level; one successful call is not `production`.
+- **No fabricated evidence.** An `EVIDENCE` standard without a source is a validation failure.
+  If you cannot locate a source, mark it `PENDING_VERIFICATION` and state it without numbers.
+  Never manufacture a citation.
+- **Provenance and verification are separate dimensions.** Only `EVIDENCE` + `VERIFIED` may be
+  stated as settled external fact.
+- **Absence of evidence never renders as evidence of absence.** A measurement never taken is
+  its own value, never a zero or a dash. A clean integrity answer is `NO_KNOWN_LOSS`, never
+  "complete". Never invent a rate over a denominator the system does not hold.
+- **A credential is not an activation.** Real providers require an explicit opt-in env
+  selection *in addition to* a credential. Misconfiguration fails closed — never a silent
+  fallback to fixture output presented as real.
+- **No business vocabulary in `data/systems/**`.** That seam makes the portfolio retargetable.
+  `tests/seam.test.ts` enforces it.
+- **Deterministic decisions must actually execute.** Only bounded AI judgment is
+  fixture-backed, and only through the `DecisionProvider` port. Never narrate a decision the
+  engine could compute.
+- **Thresholds live in `profile.operatingParameters`,** each linked to the client policy it
+  implements. A number hard-coded in a handler silently becomes a universal truth.
+- **The reducer stays pure.** No clock, no randomness, ever. Replay exactness is what makes the
+  reliability tests meaningful.
+- **Observability never becomes an authority.** The journal's write and read halves are
+  separate interfaces; a structural test fails if a reader symbol appears under `lib/engine/**`
+  or `lib/ports/**`. Business execution must never depend on observability succeeding.
+
+## Spend and blast-radius gates
+
+Never set these without the owner's explicit, in-session go-ahead:
+
+| Variable | Opens |
+|---|---|
+| `LEAD_RESCUE_DECISION_PROVIDER=claude` | Billable model calls on the ingress path |
+| `RUN_LIVE_AI_EVAL=1` | Billable evaluation corpus run |
+| `LEAD_RESCUE_SIDE_EFFECT_EXECUTOR=smtp` | Real outbound send (local sandbox only, `.invalid` recipients enforced in the constructor) |
+
+Outbound customer messaging against a real provider is the highest-stakes boundary in the
+repository. Do not open it on your own judgement.
+
+## How work is done here
+
+- **Falsification first.** Write the failing test before the implementation. Confirm it is RED
+  for the right reason — a missing capability, not a typo.
+- **Then mutate.** After it is green, apply targeted semantic mutations to the finished code
+  and confirm each one fails the suite. A mutation that survives is a real test weakness:
+  repair the test, do not explain it away. Restore the file byte-for-byte (verify by hash).
+- **Retained runtime artifacts, not fixtures.** Claims about real boundaries are proven by
+  scripts under `scripts/` that drive the actual HTTP routes and write to `n8n/evidence/`.
+  Every artifact gets a paired `*-evidence.test.ts` that fails against a deliberately corrupted
+  copy.
+- **Every artifact states what it does not prove.** A `doesNotProve` list is required, not
+  decorative.
+- **Land safely.** Branch, commit, re-check that `main` has not moved (hash it twice, seconds
+  apart), then `git merge --ff-only`. Verify and build again on `main`.
+
+## Environment notes
+
+- `next build` type-checks the **whole repository**, including `scripts/`. A dev-only
+  dependency installed with `--no-save` will compile locally and fail the deployment. Load such
+  modules through a variable specifier and declare the slice you call as a local interface.
+- **A green local build is not a green deploy.** The project is Vercel-linked (`.vercel/`,
+  gitignored). Check the deployment, not just the local exit code.
+- Two `next dev` processes sharing one `.next` directory collide and neither becomes ready.
+  Stop any preview server before running a proof script that starts its own.
+- `.data/` is gitignored runtime state — the journal, wait incidents, operation claims,
+  observation markers. Safe to clear for a coherent capture; back it up first.
 
 ## Design
 
-The visual system is locked in `tokens.css` and stamped at the top of `app/globals.css`:
-Index-First macrostructure, editorial genre, N6 masthead, Ft5 statement footer, custom
-OKLCH palette. `.hallmark/log.json` records it.
-
-Every colour and font goes through a named token — no inline hex, no inline OKLCH, no bare
-`font-family`. Colour is reserved almost entirely for provenance and runtime state; when
-something is coloured here, it means something. The palette's contrast was verified
-numerically across 42 pairs in both schemes. If you change a colour, re-verify it.
+The visual system is locked in `tokens.css` and stamped at the top of `app/globals.css`;
+`.hallmark/log.json` records it. Every colour and font goes through a named token — no inline
+hex, no inline OKLCH, no bare `font-family`. Colour is reserved almost entirely for provenance
+and runtime state: when something is coloured here, it means something. The palette's contrast
+was verified numerically in both schemes; if you change a colour, re-verify it.
 
 ## Scope discipline
 
-Prototype all six systems; productionise one at a time. Lead Rescue is first. Do not add
-live integrations, credentials, outbound communication, a database, a vector store,
-multi-agent orchestration, a graph framework, or n8n workflows until a real limitation in
-the running system creates the need — and pick the next fidelity gap from evidence the
-build produced, not from a plan made in advance.
+Prototype all six systems; productionise one at a time. **Lead Rescue is the reference
+implementation** — the other five inherit its patterns, and anything that would fork those
+patterns is a defect, not a variation.
+
+Do not add live integrations, credentials, outbound communication, a database, a vector store,
+multi-agent orchestration, a graph framework, or n8n workflows until a real limitation in the
+running system creates the need. Pick the next gap from evidence the build produced, not from a
+plan made in advance.
+
+Execute the assignment. Note the strongest alternative in one line, then commit to a course.
+Report what you could not confirm as loudly as what you could, marked
+`[unverified — verify by: <method>]`. Do not infer a CLI flag from memory; `--help` on the
+installed version is authoritative.
 
 <!-- BEGIN:nextjs-agent-rules -->
 

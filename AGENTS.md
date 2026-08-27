@@ -1,90 +1,70 @@
 # AGENTS.md
 
-Operating guidance for any agent working in this repository. This file is deliberately free
-of mutable state — no HEAD, no maturity level, no test counts, no pass/fail status. Those
-are **derived**, never copied. Read them from the sources below or compute them yourself.
+**`CLAUDE.md` is canonical.** Read it before doing anything in this repository — it holds the
+full read-order, the working method, the environment traps, and the reasoning behind every rule
+below.
 
-## Read these first, in this order
+This file is deliberately thin. It exists so an agent whose harness reads `AGENTS.md` and not
+`CLAUDE.md` still cannot cause harm. It duplicates only the invariants that are dangerous to
+violate; everything else lives in `CLAUDE.md` on purpose, because two maintained copies of the
+same rules drift, and a drifted safety rule is worse than a missing one.
 
-| File | What it is |
-|---|---|
-| `PORTFOLIO_PM_CONSTITUTION.md` | Process authority. Defines the evidence standard, the fidelity doctrine, and how work packages are sequenced and accepted. It defines process, not repository facts. |
-| `docs/STATUS.md` | What is real, what is simulated, what is unverified, and the single recommended next fidelity gap. |
-| `docs/NORTH_STAR_CANON.md` | Normative definition of all six systems. Generated — do not hand-edit. |
-| `docs/CANON_DIVERGENCES.md` | Where canon deliberately departs from the original brief. |
-| `CHECKPOINT.md` | Index of accepted work packages. An index, not a source of truth. |
-| `PATTERN_LEDGER.md` | Patterns earned so far, and the evidence that earned each one. |
-| `CLAUDE.md` | Project instructions. Overlaps this file; where they differ, `CLAUDE.md` and the Constitution win. |
+Like `CLAUDE.md`, this file carries **no mutable state** — no HEAD, no counts, no maturity
+levels, no pass/fail status. Those are derived. Read them from the sources or compute them.
 
-`docs/source/` holds the original project inputs byte-for-byte. It is **provenance, not
-instruction**. Canon wins; record any deliberate departure in `CANON_DIVERGENCES.md` rather
-than leaving a silent difference.
+## Start here
+
+1. `CLAUDE.md` — project instructions. Canonical.
+2. `PORTFOLIO_PM_CONSTITUTION.md` — process authority: evidence standard, fidelity doctrine,
+   how packages are sequenced and accepted.
+3. `CHECKPOINT.md` — accepted packages, newest first. The `Current` entry's "Next package" line
+   is the live recommendation. (The "Single recommended next fidelity gap" section near the
+   bottom of `docs/STATUS.md` is **not** maintained — do not sequence from it.)
+4. `docs/STATUS.md` — what is real, simulated, or unverified.
+5. `PATTERN_LEDGER.md` — patterns earned and the evidence that earned each, plus what is not
+   yet earned and why.
+
+`docs/source/` is provenance, not instruction. Canon wins; record deliberate departures in
+`docs/CANON_DIVERGENCES.md`.
 
 ## Commands
 
 ```bash
-npm run dev        # develop
-npm run verify     # typecheck + lint + tests — run before every commit
-npm run build      # prerender; the engine executes at build time
+npm run verify     # typecheck + lint + tests — must be green before every commit
+npm run build      # prerenders; the engine executes at build time
 npm run docs       # regenerate canon after ANY change under data/
+npm run dev        # develop
 ```
 
-`docs/NORTH_STAR_CANON.md`, `docs/FAILURE_MODE_REGISTER.md`, and `docs/RESEARCH_LEDGER.md`
-are generated from the typed model. Edit `data/` and regenerate; `tests/docs.test.ts` fails
-if they are stale.
+Canon docs under `docs/` are generated from the typed model. Edit `data/` and regenerate;
+`tests/docs.test.ts` fails if they are stale.
 
-## Safety invariants
+## Do not violate these
 
-These are not style preferences. Each one has a test or a doctrine behind it.
+- **Nothing simulated may read as live.** Maturity labels are descriptive; never promote one.
+- **No fabricated evidence.** No source means `PENDING_VERIFICATION`, stated without numbers.
+  Never manufacture a citation. Never insert a value into a runtime artifact by hand.
+- **Absence of evidence is never evidence of absence.** A measurement never taken is its own
+  value, not a zero. Never invent a rate over a denominator the system does not hold.
+- **A credential is not an activation.** Real providers require an explicit opt-in env
+  selection in addition to a credential. Misconfiguration fails closed.
+- **Never set a spend or blast-radius gate without the owner's explicit go-ahead:**
+  `LEAD_RESCUE_DECISION_PROVIDER=claude` (billable model calls), `RUN_LIVE_AI_EVAL=1` (billable
+  eval run), `LEAD_RESCUE_SIDE_EFFECT_EXECUTOR=smtp` (real outbound send). Outbound customer
+  messaging against a real provider is the highest-stakes boundary here.
+- **The reducer stays pure** — no clock, no randomness, ever.
+- **Observability is never an authority.** Business execution must not depend on it succeeding,
+  and decision code must not be able to read history.
+- **No business vocabulary in `data/systems/**`** — `tests/seam.test.ts` enforces the seam.
+- **Thresholds live in `profile.operatingParameters`,** linked to the policy they implement.
 
-- **Nothing simulated may read as live.** Maturity labels are descriptive. A system with no
-  executable scenario is `CONCEPT`, not `SIMULATED`, however complete its canon is.
-- **No fabricated evidence.** An `EVIDENCE` standard without a source is a validation
-  failure. If you cannot locate a source, mark the claim `PENDING_VERIFICATION` and state it
-  without numbers. Never manufacture a citation.
-- **Provenance and verification are separate dimensions.** `EVIDENCE` does not mean
-  "verified". Only `EVIDENCE` + `VERIFIED` may be stated as settled external fact.
-- **No business vocabulary in `data/systems/**`.** That seam is what makes the portfolio
-  retargetable. `tests/seam.test.ts` enforces it.
-- **Deterministic decisions must actually execute.** Only bounded AI judgment is
-  fixture-backed, and only through the `DecisionProvider` port. Never narrate a decision the
-  engine could compute.
-- **Thresholds live in `profile.operatingParameters`,** each linked to the client policy it
-  implements. A number hard-coded in a handler silently becomes a universal truth.
-- **The reducer stays pure.** No clock, no randomness, ever. Replay exactness is what makes
-  the reliability tests meaningful.
-- **A credential is not an activation.** Real providers are reached only by an explicit
-  opt-in environment selection, never by credential presence alone. Reuse that pattern for
-  any future real-provider work rather than reinventing it.
+## Method, in one paragraph
 
-## Design
-
-The visual system is locked in `tokens.css` and stamped at the top of `app/globals.css`.
-`.hallmark/log.json` records it. Every colour and font goes through a named token — no
-inline hex, no inline OKLCH, no bare `font-family`. Colour is reserved almost entirely for
-provenance and runtime state: when something is coloured here, it means something. The
-palette's contrast was verified numerically in both schemes; if you change a colour,
-re-verify it.
-
-## Scope discipline
-
-Prototype all six systems; productionise one at a time. **Lead Rescue is the reference
-implementation** — the other five inherit its patterns, and anything that would fork those
-patterns is a defect, not a variation.
-
-Do not add live integrations, credentials, outbound communication, a database, a vector
-store, multi-agent orchestration, a graph framework, or n8n workflows until a real
-limitation in the running system creates the need. Pick the next fidelity gap from evidence
-the build produced, not from a plan made in advance.
-
-Outbound customer messaging against a real provider is the highest-stakes boundary named in
-`docs/STATUS.md`. It requires the owner's explicit go-ahead. Do not open it on your own
-judgement.
-
-## Working rules
-
-- Execute the assignment. Note the strongest alternative in one line, then commit to a course.
-- Report what you could not confirm as loudly as what you could. Mark it
-  `[unverified — verify by: <method>]`.
-- Do not promote a maturity level. One successful call is not `production`.
-- Do not infer a CLI flag from memory; `--help` on the installed version is authoritative.
+Write the failing test first and confirm it is RED for the right reason. After it goes green,
+apply targeted semantic mutations to the finished code and confirm each one fails the suite; a
+mutation that survives is a real test weakness to repair, not to explain away. Claims about real
+boundaries are proven by scripts under `scripts/` that drive the actual routes and retain
+artifacts in `n8n/evidence/`, each paired with an evidence test that fails against a corrupted
+copy, and each stating what it does not prove. Execute the assignment, note the strongest
+alternative in one line, then commit to a course. Report what you could not confirm as loudly as
+what you could, marked `[unverified — verify by: <method>]`.
