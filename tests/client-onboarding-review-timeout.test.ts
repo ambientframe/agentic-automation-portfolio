@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest';
 import { KESTREL } from '@/data/profiles/kestrel/profile';
 import { clientOnboardingScenarioBySlug } from '@/data/profiles/kestrel/scenarios/client-onboarding';
 import { CLIENT_ONBOARDING } from '@/data/systems';
-import { CLIENT_ONBOARDING_HANDLERS } from '@/lib/engine/handlers/client-onboarding';
 import { abandonableStateIds } from '@/lib/proof/parked-state-attention';
 import { ABANDONABLE_PARKED_STATES } from '@/data/parked-state-attention';
 import { numberParam } from '@/lib/model/profile';
