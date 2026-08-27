@@ -68,10 +68,60 @@ const FRAMES: readonly Frame[] = [
   { file: '08-unverified.png', route: '/lead-rescue', anchor: 'Customer deployment', offset: -560 },
 ];
 
+/**
+ * THE SLICE OF PLAYWRIGHT THIS SCRIPT USES, DECLARED LOCALLY.
+ *
+ * Playwright is deliberately not a dependency of this project, so any type-level reference to
+ * it — `import type`, `typeof import('playwright')`, even inside a `try` — fails to compile on
+ * every machine that does not happen to have it installed. `next build` type-checks this whole
+ * repository, so that includes CI and the deployment build.
+ *
+ * This was not theoretical: the first version of this script used
+ * `typeof import('playwright').chromium`, passed `npm run build` locally because the package
+ * was sitting in node_modules from an unsaved install, and failed the production deployment
+ * with TS2307. Green on one laptop, red everywhere else — the exact defect shape this
+ * repository keeps paying for.
+ *
+ * Declaring the surface here keeps the script fully type-checked against what it actually
+ * calls, on a machine that has the package and on one that never will. The specifier below is
+ * a variable for the same reason: a literal would make TypeScript resolve the module.
+ */
+interface CaptureLocator {
+  first(): CaptureLocator;
+  waitFor(options?: { state?: 'attached' | 'detached' | 'visible' | 'hidden'; timeout?: number }): Promise<void>;
+  evaluate<R>(fn: (element: Element) => R): Promise<R>;
+}
+
+interface CapturePage {
+  goto(url: string, options?: { waitUntil?: 'load' | 'domcontentloaded' | 'networkidle' }): Promise<unknown>;
+  getByText(text: string): CaptureLocator;
+  getByRole(role: string, options?: { name?: string; exact?: boolean }): CaptureLocator;
+  evaluate<A, R>(fn: (arg: A) => R, arg: A): Promise<R>;
+  waitForTimeout(ms: number): Promise<void>;
+  screenshot(options: { path: string; fullPage?: boolean }): Promise<unknown>;
+}
+
+interface CaptureBrowser {
+  newContext(options: {
+    viewport: { width: number; height: number };
+    deviceScaleFactor: number;
+    colorScheme: 'light' | 'dark';
+    reducedMotion: 'reduce' | 'no-preference';
+  }): Promise<{ newPage(): Promise<CapturePage> }>;
+  close(): Promise<void>;
+}
+
+interface CaptureChromium {
+  launch(): Promise<CaptureBrowser>;
+}
+
+const PLAYWRIGHT_SPECIFIER = 'playwright';
+
 async function main(): Promise<void> {
-  let chromium: typeof import('playwright').chromium;
+  let chromium: CaptureChromium;
   try {
-    ({ chromium } = await import('playwright'));
+    const loaded = (await import(PLAYWRIGHT_SPECIFIER)) as { chromium: CaptureChromium };
+    chromium = loaded.chromium;
   } catch {
     console.error(
       'playwright is not installed. This script is deliberately not a dependency of the app.\n' +

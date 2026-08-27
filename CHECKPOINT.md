@@ -3,7 +3,39 @@
 > One per accepted package (Constitution §14). Repository truth is authoritative; this file
 > is an index, not a source. Append the new checkpoint above the previous one.
 
-## Current — A declared recovery is checked against the transition graph · 2026-08-26
+## Current — A build is only green if it is green somewhere else · 2026-08-27
+
+**Verified state.** `npm run verify`: 57 files, 911 passed / 1 skipped, exit 0 — with and
+without Playwright installed. `npm run build`: exit 0 both ways. 9 new tests; 6 targeted
+mutations each confirmed to fail the suite, none survived.
+
+**What happened.** The production deployment failed on `TS2307: Cannot find module 'playwright'`
+after twenty seconds. `scripts/capture-walkthrough.ts` referenced Playwright at the type level,
+and Playwright had been installed `--no-save` on purpose, so it existed in local `node_modules`
+and in no manifest. `next build` type-checks the whole repository. Local gates had gone green
+minutes earlier. My defect.
+
+**Proof claim earned.** The script declares the slice of Playwright it calls as local interfaces
+and loads the module through a variable specifier, so TypeScript never resolves it — fully
+type-checked, and buildable on a machine that will never have the package. Proven by removing
+`node_modules/playwright` and re-running both gates, then restoring it and re-running both again.
+
+**The mechanism, not the correction.** `tests/dependency-honesty.test.ts` fails if any import
+under `app/`, `components/`, `data/`, `lib/`, `scripts/`, or `tests/` resolves to a package
+`package.json` does not declare, and pins this exemption specifically so it cannot be tidied
+back into a static import.
+
+**A second-order lesson worth keeping.** The first scanner reported twelve offenders and zero
+defects — it read prose in comments and strings as imports. It now strips comments and requires
+real import syntax, and disabling that stripping is itself a caught mutation.
+
+**Maturity.** Unchanged. $0 spent, no provider crossed.
+
+**Pattern earned.** #19 — an undeclared import is a build that only works where it was written.
+
+**Next package.** NOT SELECTED. Redeploy is the immediate next action.
+
+## Earlier — A declared recovery is checked against the transition graph · 2026-08-26
 
 **Verified state.** `npm run verify`: 56 files, 902 passed / 1 skipped, exit 0. `npm run build`:
 exit 0. 12 new tests, 8 RED before implementation; 10 targeted mutations each confirmed to fail

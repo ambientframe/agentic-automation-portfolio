@@ -1,6 +1,40 @@
 # Status
 
-**As of 2026-08-26 (latest pass, same day) · A failure mode's declared recovery is now a claim
+**As of 2026-08-27 · A production deployment failed, and the defect was mine: a build that was
+green only on the machine that wrote it.** `scripts/capture-walkthrough.ts` referenced Playwright
+at the type level (`typeof import('playwright').chromium`). Playwright had been installed with
+`npm install --no-save` on purpose — this repository promises a stranger that `npm install` is
+cheap — so it sat in local `node_modules` and in no manifest. `next build` type-checks the whole
+repository, so the deployment died on `TS2307: Cannot find module 'playwright'` after twenty
+seconds, having passed `npm run verify` and `npm run build` locally minutes earlier.
+
+**Fixed by declaring the surface instead of importing the types.** The script now defines the
+slice of Playwright it actually calls as local interfaces and loads the module through a
+**variable** specifier, so TypeScript never resolves it. The script stays fully type-checked
+against what it calls, on a machine that has the package and on one that never will, and it
+still degrades with an instruction when the package is absent. Proven under the failing
+condition rather than assumed: `node_modules/playwright` was removed and `npm run verify` and
+`npm run build` were both re-run to exit 0, then re-run to exit 0 again with it restored.
+
+**The correction is not the interesting part; the mechanism is.**
+`tests/dependency-honesty.test.ts` now scans every source file under `app/`, `components/`,
+`data/`, `lib/`, `scripts/`, and `tests/` and fails if any import resolves to a package
+`package.json` does not declare. It also pins this specific exemption — Playwright must stay out
+of the manifest **and** out of any specifier TypeScript can resolve — so the arrangement cannot
+be re-broken by someone tidying it up. Six mutations were each confirmed to fail it, including
+the exact annotation that killed the deployment.
+
+**Building the guard exposed a second-order lesson.** The first scanner reported twelve
+offenders and zero defects, because it read prose inside comments and strings as imports —
+`different from "the interval was zero"`, and this repository's own comments quoting bad
+patterns as examples. A scanner that cries wolf twelve times is worse than no scanner, so it
+strips comments and requires real import syntax, and a mutation that disables the comment
+stripping is itself caught.
+
+`npm run verify`: 57 files, 911 passed / 1 skipped, exit 0, with and without Playwright
+installed. `npm run build`: exit 0 both ways.
+
+**As of 2026-08-26 (earlier pass) · A failure mode's declared recovery is now a claim
 about the transition graph, and the graph is asked.** `terminalState` was free prose
 (`'ELIGIBILITY_REVIEW.'`, `'SCHEDULED — unsent records return to the queue…'`) and a validator
 cannot check a sentence, which is the whole reason gap 0 went unnoticed. It is replaced across

@@ -170,6 +170,18 @@
 - **Limits (recorded, not hidden):** it checks recoveries, never guards. The `SCHEDULED` dead-end above was found by reading and is pinned by an explicit test rather than by the mechanism, and a guard that can never be satisfied remains invisible to it. It also cannot tell that a declared movement is the *right* one — only that the graph can perform it, so a recovery pointed at a real-but-wrong state passes.
 - **Reusable for 2–6:** it already runs on all six. Any future system inherits the check the moment it declares a failure mode.
 
+### 19. An undeclared import is a build that only works where it was written
+- **Earned:** deployment-failure package, 2026-08-27
+- **Implementation:** `tests/dependency-honesty.test.ts` · the local `Capture*` interfaces and variable specifier in `scripts/capture-walkthrough.ts`
+- **Tests:** `tests/dependency-honesty.test.ts` (9 tests; 6 targeted mutations each separately confirmed to fail it — a static import of the unsaved package, the original `typeof import('playwright')` annotation, an inlined literal specifier, the package added to devDependencies, an undeclared package imported from `lib/model`, and comment-stripping disabled. None survived.)
+- **Establishes:** a dependency installed with `--no-save` is invisible to every machine except the one that installed it, and `next build` type-checks the whole repository — so one type-level reference to it passes locally and fails the deployment. The guard scans every source file and fails if an import resolves to a package `package.json` does not declare.
+- **Earned by a real production failure, not a hypothetical.** The deployment died on `TS2307: Cannot find module 'playwright'` twenty seconds in, minutes after `npm run verify` and `npm run build` both exited 0 locally. That gap between "green here" and "green anywhere" is the whole defect class.
+- **The exemption is pinned, not conventional.** Playwright must stay out of the manifest AND out of any specifier TypeScript can resolve; the script declares the slice of the API it calls as local interfaces and loads the module through a variable specifier. A future tidy-up that "fixes" the odd-looking import is caught.
+- **Verified under the failing condition, not the passing one.** `node_modules/playwright` was removed and both gates re-run to exit 0, then restored and re-run to exit 0 again. A fix for an environment-dependent failure that is only tested in the environment where it worked has proven nothing.
+- **A scanner that cries wolf is worse than no scanner.** The first version reported twelve offenders and zero defects, reading prose in comments and strings as imports — `different from "the interval was zero"`, and this repository's own comments quoting bad patterns as examples. It now strips comments and requires real import syntax, and disabling that stripping is itself a caught mutation.
+- **Limits (recorded, not hidden):** it checks that a package is DECLARED, never that the installed version satisfies the range, and it cannot see imports built from a computed specifier — which is precisely the escape hatch it sanctions, so a genuinely missing runtime dependency loaded that way stays invisible to it.
+- **Reusable for 2–6:** repository-wide from the first run; every future file is covered without being enrolled.
+
 ## NOT YET EARNED
 
 | Candidate | Why not |
