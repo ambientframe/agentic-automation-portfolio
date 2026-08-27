@@ -2500,6 +2500,29 @@ effects, matching the "ordinary variation is left alone" claim exactly.
 
 ## Known fidelity gaps
 
+0. **Two Dormant Pipeline failure modes declare a recovery the lifecycle forbids, and nothing
+   checks that.** Found 2026-08-26 while scoping the three `Pending — scenario not yet authored`
+   standards on that system. `dp-fm-stale-data` declares its recovery terminal state as
+   `ELIGIBILITY_REVIEW`, reached from `SCHEDULED` at despatch time; there is no
+   `SCHEDULED -> ELIGIBILITY_REVIEW` transition. `dp-fm-rate-limited` declares unsent records
+   returning to `SCHEDULED` from `REACTIVATION_ATTEMPTED`; there is no such transition either.
+   The engine would refuse both, so these two standards were never merely unwritten — **they
+   were structurally unbuildable**, and the `Pending` marker read as unfinished authoring rather
+   than as a canon defect. `dp-fm-wrong-entity` is the exception: its `ELIGIBILITY_REVIEW ->
+   NEEDS_HUMAN` recovery is `dp-t05`, which exists, so that one is buildable as it stands.
+
+   **Why nothing caught it.** `validateLifecycle` in `lib/model/system.ts` checks that
+   transitions reference real states, that every state is reachable from the initial state, and
+   that no non-terminal state is a dead end. It never compares a failure mode's declared
+   recovery against the transition graph. `terminalState` is free prose (`'ELIGIBILITY_REVIEW.'`,
+   `'SCHEDULED — unsent records return to the queue…'`), so a validator cannot check it today
+   without that field first becoming a structured reference to a state and the state the failure
+   occurs in — a data-model change across all six systems' failure registers.
+
+   Not fixed here, and deliberately not papered over by quietly adding two transitions: a
+   transition exists to be exercised, and adding one to satisfy a register entry would invert
+   the relationship between canon and code. Recorded as the defect it is.
+
 1. **Three Dormant Pipeline Recovery and two Call-to-Proposal transitions remain declared but
    unexercised.** Both of Lead Rescue's wait-elapsed transitions are now closed genuinely,
    via persisted resume and claim-gated execution: `lr-t14` (`WAITING_FOR_REPLY`, closed
