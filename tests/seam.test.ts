@@ -1,6 +1,7 @@
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { REGISTERED_PROFILES } from '@/data/profiles';
 
 /**
  * THE SEAM TEST.
@@ -32,6 +33,18 @@ const FORBIDDEN = [
   'readiness engagement',
   'vciso',
   'penetration test',
+  // Added after this list failed open. `bramwell` is a Kestrel CLIENT name, authored in
+  // `data/profiles/kestrel/scenarios/**`, and it had leaked into `data/systems/client-onboarding.ts`
+  // where it sat with the whole suite green — the leak this file exists to prevent, undetected
+  // because nobody remembered the term. It is the clearest evidence available that a remembered
+  // lexicon is the wrong shape, and it stays at the top of the profile-owned names for that reason.
+  'bramwell',
+  // Meridian's own vocabulary. `localisation` and `linguist` are distinctive to that trade and
+  // appear nowhere in `data/systems/**`; its generic operational words deliberately are not
+  // listed, because they legitimately belong to the systems as well.
+  'meridian',
+  'localisation',
+  'linguist',
 ];
 
 function systemFiles(): string[] {
@@ -63,6 +76,40 @@ describe('profile / system seam', () => {
       it('does not import from the profile data directory', () => {
         const contents = readFileSync(path, 'utf8');
         expect(contents).not.toContain('data/profiles');
+      });
+    },
+  );
+
+  /**
+   * THE LEXICON ABOVE FAILS OPEN, AND THIS IS THE ONE PART OF IT THAT DOES NOT.
+   *
+   * `FORBIDDEN` is remembered, not derived: it guards the terms somebody thought of. That was
+   * survivable with one profile and is not with several, because a profile can now be added
+   * whose vocabulary nothing on that list covers, and the seam would report clean while leaking.
+   *
+   * Deriving the whole lexicon from the register was tried and does not work. Every naming
+   * field across both profiles yields ~95 terms of which ~70 ALREADY appear legitimately in
+   * `data/systems/**` — "approval", "review", "client", "proposal" — so the allowance list
+   * needed to make it usable would be larger, and more hand-maintained, than the blacklist it
+   * replaced. Narrowing to proper nouns cuts the noise but misses the terms that matter most:
+   * `halcyon`, `northwind`, and `vantage ledger` are fictional CLIENT names living in
+   * `data/profiles/<id>/scenarios/**`, not in `profile.ts`, so no extraction from the profile
+   * object finds them. Recorded as a dead end rather than half-built.
+   *
+   * What IS exact is a profile's own id. It is guaranteed distinctive, it is the term most
+   * likely to be typed into a system definition by someone working on that profile, and
+   * requiring it here means a new profile cannot be registered without its author meeting this
+   * list. That is a smaller claim than a derived lexicon and it is one that actually holds.
+   */
+  describe.each(REGISTERED_PROFILES.map((r) => [r.profile.id] as const))(
+    'registered profile %s',
+    (id) => {
+      it('has its own id in the forbidden lexicon', () => {
+        expect(
+          FORBIDDEN,
+          `"${id}" is registered as a profile but is not guarded here, so writing it into a ` +
+            'system definition would leak the seam with every test still green. Add it.',
+        ).toContain(id.toLowerCase());
       });
     },
   );

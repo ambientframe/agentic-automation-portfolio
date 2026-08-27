@@ -3,7 +3,54 @@
 > One per accepted package (Constitution §14). Repository truth is authoritative; this file
 > is an index, not a source. Append the new checkpoint above the previous one.
 
-## Current — The ledger describes the firm it is rendering · 2026-08-27
+## Current — The seam guard had already failed, and nobody knew · 2026-08-27
+
+**Verified state.** `npm run verify`: 73 files, 1185 passed / 1 skipped, exit 0. `npm run build`:
+compiled successfully, exit 0.
+
+**Proof claim earned — and it is a negative one first.** `Bramwell Data`, a Kestrel CLIENT name
+authored in `data/profiles/kestrel/scenarios/**`, was sitting inside
+`data/systems/client-onboarding.ts` with the whole suite green, and had been published into
+`docs/NORTH_STAR_CANON.md` where a buyer would read it. `tests/seam.test.ts` exists precisely to
+keep business vocabulary out of the vertical-agnostic layer and did not notice, because its guard
+is a list of terms somebody remembered and nobody had remembered that one. The leak is removed,
+the canon regenerated, and `bramwell` added.
+
+**It was found by accident**, while probing whether the lexicon could be derived from the profile
+register instead of remembered. That is the finding: a guard nobody can audit reports success by
+default.
+
+**Derivation was measured and rejected.** Every naming field across both profiles yields ~95
+terms, ~70 of which already appear legitimately in `data/systems/**` — `approval`, `review`,
+`client`, `proposal` — so the allowance list needed to make it work would be larger and more
+hand-maintained than the blacklist. Proper-noun extraction cuts it to ~36 but misses the terms
+that matter most, because the fictional client names live in scenario files rather than in
+`profile.ts`. Recorded as a dead end; the probe script was deleted rather than kept.
+
+**What replaced it is deliberately smaller.** Every registered profile's own `id` must appear in
+the lexicon, checked per profile from the register. Exact, guaranteed distinctive, and the term
+most likely to be typed into a system definition by whoever is working on that profile. It caught
+`meridian` unguarded on the first run.
+
+**Falsification and mutation.** 2 mutations, each separately confirmed to fail — restoring the
+leaked name, and registering a profile without guarding its id. Neither survived; both files
+restored byte-for-byte and verified by MD5.
+
+**Limits.** The remaining terms are still remembered. This narrows the fail-open surface rather
+than closing it: an author who invents a client name and writes it into a system definition is
+still uncaught until somebody adds the term.
+
+**Maturity.** Unchanged. $0 spent, no provider crossed.
+
+**Pattern earned.** #28 — a guard that must be remembered has already failed.
+
+**Next package.** NOT SELECTED. The open candidates are unchanged and both need the owner: proving
+the verification lookup against a real n8n instance (needs an endpoint), and grounding Kestrel,
+which is the one demonstration profile in `UNGROUNDED_DEMONSTRATIONS` and the business every
+rendered surface depicts. The second is the larger gap — the firm a buyer actually sees is the
+one nothing external supports.
+
+## Earlier — The ledger describes the firm it is rendering · 2026-08-27
 
 **Verified state.** `npm run verify`: 73 files, 1183 passed / 1 skipped, exit 0. `npm run build`:
 compiled successfully, exit 0.
