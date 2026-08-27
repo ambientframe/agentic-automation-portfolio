@@ -16,6 +16,9 @@ import {
 } from '@/lib/proof/commercial-grammar';
 import { JourneyConsole } from '@/components/proof/journey-console';
 import { ActHeading, HeaderStat, ProblemCard } from '@/components/proof/proof-chrome';
+import { CoveragePanel } from '@/components/proof/coverage-panel';
+import { computeScenarioTransitionCoverage } from '@/lib/proof/transition-coverage';
+import { deriveCoverageView } from '@/lib/proof/coverage-view';
 import { MaturityBadge } from '@/components/badges';
 
 /**
@@ -98,6 +101,12 @@ export default async function SystemProofPage({ params }: PageProps<'/proof/[slu
   const withAPerson = journeys.filter(
     (j) => j.outcome.awaitingHuman !== null || j.outcome.personInvolved,
   ).length;
+
+  // Measured by replaying this system's own scenarios at build time. Restricted to this system
+  // so rendering one proof page does not replay the other five.
+  const [systemCoverage] = await computeScenarioTransitionCoverage([system.id]);
+  if (systemCoverage === undefined) throw new Error(`${system.id} is not a runnable system`);
+  const coverage = deriveCoverageView(system, systemCoverage);
 
   /**
    * The third problem card on Lead Rescue's page is authored prose. Here it is derived from the
@@ -202,6 +211,18 @@ export default async function SystemProofPage({ params }: PageProps<'/proof/[slu
           }
         />
         <JourneyConsole journeys={journeys} grammars={grammars} index={index} />
+      </section>
+
+      {/* ================================================================== */}
+      {/* B.1 · HOW MUCH OF THE MAP THOSE RUNS COVER                          */}
+      {/* ================================================================== */}
+      <section className="space-y-8">
+        <ActHeading
+          act="Two · b"
+          title="How much of the map those runs actually cover"
+          body="Two incidents, out of how many possible paths? Measured by replaying every scenario rather than estimated, and the moves nothing drives yet are listed by name rather than summarised — a number asks to be trusted, a list asks to be checked."
+        />
+        <CoveragePanel view={coverage} />
       </section>
 
       {/* ================================================================== */}

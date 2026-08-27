@@ -1,6 +1,43 @@
 # Status
 
-**As of 2026-08-27 (latest pass, same day) · How much of each system a visitor can actually
+**As of 2026-08-27 (latest pass, same day) · The coverage number is now on the page a buyer
+reads, and it names the 22 moves it cannot show them.** The measurement shipped in the previous
+pass but rendered nowhere, which made it a fact about the repository rather than a claim to a
+visitor. `components/proof/coverage-panel.tsx` puts it on `/lead-rescue` as Part Two · b and on
+all five `/proof/<slug>` pages, derived through `lib/proof/coverage-view.ts` and computed at
+build time by genuinely replaying that system's scenarios.
+
+**Naming the gap rather than counting it is the entire design.** "15 of 37" asks to be trusted.
+A list of exactly which 22 moves nothing drives — each with its states and its trigger, readable
+without opening the dossier — asks to be checked, and hands a sceptic the means to do it. That
+is a different kind of claim, and it is the one this portfolio exists to make.
+
+**Three caveats travel with the figure and a test requires each of them.** That the count credits
+only moves the engine *accepted*, so a refusal is never a demonstration of the thing refused.
+That an unlisted move is usually unauthored rather than broken. And — the one it would be most
+convenient to omit — that being covered by a unit test is not the same as being replayable, so
+**this number understates how much of the system works** while stating accurately how much a
+visitor can check.
+
+**Two mutations survived the first suite, again, and both were real.** Deleting the unit-test
+caveat entirely still passed, because the assertion only looked for the words "unit test" and a
+*different* caveat happens to contain them — so the tightened assertion now requires the
+load-bearing phrase and the admission of understatement. And removing the sort survived because
+today's transitions happen to be declared in id order, making it a no-op; rather than delete a
+guard a future system would need, it is now driven directly with deliberately shuffled input.
+That is the third time this session a surviving mutation exposed a weak assertion rather than
+weak code.
+
+**The walkthrough was re-captured, not assumed.** The page changed, so all nine frames were
+retaken at `dc4307d` and the beat table re-timed to eight beats totalling 90 seconds — including
+a new beat that states the coverage figure and admits, in the frame itself, that two of the 22
+were closed by unit test hours earlier and still cannot be watched. `tests/walkthrough.test.ts`
+enforces the arithmetic; the re-capture is the human step it cannot enforce.
+
+`npm run verify`: 60 files, 940 passed / 1 skipped, exit 0. `npm run build`: exit 0, 36 routes.
+8 targeted mutations of the view a buyer reads, all caught after the repair.
+
+**As of 2026-08-27 (earlier pass, same day) · How much of each system a visitor can actually
 watch is now computed, not remembered — and the honest number is 57 of 139.** `validateLifecycle`
 proves a declared recovery is *buildable*. It says nothing about whether anything ever performs
 it, and the gap between those two questions is exactly where `lr-fm-malformed` lived: entering

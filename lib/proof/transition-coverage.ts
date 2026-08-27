@@ -53,10 +53,19 @@ export function creditedRuleIds(
   return credited;
 }
 
-export async function computeScenarioTransitionCoverage(): Promise<readonly SystemTransitionCoverage[]> {
+/**
+ * @param systemIds restrict the measurement to these systems. A page rendering one system's
+ *   coverage has no reason to replay the other five's scenarios at build time; the tests pass
+ *   nothing and measure everything.
+ */
+export async function computeScenarioTransitionCoverage(
+  systemIds?: readonly string[],
+): Promise<readonly SystemTransitionCoverage[]> {
   const report: SystemTransitionCoverage[] = [];
+  const wanted = systemIds === undefined ? undefined : new Set(systemIds);
 
   for (const runnable of RUNNABLE_SYSTEMS) {
+    if (wanted !== undefined && !wanted.has(runnable.system.id)) continue;
     const fired = new Set<string>();
 
     for (const scenario of runnable.scenarios) {

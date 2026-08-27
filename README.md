@@ -16,7 +16,7 @@ that are still unproven.
 
 [![The Lead Rescue proof page: a standing SIMULATED banner reading "Nothing here is connected to a live system. All businesses, people, and incidents are fictional", the Portfolio Flight Simulator masthead counting 6 systems as 5 simulated and 1 interactive prototype, and the headline "Every enquiry ends somewhere you can point at."](docs/walkthrough/01-banner.png)](docs/WALKTHROUGH.md)
 
-**Not clicking? [Read it in 90 seconds instead.](docs/WALKTHROUGH.md)** Eight captured frames
+**Not clicking? [Read it in 90 seconds instead.](docs/WALKTHROUGH.md)** Nine captured frames
 walking one enquiry from arrival to a labelled ledger of what is and is not real — enough to
 judge the work without a browser, and enough to survive this link going dead.
 

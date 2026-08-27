@@ -29,6 +29,9 @@ import { FailureRegister, FidelityPanel } from '@/components/proof/fidelity-pane
 import { OperationsPanel } from '@/components/proof/operations-panel';
 import { ObservationPanel } from '@/components/proof/observation-panel';
 import { ActHeading, HeaderStat, ProblemCard } from '@/components/proof/proof-chrome';
+import { CoveragePanel } from '@/components/proof/coverage-panel';
+import { computeScenarioTransitionCoverage } from '@/lib/proof/transition-coverage';
+import { deriveCoverageView } from '@/lib/proof/coverage-view';
 
 /**
  * THE LEAD RESCUE PROOF EXPERIENCE.
@@ -98,6 +101,11 @@ export default async function LeadRescueProofPage() {
   ]);
   const ledger = deriveFidelityLedger({ evidence, evaluation, observation });
   const failures = deriveFailureRegister();
+
+  // Measured by replaying this system's scenarios at build time, never by reading the handlers.
+  const [leadRescueCoverage] = await computeScenarioTransitionCoverage([LEAD_RESCUE.id]);
+  if (leadRescueCoverage === undefined) throw new Error('Lead Rescue is not a runnable system');
+  const coverage = deriveCoverageView(LEAD_RESCUE, leadRescueCoverage);
 
   /**
    * The headline claims every enquiry ends somewhere you can point at, so the stat beneath it
@@ -206,11 +214,23 @@ export default async function LeadRescueProofPage() {
       </section>
 
       {/* ================================================================== */}
-      {/* B.2 · WHERE JUDGMENT IS AND IS NOT ALLOWED                          */}
+      {/* B.1 · HOW MUCH OF THE MAP THOSE RUNS COVER                          */}
       {/* ================================================================== */}
       <section className="space-y-8">
         <ActHeading
           act="Two · b"
+          title="How much of the map those runs actually cover"
+          body="A sharp reader forms this question the moment the shelf above is counted: eight incidents, out of how many possible paths? This is the answer, measured by replaying every scenario rather than estimated — and the moves nothing drives yet are listed by name rather than summarised, because a number asks to be trusted and a list asks to be checked."
+        />
+        <CoveragePanel view={coverage} />
+      </section>
+
+      {/* ================================================================== */}
+      {/* B.2 · WHERE JUDGMENT IS AND IS NOT ALLOWED                          */}
+      {/* ================================================================== */}
+      <section className="space-y-8">
+        <ActHeading
+          act="Two · c"
           title="Where a model is allowed to have an opinion"
           body="Almost every decision in the runs above is a fixed rule. Interpretation of free text is the exception, and it is fenced in three ways: a closed set of answers, a confidence floor compared outside the model, and a list of things it may never do regardless of how certain it sounds."
         />

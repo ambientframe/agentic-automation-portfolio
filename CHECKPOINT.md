@@ -3,7 +3,41 @@
 > One per accepted package (Constitution §14). Repository truth is authoritative; this file
 > is an index, not a source. Append the new checkpoint above the previous one.
 
-## Current — Buildable is not built: 57 of 139 · 2026-08-27
+## Current — The coverage figure reaches the buyer, and names its own gap · 2026-08-27
+
+**Verified state.** `npm run verify`: 60 files, 940 passed / 1 skipped, exit 0. `npm run build`:
+exit 0, 36 routes. 10 new tests; 8 targeted mutations, all caught after a repair — 2 survived
+the first suite.
+
+**Proof claim earned.** The coverage measurement now renders on `/lead-rescue` (Part Two · b)
+and on all five `/proof/<slug>` pages, computed at build time by replaying that system's own
+scenarios. Lead Rescue reads **15 / 37 · 41%**.
+
+**Naming beats counting.** The 22 moves nothing drives are listed by id, states and trigger —
+readable without the dossier. A number asks to be trusted; a list hands a sceptic the means to
+check.
+
+**Three caveats, each test-required.** Only engine-*accepted* moves are credited; an unlisted
+move is usually unauthored rather than broken; and being covered by a unit test is not the same
+as being replayable — so the figure **understates correctness** while stating inspectability
+accurately.
+
+**Two mutations survived first, both real.** Deleting the unit-test caveat passed because a
+different caveat also contains the words "unit test"; the assertion now requires the
+load-bearing phrase. Removing the sort passed because today's transitions are declared in id
+order, so it is now driven with shuffled input rather than deleted.
+
+**Walkthrough re-captured, not assumed.** The page changed, so all nine frames were retaken at
+`dc4307d` and re-timed to eight beats totalling 90s, including a new coverage beat that admits
+two of the 22 were closed by unit test hours earlier and still cannot be watched.
+
+**Maturity.** Unchanged. $0 spent, no provider crossed.
+
+**Pattern earned.** None — this renders #20 rather than adding residue.
+
+**Next package.** NOT SELECTED.
+
+## Earlier — Buildable is not built: 57 of 139 · 2026-08-27
 
 **Verified state.** `npm run verify`: 59 files, 930 passed / 1 skipped, exit 0. `npm run build`:
 exit 0. 9 new tests; 6 targeted mutations of the coverage mechanism, all caught.

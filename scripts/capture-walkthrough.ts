@@ -61,11 +61,12 @@ const FRAMES: readonly Frame[] = [
   { file: '01-banner.png', route: '/lead-rescue', top: true },
   { file: '02-claim.png', route: '/lead-rescue', anchor: 'Every enquiry ends somewhere you can point at.' },
   { file: '03-incidents.png', route: '/lead-rescue', anchor: 'What happened to one specific lead' },
-  { file: '04-step.png', route: '/lead-rescue', anchor: 'Inspect any single moment', offset: 300 },
-  { file: '05-boundary.png', route: '/lead-rescue', anchor: 'Where a model is allowed to have an opinion' },
-  { file: '06-operator.png', route: '/lead-rescue', anchor: 'What the person on the other side actually does' },
-  { file: '07-ledger.png', route: '/lead-rescue', anchor: 'Which parts of this are real' },
-  { file: '08-unverified.png', route: '/lead-rescue', anchor: 'Customer deployment', offset: -560 },
+  { file: '04-coverage.png', route: '/lead-rescue', anchor: 'How much of the map those runs actually cover' },
+  { file: '05-step.png', route: '/lead-rescue', anchor: 'Inspect any single moment', offset: 300 },
+  { file: '06-boundary.png', route: '/lead-rescue', anchor: 'Where a model is allowed to have an opinion' },
+  { file: '07-operator.png', route: '/lead-rescue', anchor: 'What the person on the other side actually does' },
+  { file: '08-ledger.png', route: '/lead-rescue', anchor: 'Which parts of this are real' },
+  { file: '09-unverified.png', route: '/lead-rescue', anchor: 'Customer deployment', offset: -560 },
 ];
 
 /**

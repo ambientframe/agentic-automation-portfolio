@@ -19,17 +19,18 @@ connected to a real channel, and no real person has ever been contacted from thi
 
 | # | Time | On screen | What it establishes |
 | --- | --- | --- | --- |
-| 1 | 12s | The banner and the masthead | The portfolio labels itself before it sells itself |
-| 2 | 13s | The claim, and the four figures under it | 8 incidents, all landing in a declared state |
-| 3 | 13s | Eight incidents, each with its own ending | The awkward ones are on the shelf too |
-| 4 | 13s | One incident, opened to a single step | Where the rules stop and a model starts |
-| 5 | 13s | The four boundary cards | What a model may never do, however confident |
-| 6 | 13s | The operator console, running live | Real routes, real disk, one honest stand-in |
-| 7 | 13s | The fidelity ledger, and its last row | Capability by capability, limits attached |
+| 1 | 11s | The banner and the masthead | The portfolio labels itself before it sells itself |
+| 2 | 11s | The claim, and the four figures under it | 8 incidents, all landing in a declared state |
+| 3 | 11s | Eight incidents, each with its own ending | The awkward ones are on the shelf too |
+| 4 | 11s | How much of the map those runs cover | 15 of 37 — measured, and the other 22 named |
+| 5 | 11s | One incident, opened to a single step | Where the rules stop and a model starts |
+| 6 | 11s | The four boundary cards | What a model may never do, however confident |
+| 7 | 12s | The operator console, running live | Real routes, real disk, one honest stand-in |
+| 8 | 12s | The fidelity ledger, and its last row | Capability by capability, limits attached |
 
 ---
 
-### 1 · The portfolio labels itself before it sells itself · 12s
+### 1 · The portfolio labels itself before it sells itself · 11s
 
 ![The Lead Rescue proof page at the top: a standing SIMULATED banner reading "Nothing here is connected to a live system. All businesses, people, and incidents are fictional", the Portfolio Flight Simulator masthead counting 6 systems as 5 simulated and 1 interactive prototype, and the headline "Every enquiry ends somewhere you can point at."](walkthrough/01-banner.png)
 
@@ -39,7 +40,7 @@ what proportion of this is a prototype before reading a single claim.
 
 Say: *"Everything you're about to see is labelled. The build tells you what it is."*
 
-### 2 · Every enquiry ends somewhere you can point at · 13s
+### 2 · Every enquiry ends somewhere you can point at · 11s
 
 ![The same page scrolled to the claim: three cards headed "What goes wrong today", "Why it costs real money", and "What this replaces it with", above four figures — incidents you can run, 8; ended in a declared state, 8 of 8; diverged from expectation, 0; confidence floor in force, 0.7.](walkthrough/02-claim.png)
 
@@ -53,7 +54,7 @@ It is this operator's configured policy, not an industry benchmark and not a mea
 
 Say: *"Eight incidents, eight declared endings, nothing unaccounted for."*
 
-### 3 · The awkward incidents are on the shelf too · 13s
+### 3 · The awkward incidents are on the shelf too · 11s
 
 ![A grid of eight selectable incidents, each showing its ending: after-hours enquiry with missing scope ending Booked; the same enquiry delivered twice ending Booking ready with 1 sent and 3 held; an enquiry the system should not answer with nothing attempted; a contact who unsubscribed now writing directly; the acknowledgement provider going quiet with 1 unconfirmed; and three wait-window incidents ending Needs human.](walkthrough/03-incidents.png)
 
@@ -67,9 +68,25 @@ past the system's authority, not a failure to automate.
 
 Say: *"Six of eight end with a person. That's the design, not a shortfall."*
 
-### 4 · Where the rules stop and a model starts · 13s
+### 4 · 15 of 37, and here are the other 22 · 11s
 
-![One incident opened to thirteen steps down the left — validation, normalisation, duplicate check, consent screen, bounded interpretation, completeness check, disposition, acknowledgement, and more — with exactly one step marked AI. The right pane shows the selected step tagged FIXED RULE, what it chose, its authority level, the guardrail that engaged, and the two transitions it was allowed to make next.](walkthrough/04-step.png)
+![A panel headed 15 / 37, "declared moves you can watch · 41%", above a row of 37 marks with the first 15 filled. Below it a collapsed list labelled "the 22 moves no scenario drives yet — named, not summarised", and three caveats explaining that the count credits only moves the engine accepted, that an unlisted move is usually unauthored rather than broken, and that being covered by a unit test is not the same as being replayable.](walkthrough/04-coverage.png)
+
+Eight incidents, out of how many possible paths? **15 of the 37 declared moves**, measured by
+replaying every scenario rather than estimated, and counting only the moves the engine actually
+**accepted** — a refusal is never credited as a demonstration of the thing it refused.
+
+The 22 that no scenario drives are listed by name, each with its states and its trigger. That is
+the whole design of this panel: a number asks to be trusted, a list asks to be checked. It also
+makes the page's own recent work look worse on purpose — two of those 22 were closed by a unit
+test hours before this frame was captured, so they genuinely work and still nobody can watch
+them. Closing a standard and making it inspectable are different achievements.
+
+Say: *"Fifteen of thirty-seven. Here are the other twenty-two by name."*
+
+### 5 · Where the rules stop and a model starts · 11s
+
+![One incident opened to thirteen steps down the left — validation, normalisation, duplicate check, consent screen, bounded interpretation, completeness check, disposition, acknowledgement, and more — with exactly one step marked AI. The right pane shows the selected step tagged FIXED RULE, what it chose, its authority level, the guardrail that engaged, and the two transitions it was allowed to make next.](walkthrough/05-step.png)
 
 Thirteen steps, and exactly one carries the **AI** mark. Every other step is a fixed rule that
 genuinely computes: validation, duplicate detection, consent screening, the confidence
@@ -79,9 +96,9 @@ it was permitted to make next, out of the system's **37 declared moves**.
 
 Say: *"One step out of thirteen is a model. The rest is arithmetic you can replay."*
 
-### 5 · What a model may never do, however confident · 13s
+### 6 · What a model may never do, however confident · 11s
 
-![Four cards: what judgment is used for, listing three free-text interpretation tasks; what it may never do, listing six structural refusals including making a commercial commitment and raising its own authority; only a person may do these, listing five; and guardrails carried by every run.](walkthrough/05-boundary.png)
+![Four cards: what judgment is used for, listing three free-text interpretation tasks; what it may never do, listing six structural refusals including making a commercial commitment and raising its own authority; only a person may do these, listing five; and guardrails carried by every run.](walkthrough/06-boundary.png)
 
 The model interprets free text. It may not make a commercial commitment, negotiate, override a
 suppression or opt-out, assert a fact the input never established, or raise its own authority
@@ -90,9 +107,9 @@ because it feels certain. Those are refused structurally rather than discouraged
 
 Say: *"Confidence is not authority. The gate is outside the model."*
 
-### 6 · Real routes, real disk, one honest stand-in · 13s
+### 7 · Real routes, real disk, one honest stand-in · 12s
 
-![The operator section marked REAL, reading "These controls write to disk and read the real clock", with an amber paragraph stating that the outbound message itself is a stand-in and nothing leaves the process. Below are live controls and a case loaded from disk showing its trigger, decision, action, guardrail, and outcome.](walkthrough/06-operator.png)
+![The operator section marked REAL, reading "These controls write to disk and read the real clock", with an amber paragraph stating that the outbound message itself is a stand-in and nothing leaves the process. Below are live controls and a case loaded from disk showing its trigger, decision, action, guardrail, and outcome.](walkthrough/07-operator.png)
 
 Everything above this point is a deterministic replay. This section is not: each button calls a
 real route handler that re-reads a case stored on disk, applies one event through the same
@@ -105,15 +122,15 @@ authority check, and the duplicate refusal around it are all real.
 
 Say: *"Real routes, real persistence, and it tells you which single part is faked."*
 
-### 7 · Capability by capability, with the limits attached · 13s
+### 8 · Capability by capability, with the limits attached · 12s
 
-![The fidelity ledger tallying capabilities as REAL 10, FIXTURE-BACKED 2, SIMULATED 1, UNVERIFIED 1, with each label defined, followed by individual rows for the deterministic decision engine and the authority gate, each carrying a "does not establish" caveat and file paths to check it at.](walkthrough/07-ledger.png)
+![The fidelity ledger tallying capabilities as REAL 10, FIXTURE-BACKED 2, SIMULATED 1, UNVERIFIED 1, with each label defined, followed by individual rows for the deterministic decision engine and the authority gate, each carrying a "does not establish" caveat and file paths to check it at.](walkthrough/08-ledger.png)
 
 One label per capability, so nothing borrows credibility from anything beside it: **REAL 10 ·
 FIXTURE-BACKED 2 · SIMULATED 1 · UNVERIFIED 1.** Every row carries a *does not establish* line
 naming its own limit, and file paths to check it at.
 
-![The last rows of the ledger: operational observability and alerting marked REAL, and the final row, Customer deployment, marked UNVERIFIED — "Nothing here has run for a paying customer. There is no live trigger connected to a real channel, no production scheduler, and no client data of any kind in this build", with the note "This is the row that bounds every other row on this page. Read the rest against it." The system's declared maturity reads INTERACTIVE PROTOTYPE.](walkthrough/08-unverified.png)
+![The last rows of the ledger: operational observability and alerting marked REAL, and the final row, Customer deployment, marked UNVERIFIED — "Nothing here has run for a paying customer. There is no live trigger connected to a real channel, no production scheduler, and no client data of any kind in this build", with the note "This is the row that bounds every other row on this page. Read the rest against it." The system's declared maturity reads INTERACTIVE PROTOTYPE.](walkthrough/09-unverified.png)
 
 The page tells you to read the last row first, so this is where the walkthrough ends rather than
 where it trails off. **Customer deployment: UNVERIFIED.** Nothing here has run for a paying
@@ -152,9 +169,10 @@ with instructions if it is missing. Frames are written at a fixed 1440×900 view
 the colour scheme pinned, so two captures of an unchanged page differ only where the page
 differs.
 
-**Captured from commit `0195146` against a local production build, and re-captured
-byte-identical at `1a948df`** — two packages later, none of these eight viewports had moved.
-Frame 6 shows a runtime
+**Re-captured at `dc4307d` against a local production build**, after the coverage panel added a
+ninth frame and shifted the numbering. The eight frames that predate it had been re-captured
+byte-identical at `1a948df`, two packages after they were first taken — but this page changed,
+so they were taken again rather than assumed. Frame 7 shows a runtime
 store that had been used, which is why it has a case in it; a freshly deployed instance carries
 no runtime state and its operator console starts empty, filling only from use of the demo
 itself. That was chosen over seeding it, because authored history presented as a record would
