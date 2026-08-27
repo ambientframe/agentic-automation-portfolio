@@ -52,11 +52,11 @@ async function journeys(): Promise<readonly { scenario: Scenario; run: EngineRun
   return out;
 }
 
-describe('the proof route has eight runnable incidents', () => {
+describe('the proof route has ten runnable incidents', () => {
   it('derives one journey per authored scenario', async () => {
     const all = await journeys();
-    expect(all).toHaveLength(8);
-    expect(new Set(all.map((entry) => entry.journey.scenarioSlug)).size).toBe(8);
+    expect(all).toHaveLength(10);
+    expect(new Set(all.map((entry) => entry.journey.scenarioSlug)).size).toBe(10);
   });
 });
 

@@ -970,6 +970,171 @@ const REVIEWED_OFFER_ELAPSED = {
 } satisfies Parameters<typeof ScenarioSchema.parse>[0];
 
 // ===========================================================================
+// Scenario 9 — A misconfigured integration, corrected on retry (lr-t02, lr-t30)
+// ===========================================================================
+
+/**
+ * The retry budget was closed by direct test before it was ever watchable, and the coverage
+ * panel said so out loud: `lr-t02`, `lr-t30` and `lr-t32` sat on the "nobody can watch this"
+ * list hours after the standard was marked Verified. These two scenarios move them onto the
+ * shelf.
+ *
+ * Two scenarios rather than one, because they are alternative exits from the same state. A case
+ * either recovers on a corrected redelivery or exhausts its budget; no single run shows both.
+ *
+ * The framing is deliberate. A malformed payload almost always means a misconfigured
+ * integration rather than a bad enquiry — so there is a real person on the other end of it,
+ * waiting, whose message the system currently cannot read. That is why dropping it is
+ * unacceptable and why retrying forever is equally unacceptable.
+ */
+const MALFORMED_CORRECTED = {
+  id: 'lr-scenario-malformed-corrected',
+  slug: 'malformed-payload-corrected',
+  systemId: 'lead-rescue',
+  title: 'A misconfigured form sends an unreadable payload, then a corrected one',
+  summary:
+    'A newly-reconfigured website form posts an enquiry with none of the required fields. The system refuses to guess what was meant, retains the raw payload, and parks the case in FAILED_RECOVERABLE — no acknowledgement, no classification, nothing sent to a contact it cannot identify. The form is fixed and the same enquiry arrives intact forty minutes later; the case returns to NORMALIZED and proceeds through the ordinary path to a booked outcome.',
+  demonstrates: [
+    'A payload that fails schema validation fires lr-t02 (NEW -> FAILED_RECOVERABLE) and produces zero side effects — nothing is acknowledged to a contact the system could not read',
+    'The raw payload and the specific validation errors are retained on the decision record rather than discarded',
+    'A corrected redelivery fires lr-t30 (FAILED_RECOVERABLE -> NORMALIZED) and rejoins the ordinary path, so recovery is a real transition rather than a new case',
+    'Inferring the missing fields is recorded as a forbidden action, not merely left unselected',
+  ],
+  expectedFinalState: 'BOOKED',
+
+  judgments: {
+    'jd-harlow-intake': {
+      judgmentId: 'jd-harlow-intake',
+      classification: 'QUALIFIED_ENQUIRY',
+      confidence: 0.88,
+      missingInformation: [],
+      evidenceRefs: [
+        '"our insurer now wants an independent ISO 27001 gap assessment"',
+        '"we are forty-one people across two sites"',
+      ],
+      declinedToInfer: ['Budget, which the enquiry does not mention'],
+      rationaleSummary:
+        'Names the framework, the trigger, and the headcount. In segment, and every policy-required fact is present in the text.',
+    },
+  },
+
+  events: [
+    {
+      eventId: 'evt-harlow-001',
+      correlationId: 'inc-lr-harlow',
+      entityId: 'lead-harlow',
+      type: 'inbound.enquiry.received',
+      source: 'website-form',
+      sourceEventId: 'wf-2026-08-18-0904',
+      occurredAt: '2026-08-18T09:04:00-04:00',
+      receivedAt: '2026-08-18T09:04:00-04:00',
+      schemaVersion: SCHEMA_VERSION,
+      actor: 'EXTERNAL_PARTY',
+      executionMode: 'SIMULATED',
+      // The form was rebuilt overnight and posts its own field names. Nothing the declared
+      // schema requires is present, and the system may not guess at the mapping.
+      payload: {
+        form_id: 'contact-v2',
+        submitted_by: 'Priya Raman',
+        body: 'Our insurer now wants an independent ISO 27001 gap assessment before renewal.',
+      },
+    },
+    {
+      eventId: 'evt-harlow-002',
+      correlationId: 'inc-lr-harlow',
+      entityId: 'lead-harlow',
+      type: 'inbound.enquiry.received',
+      source: 'website-form',
+      sourceEventId: 'wf-2026-08-18-0944',
+      occurredAt: '2026-08-18T09:44:00-04:00',
+      receivedAt: '2026-08-18T09:44:00-04:00',
+      schemaVersion: SCHEMA_VERSION,
+      actor: 'EXTERNAL_PARTY',
+      executionMode: 'SIMULATED',
+      payload: {
+        contactName: 'Priya Raman',
+        contactEmail: 'p.raman@harlowinstruments.example',
+        company: 'Harlow Instruments',
+        channel: 'website-form',
+        consentState: 'PERMITTED',
+        requiredFields: [],
+        message:
+          'Our insurer now wants an independent ISO 27001 gap assessment before renewal. We are forty-one people across two sites and renewal is in November.',
+        judgment: {
+          judgmentId: 'jd-harlow-intake',
+          objective:
+            'Classify an inbound enquiry into the permitted set and report which policy-required facts the text does not establish.',
+          input:
+            'Our insurer now wants an independent ISO 27001 gap assessment before renewal. We are forty-one people across two sites and renewal is in November.',
+          permittedClassifications: [...ENQUIRY_CLASSES],
+          requiredFields: [],
+        },
+      },
+    },
+    {
+      eventId: 'evt-harlow-003',
+      correlationId: 'inc-lr-harlow',
+      entityId: 'lead-harlow',
+      type: 'human.decision.recorded',
+      source: 'operator-console',
+      sourceEventId: 'hd-2026-08-18-1120',
+      occurredAt: '2026-08-18T11:20:00-04:00',
+      receivedAt: '2026-08-18T11:20:00-04:00',
+      schemaVersion: SCHEMA_VERSION,
+      actor: 'HUMAN',
+      executionMode: 'SIMULATED',
+      payload: {
+        decidedBy: 'client-partner',
+        decision: 'BOOKED',
+        rationale:
+          'Discovery call held and a gap assessment scheduled ahead of the November renewal.',
+      },
+    },
+  ],
+} satisfies Parameters<typeof ScenarioSchema.parse>[0];
+
+// ===========================================================================
+// Scenario 10 — An intake the system can never read (lr-t02, lr-t32)
+// ===========================================================================
+
+const MALFORMED_UNREADABLE = {
+  id: 'lr-scenario-malformed-unreadable',
+  slug: 'malformed-payload-unreadable',
+  systemId: 'lead-rescue',
+  title: 'An intake payload the system can never read',
+  summary:
+    'A broken integration posts the same unreadable payload four times across a morning. The system retains each attempt and refuses to guess at the missing fields; the first three stay in FAILED_RECOVERABLE because the configured budget still permits another attempt, and the fourth exhausts it. Rather than close the lead as a terminal failure — a decision it has no authority to make — the system hands it to a person with the raw payload, the specific validation errors, and the attempt count attached.',
+  demonstrates: [
+    'Repeated failures below the configured budget deliberately do NOT move the case: staying in FAILED_RECOVERABLE is the retry state, not a stalled one',
+    'Exhausting the budget fires lr-t32 (FAILED_RECOVERABLE -> NEEDS_HUMAN), computed against malformedRetryBudget in the operator profile rather than a number in the handler',
+    'The system never closes a lead it could not read — close_as_terminal_failure and retry_indefinitely are both recorded as forbidden actions',
+    'Zero side effects execute across the whole run, because there is no contact the system can identify to acknowledge',
+  ],
+  expectedFinalState: 'NEEDS_HUMAN',
+  judgments: {},
+
+  events: [1, 2, 3, 4].map((n) => ({
+    eventId: `evt-tarn-00${n}`,
+    correlationId: 'inc-lr-tarn',
+    entityId: 'lead-tarn',
+    type: 'inbound.enquiry.received',
+    source: 'partner-referral-api',
+    sourceEventId: `pr-2026-08-19-${n}`,
+    occurredAt: `2026-08-19T0${5 + n}:10:00-04:00`,
+    receivedAt: `2026-08-19T0${5 + n}:10:00-04:00`,
+    schemaVersion: SCHEMA_VERSION,
+    actor: 'SYSTEM' as const,
+    executionMode: 'SIMULATED' as const,
+    // A partner's referral API was pointed at the wrong endpoint contract. Every attempt is
+    // byte-identical, so no amount of retrying will ever make it valid.
+    payload: {
+      referral: { partner: 'tarn-advisory', ref: `TA-99${n}` },
+      note: 'posted against the v1 contract; this endpoint expects v2',
+    },
+  })),
+} satisfies Parameters<typeof ScenarioSchema.parse>[0];
+
+// ===========================================================================
 
 export const LEAD_RESCUE_SCENARIOS: readonly Scenario[] = [
   ScenarioSchema.parse(AFTER_HOURS),
@@ -980,6 +1145,8 @@ export const LEAD_RESCUE_SCENARIOS: readonly Scenario[] = [
   ScenarioSchema.parse(WAIT_ELAPSED),
   ScenarioSchema.parse(OFFER_WAIT_ELAPSED),
   ScenarioSchema.parse(REVIEWED_OFFER_ELAPSED),
+  ScenarioSchema.parse(MALFORMED_CORRECTED),
+  ScenarioSchema.parse(MALFORMED_UNREADABLE),
 ];
 
 /**

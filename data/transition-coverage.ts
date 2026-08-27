@@ -22,9 +22,9 @@
  */
 export const SCENARIO_UNEXERCISED_TRANSITIONS: Readonly<Record<string, readonly string[]>> = {
   'lead-rescue': [
-    'lr-t02', 'lr-t03', 'lr-t04', 'lr-t07', 'lr-t08', 'lr-t15', 'lr-t17', 'lr-t18',
-    'lr-t19', 'lr-t20', 'lr-t23', 'lr-t25', 'lr-t26', 'lr-t27', 'lr-t28', 'lr-t29',
-    'lr-t30', 'lr-t31', 'lr-t32', 'lr-t35', 'lr-t36', 'lr-t37',
+    'lr-t03', 'lr-t04', 'lr-t07', 'lr-t08', 'lr-t15', 'lr-t17', 'lr-t18', 'lr-t19',
+    'lr-t20', 'lr-t23', 'lr-t25', 'lr-t26', 'lr-t27', 'lr-t28', 'lr-t29', 'lr-t31',
+    'lr-t35', 'lr-t36', 'lr-t37',
   ],
   'dormant-pipeline-recovery': [
     'dp-t03', 'dp-t09', 'dp-t10', 'dp-t11', 'dp-t12', 'dp-t14', 'dp-t15', 'dp-t16',

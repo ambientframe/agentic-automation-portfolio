@@ -6,7 +6,9 @@ import { runScenario } from '@/lib/engine/run';
 import { FixtureDecisionProvider } from '@/lib/ports/decision-provider';
 import { FixtureSideEffectExecutor } from '@/lib/ports/side-effect-executor';
 import { numberParam } from '@/lib/model/profile';
+import { leadRescueScenarioBySlug } from '@/data/profiles/kestrel/scenarios/lead-rescue';
 import type { CanonicalEvent, Scenario } from '@/lib/model/runtime';
+import type { EngineRun } from '@/lib/engine/types';
 
 /**
  * FALSIFYING TESTS for `lr-fm-malformed` — the last `Pending` standard on Lead Rescue that was
@@ -192,6 +194,59 @@ describe('a malformed payload is retained and retried, never dropped', () => {
       result.finalState.lifecycleState,
       'raising the configured budget did not delay the escalation, so the number is hard-coded',
     ).toBe('FAILED_RECOVERABLE');
+  });
+
+  /**
+   * PROVEN AND WATCHABLE ARE DIFFERENT ACHIEVEMENTS.
+   *
+   * Everything above drives the retry budget through direct tests, which proves it works and
+   * leaves a visitor unable to see any of it — the coverage panel listed `lr-t02`, `lr-t30` and
+   * `lr-t32` among the moves nobody can watch, correctly and awkwardly, hours after the
+   * standard was closed. These two authored scenarios move them onto the simulator shelf.
+   *
+   * Two, not one, because they are alternative exits from the same state: a case either
+   * recovers on a corrected redelivery or exhausts its budget. One run cannot show both.
+   */
+  describe('the retry budget is replayable, not only provable', () => {
+    const drives = (result: EngineRun, ruleId: string) =>
+      result.transitions.some((t) => t.accepted && t.ruleId === ruleId);
+
+    it('registers both scenarios on the simulator shelf', () => {
+      expect(leadRescueScenarioBySlug('malformed-payload-corrected')).toBeDefined();
+      expect(leadRescueScenarioBySlug('malformed-payload-unreadable')).toBeDefined();
+    });
+
+    it('replays a misconfigured integration recovering on a corrected redelivery (lr-t02 then lr-t30)', async () => {
+      const scenario = leadRescueScenarioBySlug('malformed-payload-corrected');
+      expect(scenario).toBeDefined();
+      const result = await runScenario(scenario!, {
+        system: LEAD_RESCUE,
+        profile: KESTREL,
+        handlers: LEAD_RESCUE_HANDLERS,
+        provider: new FixtureDecisionProvider(scenario!.judgments),
+        executor: new FixtureSideEffectExecutor({}, {}),
+      });
+      expect(drives(result, 'lr-t02'), 'the scenario never reaches FAILED_RECOVERABLE').toBe(true);
+      expect(drives(result, 'lr-t30'), 'the scenario never recovers to NORMALIZED').toBe(true);
+      expect(result.finalState.lifecycleState).toBe(scenario!.expectedFinalState);
+    });
+
+    it('replays a payload the system can never read reaching a person (lr-t02 then lr-t32)', async () => {
+      const scenario = leadRescueScenarioBySlug('malformed-payload-unreadable');
+      expect(scenario).toBeDefined();
+      const result = await runScenario(scenario!, {
+        system: LEAD_RESCUE,
+        profile: KESTREL,
+        handlers: LEAD_RESCUE_HANDLERS,
+        provider: new FixtureDecisionProvider(scenario!.judgments),
+        executor: new FixtureSideEffectExecutor({}, {}),
+      });
+      expect(drives(result, 'lr-t02')).toBe(true);
+      expect(drives(result, 'lr-t32'), 'the budget never exhausts to NEEDS_HUMAN').toBe(true);
+      expect(result.finalState.lifecycleState).toBe('NEEDS_HUMAN');
+      // Nothing customer-facing may leave while the payload has never once been readable.
+      expect(result.sideEffects.filter((e) => e.status === 'EXECUTED')).toHaveLength(0);
+    });
   });
 
   it('closes the canon standard rather than leaving it Pending', () => {

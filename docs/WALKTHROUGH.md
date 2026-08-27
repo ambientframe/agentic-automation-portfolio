@@ -20,9 +20,9 @@ connected to a real channel, and no real person has ever been contacted from thi
 | # | Time | On screen | What it establishes |
 | --- | --- | --- | --- |
 | 1 | 11s | The banner and the masthead | The portfolio labels itself before it sells itself |
-| 2 | 11s | The claim, and the four figures under it | 8 incidents, all landing in a declared state |
-| 3 | 11s | Eight incidents, each with its own ending | The awkward ones are on the shelf too |
-| 4 | 11s | How much of the map those runs cover | 15 of 37 — measured, and the other 22 named |
+| 2 | 11s | The claim, and the four figures under it | 10 incidents, all landing in a declared state |
+| 3 | 11s | Ten incidents, each with its own ending | The awkward ones are on the shelf too |
+| 4 | 11s | How much of the map those runs cover | 18 of 37 — measured, and the other 19 named |
 | 5 | 11s | One incident, opened to a single step | Where the rules stop and a model starts |
 | 6 | 11s | The four boundary cards | What a model may never do, however confident |
 | 7 | 12s | The operator console, running live | Real routes, real disk, one honest stand-in |
@@ -42,47 +42,49 @@ Say: *"Everything you're about to see is labelled. The build tells you what it i
 
 ### 2 · Every enquiry ends somewhere you can point at · 11s
 
-![The same page scrolled to the claim: three cards headed "What goes wrong today", "Why it costs real money", and "What this replaces it with", above four figures — incidents you can run, 8; ended in a declared state, 8 of 8; diverged from expectation, 0; confidence floor in force, 0.7.](walkthrough/02-claim.png)
+![The same page scrolled to the claim: three cards headed "What goes wrong today", "Why it costs real money", and "What this replaces it with", above four figures — incidents you can run, 10; ended in a declared state, 10 of 10; diverged from expectation, 0; confidence floor in force, 0.7.](walkthrough/02-claim.png)
 
 The promise is narrow enough to check: no enquiry disappears, and anything past the system's
 authority reaches a person. The four figures underneath are the check on exactly that claim.
-**8 incidents**, all 8 finishing in one of the **17 states** the system declares in advance,
+**10 incidents**, all 10 finishing in one of the **17 states** the system declares in advance,
 none diverging from what its scenario predicted.
 
 **0.7** is the confidence floor — below it, a judgment routes to a person instead of acting.
 It is this operator's configured policy, not an industry benchmark and not a measured result.
 
-Say: *"Eight incidents, eight declared endings, nothing unaccounted for."*
+Say: *"Ten incidents, ten declared endings, nothing unaccounted for."*
 
 ### 3 · The awkward incidents are on the shelf too · 11s
 
-![A grid of eight selectable incidents, each showing its ending: after-hours enquiry with missing scope ending Booked; the same enquiry delivered twice ending Booking ready with 1 sent and 3 held; an enquiry the system should not answer with nothing attempted; a contact who unsubscribed now writing directly; the acknowledgement provider going quiet with 1 unconfirmed; and three wait-window incidents ending Needs human.](walkthrough/03-incidents.png)
+![A grid of ten selectable incidents, each showing its ending: after-hours enquiry with missing scope ending Booked; the same enquiry delivered twice ending Booking ready with 1 sent and 3 held; an enquiry the system should not answer with nothing attempted; a contact who unsubscribed now writing directly; the acknowledgement provider going quiet with 1 unconfirmed; three wait-window incidents ending Needs human; a misconfigured form sending an unreadable payload then a corrected one, ending Booked; and an intake payload the system can never read, ending Needs human with nothing attempted.](walkthrough/03-incidents.png)
 
 This is the tell. A demo picks its happy path; this shelf leads with the cases that go wrong —
 a duplicate delivery where three sends are **held** rather than repeated, an enquiry the system
 **should not answer**, a provider that **went quiet** and left an outcome unconfirmed, and three
 deadlines that elapse into `Needs human`.
 
-Six of the eight end with a person holding the case. That is the designed outcome for anything
+Eight of the ten end with a person holding the case. That is the designed outcome for anything
 past the system's authority, not a failure to automate.
 
-Say: *"Six of eight end with a person. That's the design, not a shortfall."*
+Say: *"Eight of ten end with a person. That's the design, not a shortfall."*
 
-### 4 · 15 of 37, and here are the other 22 · 11s
+### 4 · 18 of 37, and here are the other 19 · 11s
 
-![A panel headed 15 / 37, "declared moves you can watch · 41%", above a row of 37 marks with the first 15 filled. Below it a collapsed list labelled "the 22 moves no scenario drives yet — named, not summarised", and three caveats explaining that the count credits only moves the engine accepted, that an unlisted move is usually unauthored rather than broken, and that being covered by a unit test is not the same as being replayable.](walkthrough/04-coverage.png)
+![A panel headed 18 / 37, "declared moves you can watch · 49%", above a row of 37 marks with the first 18 filled. Below it a collapsed list labelled "the 19 moves no scenario drives yet — named, not summarised", and three caveats explaining that the count credits only moves the engine accepted, that an unlisted move is usually unauthored rather than broken, and that being covered by a unit test is not the same as being replayable.](walkthrough/04-coverage.png)
 
-Eight incidents, out of how many possible paths? **15 of the 37 declared moves**, measured by
+Ten incidents, out of how many possible paths? **18 of the 37 declared moves**, measured by
 replaying every scenario rather than estimated, and counting only the moves the engine actually
 **accepted** — a refusal is never credited as a demonstration of the thing it refused.
 
-The 22 that no scenario drives are listed by name, each with its states and its trigger. That is
-the whole design of this panel: a number asks to be trusted, a list asks to be checked. It also
-makes the page's own recent work look worse on purpose — two of those 22 were closed by a unit
-test hours before this frame was captured, so they genuinely work and still nobody can watch
-them. Closing a standard and making it inspectable are different achievements.
+The 19 that no scenario drives are listed by name, each with its states and its trigger. That is
+the whole design of this panel: a number asks to be trusted, a list asks to be checked.
 
-Say: *"Fifteen of thirty-seven. Here are the other twenty-two by name."*
+It has already been used that way. This panel first read **15 of 37**, and three of the moves it
+named were the malformed-payload retry path — closed by a unit test hours earlier, so they
+genuinely worked and nobody could watch them. Two of the ten incidents on the previous shelf
+exist because this list said so. The gap it names is a backlog, not a disclaimer.
+
+Say: *"Eighteen of thirty-seven. Here are the other nineteen by name."*
 
 ### 5 · Where the rules stop and a model starts · 11s
 
@@ -169,7 +171,7 @@ with instructions if it is missing. Frames are written at a fixed 1440×900 view
 the colour scheme pinned, so two captures of an unchanged page differ only where the page
 differs.
 
-**Re-captured at `dc4307d` against a local production build**, after the coverage panel added a
+**Re-captured at `a9a260d` against a local production build**, after the coverage panel added a
 ninth frame and shifted the numbering. The eight frames that predate it had been re-captured
 byte-identical at `1a948df`, two packages after they were first taken — but this page changed,
 so they were taken again rather than assumed. Frame 7 shows a runtime

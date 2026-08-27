@@ -3,7 +3,39 @@
 > One per accepted package (Constitution §14). Repository truth is authoritative; this file
 > is an index, not a source. Append the new checkpoint above the previous one.
 
-## Current — The coverage figure reaches the buyer, and names its own gap · 2026-08-27
+## Current — The published gap was used as a backlog: 15 → 18 of 37 · 2026-08-27
+
+**Verified state.** `npm run verify`: 60 files, 943 passed / 1 skipped, exit 0. `npm run build`:
+exit 0. Lead Rescue coverage **15 → 18 of 37 (41% → 49%)**; scenarios 8 → 10, portfolio 19 → 21.
+
+**Proof claim earned.** The coverage panel listed `lr-t02`, `lr-t30` and `lr-t32` as moves no
+scenario drives — the malformed-payload retry path, closed by unit test hours earlier so it
+worked and nobody could watch it. Two authored scenarios put it on the simulator shelf. This is
+the first demonstration that publishing the gap closes gaps rather than merely confessing them.
+
+**Two scenarios, because they are alternative exits from one state.**
+`malformed-payload-corrected`: a form rebuilt overnight posts its own field names, the system
+refuses to guess the mapping and acknowledges nothing to a contact it cannot identify, then
+rejoins the ordinary path when the form is fixed. `malformed-payload-unreadable`: a partner API
+on the wrong contract posts the identical payload four times — three hold position, the fourth
+exhausts the budget and reaches a person with the payload, errors and attempt count attached.
+
+**A pin retired, not deleted.** `lr-t30`/`lr-t32` were the standing example of "closed by test,
+still unwatchable"; they are replayable now, so the pin moved to `lr-t31`, which `lr-fm-malformed`
+still declares and nothing drives. The failure message says to move it rather than remove it.
+
+**Four guards caught the collateral.** The proof-route journey count, the scenario-slug list, the
+walkthrough's incident count and the README's runnable total all failed on the 8 → 10 change.
+None was found by reading.
+
+**Maturity.** Unchanged. $0 spent, no provider crossed.
+
+**Pattern earned.** None — this consumes #20's output.
+
+**Next package.** NOT SELECTED. `cp-fm-approval-timeout` is the last Pending standard with a
+clear shape; Call-to-Proposal has no attention-timeout mechanism and Lead Rescue's is the model.
+
+## Earlier — The coverage figure reaches the buyer, and names its own gap · 2026-08-27
 
 **Verified state.** `npm run verify`: 60 files, 940 passed / 1 skipped, exit 0. `npm run build`:
 exit 0, 36 routes. 10 new tests; 8 targeted mutations, all caught after a repair — 2 survived

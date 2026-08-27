@@ -1,5 +1,43 @@
 # Status
 
+**As of 2026-08-27 (latest pass, same day) · The coverage panel named three moves nobody could
+watch, and two authored scenarios closed them. Lead Rescue is 18 of 37.** The panel shipped
+reading **15 of 37** and listing `lr-t02`, `lr-t30` and `lr-t32` among the moves no scenario
+drives — the malformed-payload retry path, closed by direct test hours earlier, so it genuinely
+worked and nobody could see it. Two scenarios now put it on the shelf, and Lead Rescue moves
+**15 → 18 of 37 (41% → 49%)**.
+
+**Two scenarios rather than one, because they are alternative exits from one state.** A case
+either recovers on a corrected redelivery or exhausts its budget; no single run shows both.
+`malformed-payload-corrected` is a website form rebuilt overnight that posts its own field names
+— the system refuses to guess the mapping, retains the raw payload, acknowledges nothing to a
+contact it cannot identify, and rejoins the ordinary path to `BOOKED` when the form is fixed
+forty minutes later. `malformed-payload-unreadable` is a partner referral API pointed at the
+wrong contract version, posting the identical unreadable payload four times: three attempts hold
+position because the budget still permits another, and the fourth exhausts it and hands the case
+to a person with the raw payload, the validation errors, and the attempt count.
+
+**The list was used as a backlog, which is the argument for publishing it.** A gap named
+specifically enough to act on is worth more than a disclaimer, and this is the first
+demonstration that the mechanism closes gaps rather than merely confessing them.
+
+**One test was retired rather than deleted.** `transition-coverage` pinned `lr-t30`/`lr-t32` as
+the standing example of "closed by unit test, still unwatchable". Those are now replayable, so
+the pin moved to `lr-t31` — `lr-fm-malformed` is still marked `Verified` while its declared
+`FAILED_RECOVERABLE -> FAILED_TERMINAL` recovery remains undriven. The claim was never about
+those two ids; it is that closing a standard and making it inspectable are different
+achievements, and the assertion says so in its own failure message.
+
+**Four guards caught the collateral, which is what they are for.** Adding two scenarios moved
+Lead Rescue 8 → 10 and the portfolio 19 → 21, and the suite immediately failed on the proof-route
+journey count, the scenario-slug list, the walkthrough's stated incident count, and the README's
+runnable total. None of those was found by reading.
+
+`npm run verify`: 60 files, 943 passed / 1 skipped, exit 0. `npm run build`: exit 0. All nine
+walkthrough frames re-captured, and the two alt texts and one paragraph that no test can check
+— the shelf contents, the panel figures, and a sentence that had become false — corrected by
+hand against the new frames.
+
 **As of 2026-08-27 (latest pass, same day) · The coverage number is now on the page a buyer
 reads, and it names the 22 moves it cannot show them.** The measurement shipped in the previous
 pass but rendered nowhere, which made it a fact about the repository rather than a claim to a

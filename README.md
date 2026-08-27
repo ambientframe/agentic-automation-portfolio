@@ -29,7 +29,7 @@ fictional. **Reachable is a demonstration surface; it is not operation.**
 
 | | |
 | --- | --- |
-| Lead Rescue | `INTERACTIVE_PROTOTYPE` — 8 scenarios, 8 HTTP routes, durable persistence, an execution journal, HMAC operator authentication, 2 real n8n workflows, and a genuine `claude-opus-5` classification that has executed through the real ingress path |
+| Lead Rescue | `INTERACTIVE_PROTOTYPE` — 10 scenarios, 8 HTTP routes, durable persistence, an execution journal, HMAC operator authentication, 2 real n8n workflows, and a genuine `claude-opus-5` classification that has executed through the real ingress path |
 | The other five | `SIMULATED` — 2 scenarios each, executing the same shared engine against authored fixtures |
 
 Lead Rescue's live classification evaluation is a **retained negative result**: all 9 frozen
@@ -45,10 +45,10 @@ npm install
 npm run dev
 ```
 
-Then open the printed URL. **19 incidents across 6 systems** replay through the engine. Each
+Then open the printed URL. **21 incidents across 6 systems** replay through the engine. Each
 one executes the real engine — same input, same result, every time.
 
-**Lead Rescue (8)** — `/simulator/after-hours-enquiry` · `duplicate-delivery` ·
+**Lead Rescue (10)** — `/simulator/after-hours-enquiry` · `duplicate-delivery` ·
 `ambiguous-high-risk` · `restricted-contact-review` · `uncertain-downstream-outcome`, plus
 three wait/resume incidents reachable from `/lead-rescue`.
 

@@ -95,16 +95,31 @@ describe('scenario transition coverage', () => {
   });
 
   /**
-   * Pinned because it is the honest, uncomfortable half of this session's own work.
-   * `lr-fm-malformed` was closed by a direct test, so `lr-t30`/`lr-t32` genuinely work — and a
-   * visitor still cannot watch them happen. Closing a standard is not the same as making it
-   * inspectable, and recording that distinction is the point of measuring scenarios rather
-   * than tests.
+   * A `Verified` standard can still contain a move nobody can watch, and this is what keeps
+   * that visible.
+   *
+   * The earlier version of this test pinned `lr-t30`/`lr-t32` as the example. Two scenarios
+   * later they are replayable, so the pin was retired rather than deleted — the claim it
+   * protected is not about those two ids, it is that closing a standard and making it
+   * inspectable are different achievements. `lr-fm-malformed` is the standing proof:
+   * marked `Verified`, its declared recovery includes `lr-t31`
+   * (`FAILED_RECOVERABLE -> FAILED_TERMINAL`), and no scenario drives it.
    */
-  it('does not let a standard closed by unit test masquerade as replayable', () => {
-    const leadRescue = SCENARIO_UNEXERCISED_TRANSITIONS['lead-rescue'] ?? [];
-    expect(leadRescue).toContain('lr-t30');
-    expect(leadRescue).toContain('lr-t32');
+  it('lets a Verified standard still admit a move nobody can watch', () => {
+    const mode = RUNNABLE_SYSTEMS.find((r) => r.system.id === 'lead-rescue')
+      ?.system.failureModes.find((m) => m.id === 'lr-fm-malformed');
+    expect(mode?.verificationTest.startsWith('Pending')).toBe(false);
+    expect(mode?.recoveryPath.shape).toBe('MOVES');
+
+    const declaredMoves =
+      mode?.recoveryPath.shape === 'MOVES' ? mode.recoveryPath.moves : [];
+    expect(declaredMoves.length).toBeGreaterThan(1);
+
+    const unexercised = SCENARIO_UNEXERCISED_TRANSITIONS['lead-rescue'] ?? [];
+    expect(
+      unexercised,
+      'the terminal-failure exit is replayable now — retire this pin and pick the next standing example, do not delete the check',
+    ).toContain('lr-t31');
   });
 
   /**
