@@ -2,6 +2,7 @@ import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
+import { ALL_PROFILES } from '@/data/profiles';
 import { KESTREL } from '@/data/profiles/kestrel/profile';
 import { MERIDIAN } from '@/data/profiles/meridian/profile';
 import {
@@ -111,10 +112,14 @@ describe('the profile/engine contract is declared', () => {
 // Both profiles satisfy it
 // ---------------------------------------------------------------------------
 
-const PROFILES: readonly (readonly [string, BusinessProfile])[] = [
-  ['kestrel', KESTREL],
-  ['meridian', MERIDIAN],
-];
+/**
+ * Derived from the register, never listed literally. A profile added to `data/profiles/index.ts`
+ * is held to the contract from the moment it is registered — the failure mode of a literal list
+ * is a new profile nobody remembered to add, which is then checked by nothing and passes.
+ */
+const PROFILES: readonly (readonly [string, BusinessProfile])[] = ALL_PROFILES.map(
+  (p) => [p.id, p] as const,
+);
 
 describe.each(PROFILES)('profile %s', (name, profile) => {
   it('parses against the schema', () => {
