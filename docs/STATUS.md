@@ -1,6 +1,61 @@
 # Status
 
-**As of 2026-08-27 (latest pass, same day) · A malformed intake payload is now genuinely
+**As of 2026-08-27 (latest pass, same day) · How much of each system a visitor can actually
+watch is now computed, not remembered — and the honest number is 57 of 139.** `validateLifecycle`
+proves a declared recovery is *buildable*. It says nothing about whether anything ever performs
+it, and the gap between those two questions is exactly where `lr-fm-malformed` lived: entering
+`FAILED_RECOVERABLE` was buildable and built, every exit was buildable and never built, for
+months, behind a marker that read as unfinished writing.
+
+**Scenario coverage, deliberately, not test coverage.** A transition covered by a unit test is
+proven to work; a transition covered by a scenario is one somebody can open in the simulator and
+watch. This portfolio's claim is inspectability, so the second is the commercially meaningful
+number — and it is the smaller, less flattering one. `lib/proof/transition-coverage.ts` derives
+it by genuinely replaying all 19 scenarios and crediting only transitions the engine *accepted*,
+so a refusal is never counted as a demonstration of the thing refused.
+
+| System | Exercised by a replayable scenario |
+| --- | --- |
+| Lead Rescue | 15 of 37 |
+| Dormant Pipeline Recovery | 8 of 20 |
+| Call-to-Proposal | 8 of 18 |
+| Client Onboarding | 8 of 17 |
+| Receivables / Invoice Recovery | 7 of 33 |
+| Owner Revenue Intelligence | 11 of 14 |
+| **Portfolio** | **57 of 139** |
+
+**This replaces prose with data.** Gaps 1–5 below are hand-maintained lists of "declared but
+unexercised" transitions, updated by whoever remembered. `data/transition-coverage.ts` now holds
+that list as data and `tests/transition-coverage.test.ts` reconciles it against a real run,
+failing in **both** directions — a transition that quietly stops being exercised, and a snapshot
+entry for one a scenario now drives. Without the second direction the snapshot becomes the next
+`Pending` marker.
+
+**It immediately made this session's own work less flattering, which is the point.** `lr-t30`
+and `lr-t32` were closed hours ago by a direct test, so they genuinely work — and they are
+listed here as unexercised, because a visitor still cannot watch them. Closing a standard and
+making it inspectable are different achievements, and a test now pins that distinction rather
+than leaving the stronger-sounding one to be assumed.
+
+**One mutation survived and exposed an untestable guard.** Removing the `accepted` check
+changed nothing, because every rejection the current scenarios produce carries no `ruleId` —
+rejection today means "no declared rule matched". The guard is still correct for a
+matched-but-refused move, so rather than delete it, the credit rule was extracted as
+`creditedRuleIds` and is driven directly by a synthetic rejected transition. An unreachable
+guard is a guard nothing tests.
+
+**Also hardened, from the same signal.** `tests/observation-integrity-evidence.test.ts` read the
+independent receiver's connection transcript into a variable and never asserted on it — twenty
+tests guarded what the *sender* recorded and none guarded what the *receiver* did, which is the
+wrong way round when the sender's own delivery claim is the thing needing corroboration. Test 21
+now ties each verdict to the receiver's own byte counts: a refused envelope must show zero bytes
+and nothing stored, and an unacknowledged delivery must show bytes *and* a stored id *and* no
+acknowledgement, or `OUTCOME_UNKNOWN` is not the genuinely-uncertain case it is presented as.
+
+`npm run verify`: 59 files, 930 passed / 1 skipped, exit 0. `npm run build`: exit 0. 6 targeted
+mutations of the coverage mechanism each confirmed to fail the suite, none surviving.
+
+**As of 2026-08-27 (earlier pass, same day) · A malformed intake payload is now genuinely
 retried, and the retry budget is real.** `lr-fm-malformed` is closed — the last `Pending`
 standard on Lead Rescue that was buildable rather than blocked by a canon defect. Entering
 `FAILED_RECOVERABLE` has worked since the system was written; **nothing had ever left it.**

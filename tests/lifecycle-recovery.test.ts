@@ -89,7 +89,7 @@ describe('failure-mode recovery is checked against the transition graph', () => 
     const unbuildable = ALL_SYSTEMS.flatMap((system) =>
       system.failureModes.flatMap((mode) =>
         mode.recoveryPath.shape === 'MOVES'
-          ? mode.recoveryPath.moves.filter((m) => m.unbuildable === true).map((m) => `${system.id}/${mode.id}`)
+          ? mode.recoveryPath.moves.filter((m) => m.unbuildable === true).map(() => `${system.id}/${mode.id}`)
           : [],
       ),
     );

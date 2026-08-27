@@ -182,6 +182,18 @@
 - **Limits (recorded, not hidden):** it checks that a package is DECLARED, never that the installed version satisfies the range, and it cannot see imports built from a computed specifier — which is precisely the escape hatch it sanctions, so a genuinely missing runtime dependency loaded that way stays invisible to it.
 - **Reusable for 2–6:** repository-wide from the first run; every future file is covered without being enrolled.
 
+### 20. Buildable is not built — coverage is computed by replay, and both directions fail
+- **Earned:** transition-coverage package, 2026-08-27
+- **Implementation:** `lib/proof/transition-coverage.ts` (`computeScenarioTransitionCoverage`, `creditedRuleIds`) · `data/transition-coverage.ts`
+- **Tests:** `tests/transition-coverage.test.ts` (8 tests; 6 targeted mutations each separately confirmed to fail it — dropping a genuinely unexercised transition from the snapshot, adding a stale entry for one now covered, naming an undeclared transition, crediting rejected transitions, reporting everything as exercised, reporting nothing as unexercised. None survived.)
+- **Establishes:** `validateLifecycle` (#18) proves a declared movement is BUILDABLE. Whether anything performs it is a different question, and the gap between the two is where `lr-fm-malformed` lived for months. Coverage is derived by genuinely replaying all 19 scenarios, never by reading handlers, and only transitions the engine ACCEPTED are credited — an engine refusal is not a demonstration of the thing refused.
+- **Scenario coverage, not test coverage, and the distinction is the whole value.** A transition covered by a unit test is proven to work; one covered by a scenario is one a visitor can open and watch. A portfolio selling inspectability should measure the second, which is the smaller and less flattering number: **57 of 139** across six systems.
+- **It made this session's own work look worse, on purpose.** `lr-t30`/`lr-t32` were closed by direct test hours earlier and are listed as unexercised, because nobody can watch them. A test pins that rather than letting the stronger-sounding claim be assumed.
+- **Prose became data.** STATUS gaps 1–5 were hand-maintained lists of unexercised transitions, updated from memory. The snapshot is now reconciled against a real run and fails in both directions, so it cannot rot into the next `Pending` marker.
+- **A surviving mutation exposed an unreachable guard.** Removing the `accepted` check changed nothing, because every rejection the current scenarios produce carries no `ruleId`. The guard is still right for a matched-but-refused move, so the rule was extracted as `creditedRuleIds` and driven directly by a synthetic rejected transition rather than deleted or left untested.
+- **Limits (recorded, not hidden):** it measures which transitions fire, never whether the scenario that fired them is a good demonstration; a transition crossed incidentally counts the same as one a scenario was written to show. It says nothing about the 82 uncovered transitions being wrong — most are simply unauthored. And it is blind to unit-test coverage by design, so it understates correctness while stating inspectability accurately.
+- **Reusable for 2–6:** it already runs on all six and needs no per-system enrolment; a seventh system is measured the moment it registers a scenario.
+
 ## NOT YET EARNED
 
 | Candidate | Why not |

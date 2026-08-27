@@ -312,4 +312,45 @@ describe('observation-integrity capture — it refuses the overclaims it cannot 
     expect(limits, 'the receiver is not disclaimed as a non-third-party').toContain('third-party');
     expect(limits, 'the untested loss kind is not named').toContain('unresolved_intent');
   });
+
+  /**
+   * 21. THE SECOND OBSERVER IS THE WHOLE ARGUMENT, SO IT GETS ASSERTED.
+   *
+   * `connections` was read out of the artifact and then never used — twenty tests guarded what
+   * the SENDER recorded and none guarded what the RECEIVER did. That is the wrong way round:
+   * a system reporting its own delivery outcome is exactly the claim that needs corroborating,
+   * and this transcript is the only independent record of the same exchange.
+   *
+   * The two shapes below are the ones the verdicts rest on. A refused envelope must show zero
+   * bytes and nothing stored, or `FAILED_BEFORE_EFFECT` is an unfounded claim of
+   * non-execution. A body accepted and stored but never acknowledged must show bytes AND a
+   * stored id AND no acknowledgement, or `OUTCOME_UNKNOWN` is not the genuinely-uncertain case
+   * it is presented as — it is the case the sender could have called correctly.
+   */
+  it('21. the independent receiver corroborates each verdict with its own byte counts', () => {
+    expect(connections.length, 'the receiver transcript is empty').toBeGreaterThan(0);
+
+    const refused = connections.filter((c) => c['mode'] === 'REFUSE_ENVELOPE');
+    expect(refused, 'no refused-envelope connection was recorded').toHaveLength(1);
+    expect(refused[0]?.['bodyBytesReceived'], 'a refused envelope received body bytes').toBe(0);
+    expect(refused[0]?.['storedMessageId'], 'a refused envelope stored a message').toBeNull();
+
+    // Accepted-and-stored but never acknowledged: the sender cannot know, and must not guess.
+    const unacknowledged = connections.filter((c) => c['acknowledgedToClient'] === false);
+    expect(unacknowledged.length, 'no unacknowledged delivery was captured').toBeGreaterThan(0);
+    for (const connection of unacknowledged) {
+      expect(
+        Number(connection['bodyBytesReceived']),
+        `connection ${String(connection['connection'])} was unacknowledged but received no body`,
+      ).toBeGreaterThan(0);
+      expect(
+        connection['storedMessageId'],
+        `connection ${String(connection['connection'])} was unacknowledged but stored nothing`,
+      ).toBeTruthy();
+    }
+
+    // The receiver's own tally must match its own connection records.
+    const stored = connections.filter((c) => c['storedMessageId'] !== null && c['storedMessageId'] !== undefined);
+    expect(transcript['storedMessageCount']).toBe(stored.length);
+  });
 });

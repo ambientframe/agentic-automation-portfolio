@@ -3,7 +3,44 @@
 > One per accepted package (Constitution §14). Repository truth is authoritative; this file
 > is an index, not a source. Append the new checkpoint above the previous one.
 
-## Current — A malformed payload is retried, and the budget is real · 2026-08-27
+## Current — Buildable is not built: 57 of 139 · 2026-08-27
+
+**Verified state.** `npm run verify`: 59 files, 930 passed / 1 skipped, exit 0. `npm run build`:
+exit 0. 9 new tests; 6 targeted mutations of the coverage mechanism, all caught.
+
+**Proof claim earned.** How much of each system a visitor can actually watch is computed by
+replaying all 19 scenarios, not remembered. **57 of 139** declared transitions are exercised by
+a replayable scenario. Only transitions the engine *accepted* are credited — a refusal is not a
+demonstration of the thing refused.
+
+**Scenario coverage, not test coverage.** A unit test proves a transition works; a scenario lets
+someone watch it. This portfolio sells inspectability, so it measures the smaller number.
+
+**It made this session's own work look worse.** `lr-t30`/`lr-t32` were closed by direct test
+hours earlier and are listed as unexercised, because nobody can watch them. Closing a standard
+and making it inspectable are different achievements; a test now pins that.
+
+**Prose became data.** STATUS gaps 1–5 were hand-maintained lists updated from memory.
+`data/transition-coverage.ts` holds them as data, reconciled against a real run, failing in both
+directions so the snapshot cannot rot into the next `Pending`.
+
+**A surviving mutation exposed an unreachable guard.** Removing the `accepted` check changed
+nothing — every rejection the scenarios produce carries no `ruleId`. Rather than delete a guard
+that is still right for a matched-but-refused move, the rule was extracted as `creditedRuleIds`
+and driven directly.
+
+**Also hardened.** `observation-integrity-evidence.test.ts` read the independent receiver's
+transcript and never asserted on it: twenty tests guarded the sender, none guarded the receiver.
+Test 21 now ties each verdict to the receiver's own byte counts.
+
+**Maturity.** Unchanged. $0 spent, no provider crossed.
+
+**Pattern earned.** #20 — buildable is not built.
+
+**Next package.** NOT SELECTED. The coverage table is a strong candidate to render on the proof
+surface, but a system earns a layer by acquiring the capability, not the component.
+
+## Earlier — A malformed payload is retried, and the budget is real · 2026-08-27
 
 **Verified state.** `npm run verify`: 58 files, 921 passed / 1 skipped, exit 0. `npm run build`:
 exit 0. 10 new tests, 8 RED before implementation; 9 targeted mutations, all caught after a
