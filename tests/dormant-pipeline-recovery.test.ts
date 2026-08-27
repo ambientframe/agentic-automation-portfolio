@@ -13,10 +13,11 @@ function scenario(slug: string) {
 }
 
 describe('Dormant Pipeline Recovery scenarios', () => {
-  it('provides the two scenarios this iteration requires', () => {
+  it('provides the three scenarios this iteration requires', () => {
     expect(DORMANT_PIPELINE_RECOVERY_SCENARIOS.map((s) => s.slug)).toEqual([
       'eligible-reactivation',
       'suppressed-recovery',
+      'ambiguous-entity-match',
     ]);
   });
 
@@ -405,5 +406,83 @@ describe('Dormant Pipeline Recovery scenarios', () => {
       });
       expect(computed).not.toContain('do-not-batch-with-autumn-campaign');
     });
+  });
+});
+
+/**
+ * FALSIFYING TESTS for dp-fm-wrong-entity — the WRONG_ENTITY_MATCH failure mode.
+ *
+ * The declared business impact is not an inconvenience: "Confidential commercial history is
+ * disclosed to the wrong party." Reactivation outreach quotes the prior objection and the
+ * original service interest back to whoever receives it, so matching the wrong person does not
+ * send a merely irrelevant message — it hands one company's commercial history to another.
+ *
+ * That is why the guard sits BEFORE the consent screen rather than alongside the other
+ * eligibility checks. Consent, active-account status, and the re-entry reason are all questions
+ * about a SPECIFIC party; screening them against an identity nobody has established yet is
+ * meaningless work that reads as diligence. Identity is not one eligibility check among several,
+ * it is the precondition for all of them.
+ */
+describe('Dormant Pipeline Recovery — ambiguous entity match (dp-fm-wrong-entity)', () => {
+  const AMBIGUOUS = 'ambiguous-entity-match';
+
+  it('1. the scenario exists and ends in NEEDS_HUMAN rather than resolving to a candidate', async () => {
+    const run = await runDormantPipelineRecovery(scenario(AMBIGUOUS));
+    expect(run.finalState.lifecycleState).toBe('NEEDS_HUMAN');
+  });
+
+  it('2. zero side effects — nothing reaches any candidate while identity is unresolved', async () => {
+    const run = await runDormantPipelineRecovery(scenario(AMBIGUOUS));
+    expect(run.sideEffects).toHaveLength(0);
+  });
+
+  it('3. identity is resolved BEFORE consent is screened, not alongside the other eligibility checks', async () => {
+    const run = await runDormantPipelineRecovery(scenario(AMBIGUOUS));
+    const order = run.timeline.map((e) => e.stepLabel);
+    const identity = order.indexOf('Entity resolution');
+    const consent = order.indexOf('Consent check');
+
+    expect(identity, 'no entity-resolution step ran at all').toBeGreaterThanOrEqual(0);
+    // Consent may legitimately never run — the case stops at the ambiguity. What is forbidden
+    // is consent running FIRST, which would be screening a party nobody had identified.
+    if (consent >= 0) expect(identity).toBeLessThan(consent);
+  });
+
+  it('4. every candidate is attached to the decision, not just the closest one', async () => {
+    const run = await runDormantPipelineRecovery(scenario(AMBIGUOUS));
+    const identity = run.decisions.find((d) => d.id.endsWith('d-identity'));
+    expect(identity, 'no identity decision was recorded').toBeDefined();
+
+    const attached = (identity?.deterministicFacts ?? []).filter((f) => /candidate/i.test(f.label));
+    expect(attached.length, 'fewer than two candidates attached to an ambiguous match').toBeGreaterThanOrEqual(2);
+  });
+
+  it('5. the decision is deterministic — no bounded judgment is consulted to break the tie', async () => {
+    const run = await runDormantPipelineRecovery(scenario(AMBIGUOUS));
+    const identity = run.decisions.find((d) => d.id.endsWith('d-identity'));
+    expect(identity?.mechanism).toBe('DETERMINISTIC_RULE');
+    expect(run.decisions.some((d) => d.mechanism === 'BOUNDED_AI_JUDGMENT')).toBe(false);
+  });
+
+  it('6. resolving to the closest candidate is named as forbidden, not merely omitted', async () => {
+    const run = await runDormantPipelineRecovery(scenario(AMBIGUOUS));
+    const identity = run.decisions.find((d) => d.id.endsWith('d-identity'));
+    expect(identity?.forbiddenActions.join(' ')).toMatch(/closest|highest|best.?match/i);
+  });
+
+  it('7. the guard does not fire on the unambiguous scenarios — it is a discriminator, not a blanket halt', async () => {
+    for (const slug of ['eligible-reactivation', 'suppressed-recovery']) {
+      const run = await runDormantPipelineRecovery(scenario(slug));
+      expect(
+        run.timeline.map((e) => e.stepLabel),
+        `entity resolution fired on ${slug}, which supplies no competing candidates`,
+      ).not.toContain('Entity resolution');
+    }
+  });
+
+  it('8. replays byte-identical', async () => {
+    const a = await runDormantPipelineRecovery(scenario(AMBIGUOUS));
+    const b = await runDormantPipelineRecovery(scenario(AMBIGUOUS));
+    expect(JSON.stringify(a)).toEqual(JSON.stringify(b));
   });
 });

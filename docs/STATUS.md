@@ -1,6 +1,50 @@
 # Status
 
-**As of 2026-08-26 (latest pass, same day) · The other five systems now have a buyer-facing
+**As of 2026-08-26 (latest pass, same day) · Dormant Pipeline Recovery will not guess which
+company a dormant record belongs to.** `dp-fm-wrong-entity` — declared since the system was
+written, marked `Pending — scenario not yet authored`, never built — is closed. A dormant record
+whose only contact detail is a shared role address matches two legally distinct accounts at 0.94
+and 0.91; both clear the configured 0.9 threshold. The cycle stops, routes to `NEEDS_HUMAN`, and
+attaches both candidates for a person to separate.
+
+**The placement is the substance, not the check.** This guard runs BEFORE the consent screen,
+ahead of active-account status and any re-entry reason. Those are all questions about a *specific
+party*; asking them against an identity nobody has established is meaningless work that reads as
+diligence. Identity is not one eligibility check among several — it is the precondition for all
+of them, and the handler now returns immediately rather than continuing to evaluate policy for a
+company it cannot name.
+
+**Why it matters commercially.** Reactivation outreach quotes the prior objection and the original
+service interest back to whoever opens it. A wrong match therefore does not send a slightly
+irrelevant message — it discloses one company's commercial history to another. The declared
+business impact was always exactly that; nothing enforced it until now.
+
+**Accepted on exactly one candidate at or above the threshold.** Two or more is the declared
+ambiguity. Zero is the same failure wearing a different face, since resolving it would mean taking
+the closest available match — which the policy forbids by name. `resolve_to_closest_candidate` and
+`resolve_to_highest_confidence_match` are recorded as forbidden actions rather than merely left
+unselected, so the record shows the system declining a choice it could have made.
+
+**New in the profile, not hard-coded.** `entityMatchThreshold` (0.9) is an operating parameter
+linked to a new `kestrel-entity-resolution` client policy, per the standing rule that a threshold
+in a handler silently becomes a universal truth.
+
+**Verified.** 8 new tests in `tests/dormant-pipeline-recovery.test.ts` (31 in that file, up from
+23), 7 RED before implementation. Five targeted mutations of the shipped guard were each confirmed
+to fail the suite — accepting the closest candidate, disabling the guard, dropping the attached
+candidates, removing the forbidden actions, and redirecting the transition — and none survived.
+`typecheck` caught a vacuous assertion in one of my own tests (`AI_JUDGMENT` against an enum whose
+member is `BOUNDED_AI_JUDGMENT`) before it could pass for the wrong reason. `npm run verify`: 54
+files, 868 passed / 1 skipped, exit 0. `npm run build`: exit 0. 19 runnable scenarios, up from 18.
+
+**Two of that system's three pending standards remain blocked, and not for want of authoring** —
+see gap 0 under Known fidelity gaps. `dp-fm-stale-data` and `dp-fm-rate-limited` declare recoveries
+the lifecycle has no transition for. This pass deliberately closed the one that was structurally
+buildable and left those two named rather than unblocking them by quietly adding transitions.
+
+Maturity unchanged: `SIMULATED`. A closed failure mode is not a fidelity promotion.
+
+**As of 2026-08-26 (earlier pass, same day) · The other five systems now have a buyer-facing
 page, and the portfolio index no longer sends anyone to an engineering dossier first.** Until
 this pass Lead Rescue had `/lead-rescue`, written in the register a buyer reads, and the other
 five had only `/systems/<slug>`, which opens with paragraphs of engineering prose. Every row on

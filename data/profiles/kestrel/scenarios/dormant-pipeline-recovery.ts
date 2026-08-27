@@ -186,10 +186,80 @@ const SUPPRESSED_RECOVERY = {
 } satisfies Parameters<typeof ScenarioSchema.parse>[0];
 
 // ===========================================================================
+// Scenario C — Ambiguous entity match: two candidates, no stable identifier
+// ===========================================================================
+
+const AMBIGUOUS_ENTITY_MATCH = {
+  id: "dp-scenario-ambiguous-entity-match",
+  slug: "ambiguous-entity-match",
+  systemId: "dormant-pipeline-recovery",
+  title: "Two accounts answer to the same shared inbox",
+  summary:
+    "A dormant record surfaces for reactivation, but the only contact detail on it is a shared role address — hello@ — that two separate Kestrel accounts both use. Halvorsen Freight and Halvorsen Marine are legally distinct companies with different commercial histories, and the match scores 0.94 and 0.91 against the same address. Both clear the 0.9 threshold. The reactivation approach this cycle would despatch quotes the prior objection and the original service interest back to whoever opens it, so picking the higher score would not send a slightly wrong message — it would disclose one company\u2019s commercial history to another. Identity is resolved before consent, before active-account status, and before any re-entry reason is computed, and the cycle stops with both candidates attached for a person to separate.",
+  demonstrates: [
+    "Identity is established before any question is asked about the party — consent, account status, and re-entry reason are all questions about a specific company",
+    "Two candidates above the match threshold is an ambiguity, not a ranking to be resolved",
+    "The closest match is named as a forbidden action, not merely left unselected",
+    "Every candidate travels with the escalation, so the person deciding sees what the system saw",
+    "Zero side effects while identity is unresolved — nothing reaches either candidate",
+  ],
+  expectedFinalState: "NEEDS_HUMAN",
+
+  judgments: {},
+
+  events: [
+    {
+      eventId: "evt-halvorsen-001",
+      correlationId: "inc-dp-halvorsen",
+      entityId: "opp-halvorsen",
+      type: "pipeline.dormant.evaluation.triggered",
+      source: "dormant-pipeline-job",
+      sourceEventId: "cycle-2026-08-18-0207",
+      occurredAt: "2026-08-18T09:00:00-04:00",
+      receivedAt: "2026-08-18T09:00:00-04:00",
+      schemaVersion: SCHEMA_VERSION,
+      actor: "SYSTEM",
+      executionMode: "SIMULATED",
+      payload: {
+        accountName: "Halvorsen (unresolved)",
+        contactEmail: "hello@halvorsen.example",
+        serviceInterest: "iso27001-surveillance",
+        estimatedDealValue: 24_000,
+        priorPipelineStage: "discovery",
+        priorObjection: "wanted to see the surveillance audit calendar first",
+        objectionExpiresOn: "2026-08-01",
+        accountStatus: "INACTIVE",
+        consentState: "PERMITTED",
+        attemptsToDate: 0,
+        ownerRoleId: "client-partner",
+        sourceId: "website-form",
+        qualificationNote:
+          "The record carries no company registration number and no per-company contact. The shared role address is the only identifier available to match on.",
+        entityCandidates: [
+          {
+            entityId: "acct-halvorsen-freight",
+            accountName: "Halvorsen Freight",
+            matchConfidence: 0.94,
+            matchedOn: "shared role address hello@halvorsen.example",
+          },
+          {
+            entityId: "acct-halvorsen-marine",
+            accountName: "Halvorsen Marine",
+            matchConfidence: 0.91,
+            matchedOn: "shared role address hello@halvorsen.example",
+          },
+        ],
+      },
+    },
+  ],
+} satisfies Parameters<typeof ScenarioSchema.parse>[0];
+
+// ===========================================================================
 
 export const DORMANT_PIPELINE_RECOVERY_SCENARIOS: readonly Scenario[] = [
   ScenarioSchema.parse(ELIGIBLE_REACTIVATION),
   ScenarioSchema.parse(SUPPRESSED_RECOVERY),
+  ScenarioSchema.parse(AMBIGUOUS_ENTITY_MATCH),
 ];
 
 export function dormantPipelineRecoveryScenarioBySlug(slug: string): Scenario | undefined {

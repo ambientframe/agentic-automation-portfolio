@@ -565,6 +565,16 @@ const RAW = {
       appliesTo: 'Owner Revenue Intelligence aggregation rules and any cross-client reporting.',
     },
     {
+      id: 'kestrel-entity-resolution',
+      statement:
+        'A dormant record is matched to a party only on a stable identifier. Where more than one candidate meets the match threshold, or none does, the record is routed to a person with every candidate attached — never resolved to the closest one.',
+      provenance: 'CLIENT_POLICY',
+      verification: 'NOT_APPLICABLE',
+      sourceIds: [],
+      appliesTo:
+        'Dormant Pipeline Recovery entity resolution, evaluated before consent, active-account status, or any commercial evaluation. Reactivation outreach quotes the prior objection and original service interest back to its recipient, so a wrong match does not send an irrelevant message — it discloses one company’s commercial history to another.',
+    },
+    {
       id: 'kestrel-credential-handling',
       statement:
         'Access credentials are requested through the client’s own secret-sharing channel and are never captured in workflow state, tickets, email, or logs.',
@@ -607,6 +617,7 @@ const RAW = {
     { key: 'dormantMaxAttempts', label: 'Maximum reactivation attempts', value: 3, unit: 'attempts', policyId: 'kestrel-outreach-cadence' },
     { key: 'dormantWindowDays', label: 'Reactivation sequence window', value: 21, unit: 'days', policyId: 'kestrel-outreach-cadence' },
     { key: 'dormantCoolingOffDays', label: 'Cooling-off before re-entry', value: 90, unit: 'days', policyId: 'kestrel-outreach-cadence' },
+    { key: 'entityMatchThreshold', label: 'Minimum confidence to accept an entity match', value: 0.9, unit: 'probability', policyId: 'kestrel-entity-resolution' },
     { key: 'collectionEscalationDays', label: 'Escalation to founder past due', value: 45, unit: 'days past due', policyId: 'kestrel-collection-cadence' },
     { key: 'proposalAuthorityCeiling', label: 'Maximum authority for outbound commercial documents', value: 2, unit: 'authority level', policyId: 'kestrel-proposal-authority' },
     { key: 'inputStalenessToleranceHours', label: 'Analysis input staleness tolerance', value: 96, unit: 'hours', policyId: 'kestrel-analysis-freshness' },

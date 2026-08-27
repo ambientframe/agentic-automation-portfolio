@@ -3,7 +3,45 @@
 > One per accepted package (Constitution §14). Repository truth is authoritative; this file
 > is an index, not a source. Append the new checkpoint above the previous one.
 
-## Current — Buyer-facing proof route for the other five systems · 2026-08-26
+## Current — Entity resolution precedes every policy question · 2026-08-26
+
+**Verified state.** `npm run verify`: 54 files, 868 passed / 1 skipped, exit 0. `npm run build`:
+exit 0. 8 new tests, 7 RED before implementation; five targeted mutations of the shipped guard
+each confirmed to fail the suite, none survived. 19 runnable scenarios, up from 18.
+
+**Proof claim earned.** `dp-fm-wrong-entity` is closed. A dormant record whose only contact detail
+is a shared role address matches two legally distinct accounts at 0.94 and 0.91 — both above the
+configured 0.9 threshold — and the cycle routes to `NEEDS_HUMAN` with both candidates attached
+instead of taking the higher score. Accepted on exactly one candidate at or above threshold: two
+or more is the declared ambiguity, and zero is the same failure wearing a different face, since
+resolving it means taking the closest match.
+
+**The placement is the substance.** The guard runs BEFORE the consent screen, ahead of
+active-account status and the re-entry reason. Those are all questions about a specific party;
+asking them against an unestablished identity is meaningless work that reads as diligence. The
+handler returns immediately rather than evaluating policy for a company it cannot name.
+
+**Why it is a confidentiality guard, not a tidiness one.** Reactivation outreach quotes the prior
+objection and original service interest back to its recipient, so a wrong match discloses one
+company's commercial history to another. That business impact was declared from the start; nothing
+enforced it until now.
+
+**Threshold in the profile, not the handler.** `entityMatchThreshold` (0.9) is an operating
+parameter linked to a new `kestrel-entity-resolution` client policy.
+
+**Two standards on this system remain blocked** — gap 0 under Known fidelity gaps.
+`dp-fm-stale-data` and `dp-fm-rate-limited` declare recoveries the lifecycle has no transition
+for. This pass closed the one that was structurally buildable and left those two named rather
+than unblocking them by quietly adding transitions.
+
+**Maturity.** Unchanged: `SIMULATED`. A closed failure mode is not a fidelity promotion.
+
+**Pattern earned.** #16 — identity resolution as the precondition for every policy check.
+
+**Next package.** NOT SELECTED. Track L's last item is a reachable URL, prepared and awaiting a
+credential (spine `LAUNCH_PLAN.md` SOP-6).
+
+## Previous — Buyer-facing proof route for the other five systems · 2026-08-26
 
 **Verified state.** `npm run verify`: 54 files, 860 passed / 1 skipped, exit 0.
 `npm run build`: exit 0, 35 routes (5 new). All five new pages return 200 from a production
@@ -43,7 +81,7 @@ row from NOT YET EARNED (§8's ≥2-domain gate is now met by six).
 **Next package.** NOT SELECTED — PM sequences from the §6 scorecard. Track L's last open item is
 a reachable URL; deploy is prepared and awaits the owner (spine `LAUNCH_PLAN.md` SOP-6).
 
-## Previous — Execution-boundary classification corrected · 2026-08-26
+## Earlier — Execution-boundary classification corrected · 2026-08-26
 
 **Verified state.** `main` clean at time of commit. `npm run verify`: 54 files, 860 passed /
 1 skipped, exit 0. `npm run build`: exit 0. Five tests were RED before implementation; five

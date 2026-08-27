@@ -50,6 +50,21 @@ const EvaluationPayloadSchema = z.object({
   ownerRoleId: z.string().min(1),
   sourceId: z.string().optional(),
   qualificationNote: z.string().optional(),
+  /**
+   * Competing identity matches for this dormant record, when the cycle produced any.
+   * Optional: a record resolved upstream on a stable identifier supplies none, and the
+   * entity-resolution guard does not run for it. See dp-fm-wrong-entity.
+   */
+  entityCandidates: z
+    .array(
+      z.object({
+        entityId: z.string().min(1),
+        accountName: z.string().min(1),
+        matchConfidence: z.number().min(0).max(1),
+        matchedOn: z.string().min(1),
+      }),
+    )
+    .optional(),
 });
 
 const ReplyPayloadSchema = z.object({
@@ -223,6 +238,84 @@ function handleEvaluation(ctx: HandlerContext): HandlerOutcome {
     effects: [],
     verifications: [],
   });
+
+  // --- Step 1b: entity resolution (DETERMINISTIC, before every other question) --
+  //
+  // dp-fm-wrong-entity. This sits ahead of the consent screen deliberately. Consent,
+  // active-account status, and the re-entry reason are all questions about a SPECIFIC party;
+  // asking them against an identity nobody has established is meaningless work that reads as
+  // diligence. Identity is not one eligibility check among several — it is the precondition
+  // for all of them.
+  //
+  // The business impact justifies the placement: reactivation outreach quotes the prior
+  // objection and the original service interest back to whoever receives it, so a wrong match
+  // does not send an irrelevant message. It hands one company's commercial history to another.
+  //
+  // The step is emitted only when the cycle actually supplies competing candidates. A record
+  // that arrives already resolved upstream has no ambiguity to decide, and manufacturing a
+  // decision for it would pad every run with a step that never chose anything.
+  const entityCandidates = record.entityCandidates ?? [];
+  if (entityCandidates.length > 0) {
+    const matchThreshold = numberParam(profile, 'entityMatchThreshold');
+    const qualifying = entityCandidates.filter((c) => c.matchConfidence >= matchThreshold);
+
+    // Accepted ONLY on exactly one candidate at or above the threshold. Two or more is the
+    // declared ambiguity; zero is the same failure wearing a different face, since resolving
+    // it would mean taking the closest candidate — precisely what the policy forbids.
+    if (qualifying.length !== 1) {
+      const ranked = [...entityCandidates].sort((a, b) => b.matchConfidence - a.matchConfidence);
+      steps.push({
+        id: id('identity'),
+        label: 'Entity resolution',
+        atOffsetSeconds: 1,
+        transitionTo: 'NEEDS_HUMAN',
+        summary:
+          qualifying.length > 1
+            ? `${qualifying.length} candidate entities meet the ${matchThreshold} match threshold. The record is routed to a person with every candidate attached rather than resolved to the closest.`
+            : `No candidate entity meets the ${matchThreshold} match threshold. Routed to a person rather than resolved to the closest available match.`,
+        decisions: [
+          decision({
+            id: id('d-identity'),
+            eventId: event.eventId,
+            mechanism: 'DETERMINISTIC_RULE',
+            objective:
+              'Establish which party this dormant record belongs to before any question is asked about that party.',
+            relevantState: 'ELIGIBILITY_REVIEW',
+            evidenceRefs: ['event.payload.entityCandidates'],
+            deterministicFacts: [
+              { label: 'Match threshold', value: String(matchThreshold) },
+              { label: 'Candidates at or above threshold', value: String(qualifying.length) },
+              ...ranked.map((c, index) => ({
+                label: `Candidate ${index + 1}`,
+                value: `${c.accountName} (${c.entityId}) — ${c.matchConfidence} on ${c.matchedOn}`,
+              })),
+            ],
+            missingInformation: [
+              'Which of the candidate entities this dormant record actually belongs to. No stable identifier distinguishes them.',
+            ],
+            permittedActions: ['route_to_human_with_candidates'],
+            forbiddenActions: [
+              'resolve_to_closest_candidate',
+              'resolve_to_highest_confidence_match',
+              'despatch_before_identity_is_established',
+              'screen_consent_against_an_unresolved_party',
+            ],
+            selectedAction: 'route_to_human_with_candidates',
+            applicablePolicy: [
+              'CLIENT_POLICY kestrel-entity-resolution: matched only on a stable identifier; ambiguous matches route to a person with every candidate attached, never resolved to the closest one.',
+            ],
+            authority: 2,
+          }),
+        ],
+        effects: [],
+        verifications: [],
+      });
+
+      // Nothing downstream may run. Every later step asks a question about a party this
+      // record has not identified.
+      return { steps };
+    }
+  }
 
   // --- Step 2: consent screen (DETERMINISTIC, before any re-entry reason) -
   // Computed here so the "would otherwise qualify" fact is inspectable even when

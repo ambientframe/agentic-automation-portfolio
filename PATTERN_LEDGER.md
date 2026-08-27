@@ -136,6 +136,16 @@
 - **Limits (recorded, not hidden):** layers A and B only. Lead Rescue keeps its own richer route and is excluded from this one, so two page implementations exist until the remaining systems earn layers C and D. That duplication is deliberate and bounded, not an oversight.
 - **Cost, for the record:** the audit that preceded this estimated the port as expensive and gated it behind freezing Lead Rescue. It was neither — the generic layer already existed and had simply never been pointed at a second system. Measure coupling before sequencing around it.
 
+### 16. Identity resolution is the precondition for every policy check, not one check among them
+- **Earned:** dp-fm-wrong-entity package, 2026-08-26
+- **Implementation:** `lib/engine/handlers/dormant-pipeline-recovery.ts` Step 1b · `entityMatchThreshold` + `kestrel-entity-resolution` in `data/profiles/kestrel/profile.ts`
+- **Tests:** `tests/dormant-pipeline-recovery.test.ts` (31 in that file, up from 23; 7 RED before implementation, and 5 targeted mutations of the shipped guard each separately confirmed to fail it — accepting the closest candidate, disabling the guard, dropping the attached candidates, removing the forbidden actions, redirecting the transition)
+- **Establishes:** consent, account status, and commercial eligibility are all questions about a SPECIFIC party. Asking them against an identity nobody has established is meaningless work that reads as diligence, so identity resolves first and the handler returns immediately when it cannot. A match is accepted only on exactly one candidate at or above the configured threshold: two or more is the declared ambiguity, and zero is the same failure wearing a different face, because resolving it means taking the closest available match.
+- **Refusal is recorded, not implied.** `resolve_to_closest_candidate` and `resolve_to_highest_confidence_match` are named forbidden actions rather than merely unselected ones, so the run shows the system declining a choice it was capable of making. Every candidate travels with the escalation, so the person deciding sees what the system saw.
+- **Why it is a confidentiality guard:** the outreach quotes the prior objection and original service interest back to its recipient, so a wrong match does not send an irrelevant message — it discloses one company’s commercial history to another.
+- **Limits (recorded, not hidden):** the guard only runs when the cycle supplies competing candidates. A record resolved upstream on a stable identifier has no ambiguity to decide, and manufacturing a decision for it would pad every run with a step that never chose anything — so a WRONG upstream resolution is invisible here. This bounds a match, it does not audit one.
+- **Reusable for 2–6:** every system that matches an inbound artifact to an account has this shape — Lead Rescue on contact identity, Receivables on invoice identity, Client Onboarding on the signed party. Only the identifier differs.
+
 ## NOT YET EARNED
 
 | Candidate | Why not |

@@ -385,6 +385,7 @@ engine actually compares against is linked to the policy it implements.
 | Maximum reactivation attempts | 3 | attempts | `kestrel-outreach-cadence` |
 | Reactivation sequence window | 21 | days | `kestrel-outreach-cadence` |
 | Cooling-off before re-entry | 90 | days | `kestrel-outreach-cadence` |
+| Minimum confidence to accept an entity match | 0.9 | probability | `kestrel-entity-resolution` |
 | Escalation to founder past due | 45 | days past due | `kestrel-collection-cadence` |
 | Maximum authority for outbound commercial documents | 2 | authority level | `kestrel-proposal-authority` |
 | Analysis input staleness tolerance | 96 | hours | `kestrel-analysis-freshness` |

@@ -235,7 +235,8 @@ const RAW = {
       escalationCondition: 'Any ambiguous match involving commercially sensitive history.',
       authorityRequired: 2,
       terminalState: 'NEEDS_HUMAN.',
-      verificationTest: 'Pending — scenario not yet authored.',
+      verificationTest:
+        "Verified — tests/dormant-pipeline-recovery.test.ts, the ambiguous-entity-match scenario: two candidates both clear the configured match threshold, the cycle routes to NEEDS_HUMAN with every candidate attached, and zero side effects occur. Resolving to the closest or highest-confidence candidate is named as a forbidden action rather than merely left unselected, and the guard is proven not to fire on the two scenarios that supply no competing candidates. Identity is asserted to resolve BEFORE the consent screen, because consent, account status, and the re-entry reason are all questions about a specific party.",
     },
     {
       id: 'dp-fm-existing-customer',
