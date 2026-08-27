@@ -56,25 +56,51 @@ export const MINIMUM_GROUNDING_SOURCES = 3;
 /**
  * DEMONSTRATION PROFILES THAT DO NOT MEET THE GROUNDING FLOOR.
  *
- * Kestrel is on this list, and it is the profile every rendered surface depicts. It was
- * authored from the retained project brief in `docs/source/` rather than from external
- * research into how compliance consultancies actually operate, and it predates the
- * requirement it now fails. Saying so is cheaper than pretending otherwise, and lowering
- * `MINIMUM_GROUNDING_SOURCES` to accommodate it would remove the requirement for every
- * profile authored after it — including the ones this list exists to hold to it.
+ * **Empty, and it was not empty when it was written.** Kestrel was on it — the profile every
+ * rendered surface depicts, authored from the retained brief in `docs/source/` rather than from
+ * research, and predating the requirement it failed. It has since been grounded against three
+ * published 2026 benchmarks and removed.
  *
- * `tests/profile-register.test.ts` pins this list. It may shrink. Growing it means a second
+ * Its figures were not edited to fit those benchmarks. Two sit comfortably inside the published
+ * ranges and one — the vCISO retainer — sits at the floor of its band for the segment claimed;
+ * that divergence is recorded on the profile's grounding sources rather than corrected, because
+ * changing the number would move every scenario and expected outcome built on it. Grounded means
+ * anchored in retrievable evidence INCLUDING where it departs from that evidence, never that
+ * every figure matched.
+ *
+ * `tests/profile-register.test.ts` pins this list. It may shrink; it has. Growing it means an
  * ungrounded business was shown to a visitor, which is a deliberate act that should require
  * editing a test that says out loud what it is.
  */
-export const UNGROUNDED_DEMONSTRATIONS: readonly string[] = ['kestrel'];
+export const UNGROUNDED_DEMONSTRATIONS: readonly string[] = [];
 
 export const REGISTERED_PROFILES: readonly RegisteredProfile[] = [
   {
     profile: KESTREL,
     role: 'DEMONSTRATION',
-    note: 'The reference business. Every rendered surface depicts this firm, and the six systems were built against its lifecycle. Listed in UNGROUNDED_DEMONSTRATIONS: derived from the retained brief in docs/source/, never from external research into how compliance consultancies operate.',
-    groundingSources: [],
+    note:
+      'The reference business. Every rendered surface depicts this firm, and the six systems were built against its lifecycle. ' +
+      'Originally derived from the retained brief in docs/source/ rather than from research, and grounded afterwards against ' +
+      'published 2026 benchmarks. Its figures were NOT changed to fit those benchmarks — where one sits at the edge of the ' +
+      'published range, the divergence is recorded below rather than corrected, because altering the profile would move ' +
+      'every scenario and expected outcome built on it.',
+    groundingSources: [
+      {
+        url: 'https://www.rocketlane.com/blogs/professional-services-maturity-index-2026',
+        establishes:
+          'The 2026 SPI Professional Services Maturity Benchmark, surveying 509 organisations, reports $168k revenue per employee and $210k per billable consultant. Kestrel implies $228.6k per head across 14 staff — above the all-staff average and near the per-billable figure, which is defensible for a small firm carrying little non-billable overhead and sits at the top of the $150k–$250k mid-market band.',
+      },
+      {
+        url: 'https://www.brightdefense.com/resources/soc-2-certification-cost/',
+        establishes:
+          'SOC 2 readiness and gap assessment runs $10k–$20k for Type 2, policy development $5k–$15k, and remediation consulting $10k–$30k, against total mid-size program costs of $60k–$100k. Kestrel’s $32k average engagement sits inside the $25k–$65k a bundled readiness-plus-policy-plus-remediation engagement would total.',
+      },
+      {
+        url: 'https://sidechannel.com/blog/the-ultimate-guide-to-vciso-pricing-everything-you-need-to-know/',
+        establishes:
+          'vCISO retainers run $3,000–$12,000/month for mid-market companies and $1,500–$3,000 for smaller operations. Kestrel’s $3,200/month sits at the FLOOR of the mid-market band despite a stated mid-market segment — the one figure that reads low for the business described, recorded rather than raised.',
+      },
+    ],
   },
   {
     profile: MERIDIAN,

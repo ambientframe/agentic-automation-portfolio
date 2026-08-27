@@ -74,12 +74,18 @@ describe('a demonstration profile is grounded', () => {
 });
 
 describe('the ungrounded exemption does not become a loophole', () => {
-  it('is exactly the one profile that predates the requirement', () => {
+  /**
+   * This pinned `['kestrel']` when the exemption was introduced. It pins `[]` now, and the edit
+   * from one to the other is the record that the gap was actually worked rather than quietly
+   * emptied — closing a published gap has to change what the audit reports, or the gap was
+   * measuring something else.
+   */
+  it('is empty, because the one exempt profile was grounded rather than excused', () => {
     expect(
       [...UNGROUNDED_DEMONSTRATIONS].sort(),
-      'the exemption list changed. Shrinking it is the point. Growing it means a second ungrounded ' +
+      'the exemption list changed. Shrinking it is the point. Growing it means an ungrounded ' +
         'business was shown to a visitor — if that is intended, say so here deliberately.',
-    ).toEqual(['kestrel']);
+    ).toEqual([]);
   });
 
   it('names only profiles that are actually registered demonstrations', () => {

@@ -3,7 +3,47 @@
 > One per accepted package (Constitution §14). Repository truth is authoritative; this file
 > is an index, not a source. Append the new checkpoint above the previous one.
 
-## Current — The seam guard had already failed, and nobody knew · 2026-08-27
+## Current — The firm on every screen is no longer ungrounded · 2026-08-27
+
+**Verified state.** `npm run verify`: 73 files, 1186 passed / 1 skipped, exit 0. `npm run build`:
+compiled successfully, exit 0.
+
+**Proof claim earned.** `UNGROUNDED_DEMONSTRATIONS` is empty. It held `kestrel` — the business
+every rendered surface depicts, authored from the retained brief in `docs/source/` rather than
+from research, and failing the grounding rule written two packages earlier. Three published 2026
+benchmarks now anchor its economics, each opened and read rather than taken from a search summary.
+
+**Its figures were not edited to fit.** Two sit comfortably inside the published ranges. The
+third does not, and is recorded rather than corrected:
+
+| Kestrel | Published | Reading |
+| --- | --- | --- |
+| $228.6k revenue per head | SPI 2026 (509 orgs): $168k all-staff, $210k per billable consultant | Above the all-staff average, near the per-billable figure. Defensible for a 14-person firm carrying little non-billable overhead; top of the $150k–$250k mid-market band. |
+| $32k average engagement | Readiness $10k–$20k + policy $5k–$15k + remediation $10k–$30k | Inside the $25k–$65k a bundled engagement totals; coherent as one firm's slice of a $60k–$100k mid-market program. |
+| $3,200/month retainer | Mid-market $3,000–$12,000; smaller operations $1,500–$3,000 | **At the floor of its band despite a stated mid-market segment.** The one figure that reads low for the business described. |
+
+Changing that retainer would move every scenario and expected outcome built on it, so the
+divergence is published on the profile's grounding sources instead. **Grounded means anchored in
+retrievable evidence including where it departs from that evidence** — never that every figure
+matched.
+
+**The audit output changed, which is the test.** `tests/profile-register.test.ts` pinned the
+exemption list to `['kestrel']`; it now pins `[]`, and the edit between them is the record that
+the gap was worked rather than quietly emptied.
+
+**Mutation.** 2 mutations, each separately confirmed to fail: dropping a grounding source below
+the floor, and reducing a citation to a bare label that establishes nothing. Neither survived;
+the file restored byte-for-byte and verified by MD5.
+
+**Maturity.** Unchanged. Kestrel remains fictional and labelled as such; grounding its economics
+in real benchmarks does not make the firm real, and no claim here says otherwise. $0 spent.
+
+**Next package.** NOT SELECTED. The remaining open candidate needs the owner: proving the
+verification lookup against a real n8n instance, which requires an endpoint. Beyond that, the
+largest unforced gap is that `MINIMUM_GROUNDING_SOURCES` checks a count and a sentence, not that a
+URL resolves — a fabricated citation would still pass, and the three here were verified by hand.
+
+## Earlier — The seam guard had already failed, and nobody knew · 2026-08-27
 
 **Verified state.** `npm run verify`: 73 files, 1185 passed / 1 skipped, exit 0. `npm run build`:
 compiled successfully, exit 0.
