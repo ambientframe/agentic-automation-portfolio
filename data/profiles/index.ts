@@ -1,9 +1,9 @@
 import type { BusinessProfile } from '@/lib/model/profile';
-import { FORMWORK } from './formwork/profile';
+import { ASHCOMBE } from './ashcombe/profile';
 import { KESTREL } from './kestrel/profile';
-import { LEDGERLINE } from './ledgerline/profile';
 import { MERIDIAN } from './meridian/profile';
 import { STRATUM } from './stratum/profile';
+import { WRENFIELD } from './wrenfield/profile';
 
 /**
  * THE PROFILE REGISTER.
@@ -59,10 +59,12 @@ export interface GroundingSource {
 /**
  * THE RECORD THAT A TRADING NAME WAS CHECKED AGAINST REAL FIRMS.
  *
- * `formwork` was authored as "Formwork Architecture + Engineering" and was one merge away from
- * being shown to visitors under the trading name of real practices in four countries. The
- * author was not careless — `docs/PROFILE_AUTHORING_PACKET.md` §11 asserted the assigned names
- * were "deliberately not real firms", which was false for two of the three.
+ * The architecture profile — now `wrenfield` — was authored as "Formwork Architecture +
+ * Engineering" and was one merge away from being shown to visitors under the trading name of
+ * real practices in four countries. The author was not careless —
+ * `docs/PROFILE_AUTHORING_PACKET.md` §11 asserted the assigned names were "deliberately not
+ * real firms", which was false for two of the three. Both colliding slugs were themselves
+ * renamed on 2026-08-28, so the repository no longer carries a real firm's name anywhere.
  *
  * WHAT THIS CAN AND CANNOT DO. It cannot establish that a name is unused: no offline test
  * reaches a company register, and a web search is not a trademark search. It records what was
@@ -282,7 +284,7 @@ export const REGISTERED_PROFILES: readonly RegisteredProfile[] = [
     ],
   },
   {
-    profile: LEDGERLINE,
+    profile: ASHCOMBE,
     role: 'DEMONSTRATION',
     note:
       'A 22-person US accounting, bookkeeping and client advisory services firm — the vertical where recurring deadlines, ' +
@@ -290,11 +292,12 @@ export const REGISTERED_PROFILES: readonly RegisteredProfile[] = [
       'the rules on what may not be automated. Registered because it stresses the model differently from the reference ' +
       'business: its binding clock is the month rather than the hour, and its binding gate is a signature rather than a ' +
       'timeout. Every figure is a synthetic assumption calibrated against the sources below, which describe an industry ' +
-      'and verify nothing about this firm, because this firm does not exist. NAMING: the slug is `ledgerline`, and ' +
-      '"Ledgerline" is the trading name of at least three real accounting practices — a Canadian CPA firm, an Omaha ' +
-      'bookkeeping practice, and a virtual accounting service. The author caught this and set the trading name to the ' +
-      'invented `Ashcombe CPAs & Advisors`; the slug was kept because it is an internal key that reaches no rendered ' +
-      'surface and every document here refers to this profile by it. Nothing a visitor reads carries the real name.',
+      'and verify nothing about this firm, because this firm does not exist. NAMING: this profile was assigned the slug ' +
+      '`ledgerline`, and "Ledgerline" is the trading name of at least three real accounting practices — a Canadian CPA ' +
+      'firm, an Omaha bookkeeping practice, and a virtual accounting service. The author caught the collision and set ' +
+      'the trading name to the invented `Ashcombe CPAs & Advisors` while keeping the assigned slug, which left a real ' +
+      'firm’s name on a directory. The slug was renamed to `ashcombe` on 2026-08-28 so that no real company’s name ' +
+      'survives anywhere in this repository, not merely on the surfaces a visitor reads.',
     nameCheck: {
       searchedFor: 'Ashcombe CPAs & Advisors',
       checkedOn: '2026-08-28',
@@ -374,7 +377,7 @@ export const REGISTERED_PROFILES: readonly RegisteredProfile[] = [
     ],
   },
   {
-    profile: FORMWORK,
+    profile: WRENFIELD,
     role: 'DEMONSTRATION',
     note:
       'A design-led architecture and engineering practice: high project values, long unpaid qualifications-based ' +
@@ -390,8 +393,9 @@ export const REGISTERED_PROFILES: readonly RegisteredProfile[] = [
       'rather than passing the material off as evidenced. NAMING: authored as "Formwork Architecture + Engineering" and ' +
       'renamed to `Wrenfield` at registration, because "Formwork Architecture" is the trading name of several real ' +
       'practices in this exact trade — St. Louis, Barbados, London, and Australia among them. The author did not check ' +
-      'the name and did not claim to have; the check was run here and it failed. As with `ledgerline`, the slug stays ' +
-      'because it is an internal key that reaches no rendered surface.',
+      'the name and did not claim to have; the check was run here and it failed. The slug was renamed from `formwork` ' +
+      'to `wrenfield` on 2026-08-28 for the same reason the name was: a directory is not a rendered surface, but it is ' +
+      'still this repository carrying a real practice’s name, and there is no reason to keep it.',
     nameCheck: {
       searchedFor: 'Wrenfield Architecture + Engineering',
       checkedOn: '2026-08-28',
@@ -418,7 +422,7 @@ export const REGISTERED_PROFILES: readonly RegisteredProfile[] = [
         quote:
           'The Architect shall perform its services consistent with the professional skill and care ordinarily provided by architects practicing in the same or similar locality under the same or similar circumstances.',
         establishes:
-          'INDUSTRY FACT: the standard owner–architect agreement defines the architect’s obligation as the professional skill and care ordinarily provided by architects practising in the same or similar locality — a comparative professional standard, not a guarantee of outcome and not a numeric score. OUR CALIBRATION: this is why formwork-confidence-floor sits at 0.90 rather than at a level a lower-stakes business would accept. A machine being usually right does not discharge a standard of care, so the floor is set where escalation to a person is the default rather than the exception. LIMIT: a publicly posted sample copy of the form, cited for its language; it is not evidence that any particular practice signed it.',
+          'INDUSTRY FACT: the standard owner–architect agreement defines the architect’s obligation as the professional skill and care ordinarily provided by architects practising in the same or similar locality — a comparative professional standard, not a guarantee of outcome and not a numeric score. OUR CALIBRATION: this is why wrenfield-confidence-floor sits at 0.90 rather than at a level a lower-stakes business would accept. A machine being usually right does not discharge a standard of care, so the floor is set where escalation to a person is the default rather than the exception. LIMIT: a publicly posted sample copy of the form, cited for its language; it is not evidence that any particular practice signed it.',
       },
       {
         url: 'https://resources.finalsite.net/images/v1654016667/simsbury/k5iqa9y8ozs3zbuwzr3t/SampleAgreementB101-2017.pdf',
@@ -445,7 +449,7 @@ export const REGISTERED_PROFILES: readonly RegisteredProfile[] = [
         quote:
           'These require escalation: principal-to-principal communication, formal written correspondence, and a clear statement of the outstanding obligation.',
         establishes:
-          'INDUSTRY FACT: the same body of A/E practice guidance holds that invoices aged beyond 90 days require principal-to-principal communication and formal written correspondence. OUR CALIBRATION: the second rung of formwork-collection-cadence takes its 90-day principal-to-principal step from this. It also bounds what the receivables system may do — escalation ends in a principal conversation and never in an automated threat of litigation, because the research behind this profile found a fee dispute to be a leading precursor of a professional-liability claim.',
+          'INDUSTRY FACT: the same body of A/E practice guidance holds that invoices aged beyond 90 days require principal-to-principal communication and formal written correspondence. OUR CALIBRATION: the second rung of wrenfield-collection-cadence takes its 90-day principal-to-principal step from this. It also bounds what the receivables system may do — escalation ends in a principal conversation and never in an automated threat of litigation, because the research behind this profile found a fee dispute to be a leading precursor of a professional-liability claim.',
       },
       {
         url: 'https://www.basebuilders.com/articles/wip-management-for-architecture-engineering-firms',

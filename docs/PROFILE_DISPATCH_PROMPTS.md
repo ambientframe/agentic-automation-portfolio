@@ -349,7 +349,7 @@ For a Cursor agent with the repository open. One at a time, or in separate workt
 Read docs/PROFILE_AUTHORING_PACKET.md in this repository completely before doing anything. It is
 self-contained and it governs this task. Where it disagrees with me, it wins.
 
-You are on Stage B. Your assigned slug is: <stratum | ledgerline | formwork>
+You are on Stage B. Your assigned slug is: <stratum | ashcombe | wrenfield>
 
 The Stage A research brief is at the end of this message. Everything in your profile must trace to
 it. Where the brief did not establish something, choose a value coherent with what it did

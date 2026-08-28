@@ -8,8 +8,9 @@ import { BusinessProfileSchema, type BusinessProfile } from '@/lib/model/profile
  * in this exact trade — in St. Louis, Barbados, London, and Australia among others. The
  * authoring packet forbids a fictional business from carrying a real company's name, and a
  * search for "Wrenfield" returns no design practice. The directory, `id`, and exported const
- * remain `formwork`: those are internal keys that reach no rendered surface, and every
- * document in this repository refers to this profile by that slug.
+ * were renamed to match on 2026-08-28. They had been left as `formwork` on the reasoning that
+ * an internal key reaches no rendered surface — true, and beside the point: a directory is
+ * still this repository carrying a real practice's name, and keeping it bought nothing.
  *
  * EVERY NUMBER AND FACT BELOW IS SYNTHETIC. No real practice is described here, and the
  * schema pins `provenance` to the FIXTURE literal so none of it can be read as a researched
@@ -56,7 +57,7 @@ import { BusinessProfileSchema, type BusinessProfile } from '@/lib/model/profile
  * The vocabulary this profile is built on is therefore its least evidenced part, which is an
  * uncomfortable place for the gap to sit — `pipelineStages`, the phase language in
  * `serviceLines`, and the deliverable term all depend on it. The contractual boundaries in
- * `explicitlyNot` and the standard of care behind `formwork-confidence-floor` ARE captured,
+ * `explicitlyNot` and the standard of care behind `wrenfield-confidence-floor` ARE captured,
  * from the standard owner–architect agreement itself.
  *
  * ONE FIGURE IS WEAKER THAN THE RESEARCH BEHIND IT LOOKED. `closeRatePct` is 45. The
@@ -84,7 +85,7 @@ import { BusinessProfileSchema, type BusinessProfile } from '@/lib/model/profile
  */
 
 const RAW = {
-  id: 'formwork',
+  id: 'wrenfield',
   name: 'Wrenfield Architecture + Engineering',
   tagline: 'Design-led architecture and in-house structural engineering for civic, institutional, and commercial owners.',
 
@@ -458,7 +459,7 @@ const RAW = {
 
   policies: [
     {
-      id: 'formwork-ack-window',
+      id: 'wrenfield-ack-window',
       statement:
         'Every inbound enquiry or solicitation receives an acknowledgement within one hour during published office hours.',
       provenance: 'CLIENT_POLICY',
@@ -468,7 +469,7 @@ const RAW = {
         'Acknowledgement timing. CHOSEN, not found: no retrieved industry source publishes a seconds-scale acknowledgement convention for this trade. This practice competes on qualifications rather than on first response, and receives roughly eleven enquiries a month, so a person genuinely reads each one and an hour is generous rather than tight.',
     },
     {
-      id: 'formwork-routing-window',
+      id: 'wrenfield-routing-window',
       statement:
         'A qualified enquiry reaches a named principal or project manager within half a working day, and no more than four clarifying questions are asked before a person takes over.',
       provenance: 'CLIENT_POLICY',
@@ -478,7 +479,7 @@ const RAW = {
         'Routing latency and the number of clarifying questions asked before handover. CHOSEN, not found. The window is long because the two people who can qualify a pursuit are in design reviews and on site; the question budget is higher than a lighter-weight business would need because a go/no-go decision requires project type, site jurisdiction, funding source, and schedule before a principal will commit unpaid pursuit hours.',
     },
     {
-      id: 'formwork-confidence-floor',
+      id: 'wrenfield-confidence-floor',
       statement:
         'An automated interpretation of an enquiry may act on its own conclusion only at confidence 0.90 or above; below that a person decides.',
       provenance: 'CLIENT_POLICY',
@@ -488,7 +489,7 @@ const RAW = {
         'Bounded AI judgement. The NUMBER is chosen; the reason it sits this high is grounded. The owner–architect agreement measures performance against the professional skill and care ordinarily provided by architects practising in the same or similar locality — a comparative standard, not a score — and professional conduct rules separately forbid misleading a prospective client about the results achievable through the practice’s services. The first of those is captured; the second is the trade institute page that cannot be retrieved. Neither standard is satisfied by a machine being usually right, so the floor sits well above where a lower-stakes business would set it.',
     },
     {
-      id: 'formwork-reply-wait-window',
+      id: 'wrenfield-reply-wait-window',
       statement: 'An awaited owner reply is escalated to a person after five calendar days.',
       provenance: 'CLIENT_POLICY',
       verification: 'NOT_APPLICABLE',
@@ -497,7 +498,7 @@ const RAW = {
         'Wait-and-resume behaviour on an outstanding owner response. CHOSEN, and the source consulted argues against ever fixing it: architecture-specific writing on pursuit follow-up holds that timing should match the client’s actual review behaviour rather than an arbitrary schedule, and that there is no universal number. Five days is this practice’s default for owners whose decisions route through committees and boards, not a convention.',
     },
     {
-      id: 'formwork-booking-offer-window',
+      id: 'wrenfield-booking-offer-window',
       statement: 'An unaccepted interview or site-walk offer is escalated after seven days.',
       provenance: 'CLIENT_POLICY',
       verification: 'NOT_APPLICABLE',
@@ -506,7 +507,7 @@ const RAW = {
         'Scheduling offers that go unanswered. CHOSEN. Deliberately longer than the reply window: an owner arranging a shortlist interview or a site walk is coordinating several internal parties and often a selection committee, which takes longer than answering a question.',
     },
     {
-      id: 'formwork-review-timeout-window',
+      id: 'wrenfield-review-timeout-window',
       statement: 'Work parked for human review is surfaced as overdue after three days.',
       provenance: 'CLIENT_POLICY',
       verification: 'NOT_APPLICABLE',
@@ -515,7 +516,7 @@ const RAW = {
         'Attention timeouts on any state awaiting a person. CHOSEN, calibrated against the nearest published rhythm rather than derived from it: practice-management guidance holds that monthly work-in-progress review is too infrequent for an active project portfolio, and the cadence such guidance recommends instead is weekly. Three days is deliberately tighter than that weekly rhythm, because a review queue is not a reporting cycle.',
     },
     {
-      id: 'formwork-dispatch-timeout-window',
+      id: 'wrenfield-dispatch-timeout-window',
       statement: 'A prepared but undespatched action is surfaced as overdue after twenty-four hours.',
       provenance: 'CLIENT_POLICY',
       verification: 'NOT_APPLICABLE',
@@ -524,7 +525,7 @@ const RAW = {
         'Ready-but-unsent outbound actions. CHOSEN. Shorter than the review window because the judgement has already been made by this point and only the mechanical act of despatch remains — and on a public solicitation the deadline does not move to accommodate it.',
     },
     {
-      id: 'formwork-outreach-cadence',
+      id: 'wrenfield-outreach-cadence',
       statement:
         'A dormant pursuit receives at most three reactivation attempts across a hundred-and-twenty-day window before it is left alone.',
       provenance: 'CLIENT_POLICY',
@@ -534,7 +535,7 @@ const RAW = {
         'Reactivation attempt limits and sequence duration. CHOSEN, and the window is the value most specific to this trade: a capital project that goes quiet is usually waiting on a fiscal-year appropriation or a bond timetable, so the practice spreads a small number of attempts across months rather than weeks. Follow-up writing in this field states plainly that there is no universal number of attempts.',
     },
     {
-      id: 'formwork-entity-resolution',
+      id: 'wrenfield-entity-resolution',
       statement:
         'Two records are treated as the same owner only at 0.97 confidence or above; below that a person confirms, with every candidate attached.',
       provenance: 'CLIENT_POLICY',
@@ -544,7 +545,7 @@ const RAW = {
         'Identity resolution. The NUMBER is chosen. The reason it is near-certain rests on the standard owner–architect agreement, which requires each party’s full legal name and legal status; public owners routinely contract through near-identically named authorities, districts, and single-purpose entities. A confident near-match here does not merely misfile a record — it puts the wrong legal party on an agreement or an invoice.',
     },
     {
-      id: 'formwork-collection-cadence',
+      id: 'wrenfield-collection-cadence',
       statement:
         'An invoice forty-five days past due is escalated to the Managing Principal for a direct call to the owner; beyond ninety days it becomes principal-to-principal correspondence.',
       provenance: 'CLIENT_POLICY',
@@ -554,7 +555,7 @@ const RAW = {
         'Receivables escalation timing. CALIBRATED against a published ladder for this trade, which places a phone call from the principal or project manager at forty-five days past due and principal-level correspondence beyond ninety. Note what this number is NOT: the practice’s days-sales-outstanding, which industry surveys put around seventy-two days for the median firm. Conflating a collection period with an escalation trigger would make the ladder look ineffective when it is simply measuring something else.',
     },
     {
-      id: 'formwork-proposal-authority',
+      id: 'wrenfield-proposal-authority',
       statement:
         'A fee proposal may be prepared by a project manager but leaves the practice only when the Managing Principal has approved it.',
       provenance: 'CLIENT_POLICY',
@@ -564,7 +565,7 @@ const RAW = {
         'The authority required for outbound commercial documents, set at the top of the ladder. CALIBRATED: published guidance on architectural fee proposals treats final approval by the firm’s principal, after internal review, as the normal last step before delivery, and that source is captured. The corroborating half is not — the trade institute’s position definitions, which have a project manager PREPARING proposals rather than approving them, sit behind the HTTP 403 named in this file’s docstring. The consequence of the number is deliberate and uncomfortable: because only one role holds authority 4, there is exactly one desk a fee proposal can clear, and it belongs to a person who is also selling and designing.',
     },
     {
-      id: 'formwork-proposal-approval-window',
+      id: 'wrenfield-proposal-approval-window',
       statement: 'A fee proposal awaiting the Managing Principal’s approval is surfaced as overdue after forty-eight hours.',
       provenance: 'CLIENT_POLICY',
       verification: 'NOT_APPLICABLE',
@@ -573,7 +574,7 @@ const RAW = {
         'Proposal approval attention timeouts. CHOSEN: no retrieved source states an approval window in hours. Two days, because a fee proposal is usually running against a fixed solicitation deadline and the only person who can release it is the practice’s busiest.',
     },
     {
-      id: 'formwork-analysis-freshness',
+      id: 'wrenfield-analysis-freshness',
       statement: 'Principal reporting may not draw on operational data older than one week.',
       provenance: 'CLIENT_POLICY',
       verification: 'NOT_APPLICABLE',
@@ -582,7 +583,7 @@ const RAW = {
         'Input staleness tolerance for periodic analysis. CHOSEN, aligned to the closest published cadence: practice-management guidance for this trade recommends weekly work-in-progress review over monthly, so a week is the age at which its own recommended rhythm would already have replaced the figure.',
     },
     {
-      id: 'formwork-exception-materiality',
+      id: 'wrenfield-exception-materiality',
       statement:
         'A variance above ten percent against plan is treated as an exception requiring immediate principal attention rather than normal variation.',
       provenance: 'CLIENT_POLICY',
@@ -592,7 +593,7 @@ const RAW = {
         'Exception-candidate materiality thresholds. CALIBRATED against a published variance ladder for practices in this trade, which treats variance under five percent as routine, five to ten percent as requiring documentation, and above ten percent as requiring immediate management review. The practice adopts the top rung of that ladder as its exception trigger.',
     },
     {
-      id: 'formwork-malformed-intake',
+      id: 'wrenfield-malformed-intake',
       statement:
         'A malformed intake payload is retried twice and then handed to a person with the raw payload attached, never discarded.',
       provenance: 'CLIENT_POLICY',
@@ -604,23 +605,23 @@ const RAW = {
   ],
 
   operatingParameters: [
-    { key: 'acknowledgementTargetSeconds', label: 'Acknowledgement target, published hours', value: 3600, unit: 'seconds', policyId: 'formwork-ack-window' },
-    { key: 'routingTargetMinutes', label: 'Routing target to a named principal or project manager', value: 240, unit: 'minutes', policyId: 'formwork-routing-window' },
-    { key: 'maxInformationQuestions', label: 'Maximum clarifying questions before human review', value: 4, unit: 'questions', policyId: 'formwork-routing-window' },
-    { key: 'confidenceFloor', label: 'Minimum confidence to act on an interpretation', value: 0.9, unit: 'probability', policyId: 'formwork-confidence-floor' },
-    { key: 'replyWaitWindowHours', label: 'Owner reply wait window before escalation', value: 120, unit: 'hours', policyId: 'formwork-reply-wait-window' },
-    { key: 'bookingOfferWindowHours', label: 'Interview and site-walk offer wait window', value: 168, unit: 'hours', policyId: 'formwork-booking-offer-window' },
-    { key: 'humanReviewTimeoutHours', label: 'Human review attention timeout', value: 72, unit: 'hours', policyId: 'formwork-review-timeout-window' },
-    { key: 'dispatchTimeoutHours', label: 'Ready-but-undespatched attention timeout', value: 24, unit: 'hours', policyId: 'formwork-dispatch-timeout-window' },
-    { key: 'dormantMaxAttempts', label: 'Maximum reactivation attempts on a dormant pursuit', value: 3, unit: 'attempts', policyId: 'formwork-outreach-cadence' },
-    { key: 'dormantWindowDays', label: 'Reactivation sequence window', value: 120, unit: 'days', policyId: 'formwork-outreach-cadence' },
-    { key: 'entityMatchThreshold', label: 'Minimum confidence to accept an owner-identity match', value: 0.97, unit: 'probability', policyId: 'formwork-entity-resolution' },
-    { key: 'collectionEscalationDays', label: 'Escalation to the Managing Principal past due', value: 45, unit: 'days past due', policyId: 'formwork-collection-cadence' },
-    { key: 'proposalAuthorityCeiling', label: 'Authority required to release an outbound fee proposal', value: 4, unit: 'authority level', policyId: 'formwork-proposal-authority' },
-    { key: 'proposalApprovalTimeoutHours', label: 'Fee proposal approval attention timeout', value: 48, unit: 'hours', policyId: 'formwork-proposal-approval-window' },
-    { key: 'inputStalenessToleranceHours', label: 'Analysis input staleness tolerance', value: 168, unit: 'hours', policyId: 'formwork-analysis-freshness' },
-    { key: 'exceptionVarianceThresholdPct', label: 'Exception-candidate variance threshold', value: 10, unit: 'percent', policyId: 'formwork-exception-materiality' },
-    { key: 'malformedRetryBudget', label: 'Attempts on a malformed intake payload before a person is asked', value: 2, unit: 'attempts', policyId: 'formwork-malformed-intake' },
+    { key: 'acknowledgementTargetSeconds', label: 'Acknowledgement target, published hours', value: 3600, unit: 'seconds', policyId: 'wrenfield-ack-window' },
+    { key: 'routingTargetMinutes', label: 'Routing target to a named principal or project manager', value: 240, unit: 'minutes', policyId: 'wrenfield-routing-window' },
+    { key: 'maxInformationQuestions', label: 'Maximum clarifying questions before human review', value: 4, unit: 'questions', policyId: 'wrenfield-routing-window' },
+    { key: 'confidenceFloor', label: 'Minimum confidence to act on an interpretation', value: 0.9, unit: 'probability', policyId: 'wrenfield-confidence-floor' },
+    { key: 'replyWaitWindowHours', label: 'Owner reply wait window before escalation', value: 120, unit: 'hours', policyId: 'wrenfield-reply-wait-window' },
+    { key: 'bookingOfferWindowHours', label: 'Interview and site-walk offer wait window', value: 168, unit: 'hours', policyId: 'wrenfield-booking-offer-window' },
+    { key: 'humanReviewTimeoutHours', label: 'Human review attention timeout', value: 72, unit: 'hours', policyId: 'wrenfield-review-timeout-window' },
+    { key: 'dispatchTimeoutHours', label: 'Ready-but-undespatched attention timeout', value: 24, unit: 'hours', policyId: 'wrenfield-dispatch-timeout-window' },
+    { key: 'dormantMaxAttempts', label: 'Maximum reactivation attempts on a dormant pursuit', value: 3, unit: 'attempts', policyId: 'wrenfield-outreach-cadence' },
+    { key: 'dormantWindowDays', label: 'Reactivation sequence window', value: 120, unit: 'days', policyId: 'wrenfield-outreach-cadence' },
+    { key: 'entityMatchThreshold', label: 'Minimum confidence to accept an owner-identity match', value: 0.97, unit: 'probability', policyId: 'wrenfield-entity-resolution' },
+    { key: 'collectionEscalationDays', label: 'Escalation to the Managing Principal past due', value: 45, unit: 'days past due', policyId: 'wrenfield-collection-cadence' },
+    { key: 'proposalAuthorityCeiling', label: 'Authority required to release an outbound fee proposal', value: 4, unit: 'authority level', policyId: 'wrenfield-proposal-authority' },
+    { key: 'proposalApprovalTimeoutHours', label: 'Fee proposal approval attention timeout', value: 48, unit: 'hours', policyId: 'wrenfield-proposal-approval-window' },
+    { key: 'inputStalenessToleranceHours', label: 'Analysis input staleness tolerance', value: 168, unit: 'hours', policyId: 'wrenfield-analysis-freshness' },
+    { key: 'exceptionVarianceThresholdPct', label: 'Exception-candidate variance threshold', value: 10, unit: 'percent', policyId: 'wrenfield-exception-materiality' },
+    { key: 'malformedRetryBudget', label: 'Attempts on a malformed intake payload before a person is asked', value: 2, unit: 'attempts', policyId: 'wrenfield-malformed-intake' },
   ],
 
   /**
@@ -641,9 +642,9 @@ const RAW = {
     {
       action: 'PROPOSAL_APPROVAL',
       roleId: 'managing-principal',
-      policyId: 'formwork-proposal-authority',
+      policyId: 'wrenfield-proposal-authority',
     },
   ],
 } satisfies Parameters<typeof BusinessProfileSchema.parse>[0];
 
-export const FORMWORK: BusinessProfile = BusinessProfileSchema.parse(RAW);
+export const WRENFIELD: BusinessProfile = BusinessProfileSchema.parse(RAW);

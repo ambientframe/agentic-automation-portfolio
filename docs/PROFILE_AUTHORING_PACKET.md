@@ -300,8 +300,8 @@ sell into any of them.
 | Slug | Business | Why this one |
 | --- | --- | --- |
 | `stratum` | 5–30 person CRM/RevOps implementation consultancy | Sells transformation work to other businesses; its own delivery lifecycle is proposal-heavy |
-| `ledgerline` | 11–30 staff accounting / bookkeeping / CAS firm | Recurring deadlines, expensive professional labour, heavy client-request routing |
-| `formwork` | Design-led architecture / engineering practice | High project values, long pursuit cycles, fragmented handoffs and approvals |
+| `ashcombe` | 11–30 staff accounting / bookkeeping / CAS firm | Recurring deadlines, expensive professional labour, heavy client-request routing |
+| `wrenfield` | Design-led architecture / engineering practice | High project values, long pursuit cycles, fragmented handoffs and approvals |
 
 **The slugs above are internal keys, not cleared names. Two of the three collide with real
 firms in the exact trade they name** — "Ledgerline" is a Canadian CPA practice, an Omaha

@@ -1,5 +1,11 @@
 # Session Handoff — 2026-08-28
 
+> **SUPERSEDED — 2026-08-28.** Kept as a record of how that session handed off, not as
+> live instruction. Its open blocker is closed and six packages have landed since; the
+> `Current` entry in `CHECKPOINT.md` is authoritative. Two slugs it names were renamed
+> because they carried real firms' names: `ledgerline` → `ashcombe`, `formwork` →
+> `wrenfield`. Paths below referencing the old slugs no longer exist.
+
 Paste this into a fresh session. It assumes no prior context.
 
 ---

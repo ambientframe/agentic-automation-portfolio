@@ -3,7 +3,47 @@
 > One per accepted package (Constitution §14). Repository truth is authoritative; this file
 > is an index, not a source. Append the new checkpoint above the previous one.
 
-## Current — The reference business stops being the least-grounded one · 2026-08-28
+## Current — No real company's name survives anywhere in the repository · 2026-08-28
+
+**Verified state.** `npm run verify`: 77 files, **1461 passed / 1 skipped**, exit 0. `npm run
+build`: compiled, exit 0. Capture: 38 of 38. $0 spent.
+
+**`ledgerline` → `ashcombe`, `formwork` → `wrenfield`.** Both slugs were the trading names of real
+firms in the exact trades their profiles depict. They had been kept on the reasoning that an
+internal key reaches no rendered surface — **true, and beside the point.** A directory is still
+this repository carrying a real practice's name, and keeping it bought nothing but continuity with
+documents that could simply record the change. The owner made the call; this closes it properly
+rather than half-way.
+
+**The policy ids were the part that would have been missed.** Renaming the directories and consts
+left thirty-four `formwork-*` and thirty-three `ledgerline-*` policy identifiers inside the profile
+files. Those are not private keys: `docs/RESEARCH_LEDGER.md` is generated from the model and prints
+them, so a real firm's name was reaching an inspectable surface through a route nobody was looking
+at. Renamed with the trailing hyphen as the anchor, so the prose word in each naming note survived.
+
+**Scope, deliberately split.** Code, data, generated docs, and the two live authoring documents
+were renamed. `CHECKPOINT.md` and `PATTERN_LEDGER.md` were **not**: they are append-only history
+and their entries are accurate about what happened under the old names. `docs/SESSION_HANDOFF.md`
+gained a superseded banner rather than edits, because it is a record of a handoff, not live
+instruction — and it names paths that no longer exist.
+
+**The register keeps the history rather than erasing it.** Each naming note now says what the slug
+was, what collided, and when it changed. A reader who greps the old name finds the explanation, not
+a silence.
+
+**Falsification.** Captures were regenerated twice — once after the id change, once after the
+policy-id change moved `claimSha256` on two `establishes` strings — and both runs located all 38
+quotes on live re-fetch. `git status` records both directories as renames rather than
+delete-plus-add, so `git log --follow` still works on every profile file.
+
+**Maturity. Unchanged.** Nothing about the businesses changed; only what they are called in the
+tree.
+
+**Next package.** The model gaps the three profiles surfaced. `blocked-vs-overdue` is the most
+generalisable and the largest: a return awaiting a signed Form 8879 is legally gated, not late, and
+the model has only "overdue". It touches the engine across all six systems.
+
+## Earlier — The reference business stops being the least-grounded one · 2026-08-28
 
 **Verified state.** `npm run verify`: 77 files, **1461 passed / 1 skipped**, exit 0. `npm run
 build`: compiled, exit 0. Capture: **38 of 38 sources**, every quote located on a live re-fetch.

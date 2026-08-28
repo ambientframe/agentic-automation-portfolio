@@ -36,8 +36,8 @@ import { BusinessProfileSchema, type BusinessProfile } from '@/lib/model/profile
  * invented name in that case. `Ashcombe` was checked for the same collision and no US
  * accounting firm operates under it.
  */
-export const LEDGERLINE: BusinessProfile = BusinessProfileSchema.parse({
-  id: 'ledgerline',
+export const ASHCOMBE: BusinessProfile = BusinessProfileSchema.parse({
+  id: 'ashcombe',
   name: 'Ashcombe CPAs & Advisors',
   tagline:
     'Monthly close, controller review, and business tax compliance for owner-managed companies that have outgrown a part-time bookkeeper.',
@@ -393,7 +393,7 @@ export const LEDGERLINE: BusinessProfile = BusinessProfileSchema.parse({
 
   policies: [
     {
-      id: 'ledgerline-ack-window',
+      id: 'ashcombe-ack-window',
       statement:
         'Every inbound enquiry is acknowledged within one hour during published hours, and answered by a person the same business day.',
       provenance: 'CLIENT_POLICY',
@@ -403,7 +403,7 @@ export const LEDGERLINE: BusinessProfile = BusinessProfileSchema.parse({
         'Acknowledgement timing. Deliberately slack: this trade has no seconds-level convention, and the standing norm practitioners describe is a human reply within twenty-four hours. An hour is the firm’s own automated commitment inside that, not an industry benchmark.',
     },
     {
-      id: 'ledgerline-routing-window',
+      id: 'ashcombe-routing-window',
       statement:
         'A qualified enquiry reaches a named credentialed professional within four business hours, and automated intake asks no more than four clarifying questions before it does.',
       provenance: 'CLIENT_POLICY',
@@ -413,7 +413,7 @@ export const LEDGERLINE: BusinessProfile = BusinessProfileSchema.parse({
         'Routing, and the number of clarifying questions asked before a person takes over. The question budget is small on purpose: a real engagement generates hundreds of information requests, and that volume belongs inside a scoped engagement rather than in intake triage.',
     },
     {
-      id: 'ledgerline-judgment-floor',
+      id: 'ashcombe-judgment-floor',
       statement:
         'Automated interpretation may act on its own conclusion only at 0.95 confidence or above, and never on a tax position, a filing, or a disclosure of return information regardless of confidence.',
       provenance: 'CLIENT_POLICY',
@@ -423,7 +423,7 @@ export const LEDGERLINE: BusinessProfile = BusinessProfileSchema.parse({
         'Bounded AI judgement. Set close to the ceiling because the regulator governing this trade has already ruled that machine output augments rather than replaces professional judgement, and that a practitioner may not rely on it alone.',
     },
     {
-      id: 'ledgerline-document-chase',
+      id: 'ashcombe-document-chase',
       statement: 'An outstanding client document request is escalated to a person after forty-eight hours.',
       provenance: 'CLIENT_POLICY',
       verification: 'NOT_APPLICABLE',
@@ -432,7 +432,7 @@ export const LEDGERLINE: BusinessProfile = BusinessProfileSchema.parse({
         'Wait-and-resume behaviour on an outstanding client response. Tight because waiting on client information — not capacity and not pricing — is what makes engagements in this trade run late and over budget.',
     },
     {
-      id: 'ledgerline-meeting-offer',
+      id: 'ashcombe-meeting-offer',
       statement: 'An unaccepted review-call offer is escalated after seventy-two hours.',
       provenance: 'CLIENT_POLICY',
       verification: 'NOT_APPLICABLE',
@@ -441,7 +441,7 @@ export const LEDGERLINE: BusinessProfile = BusinessProfileSchema.parse({
         'Review and assessment call offers that go unanswered. No published convention exists for this; three days is the firm’s own choice, set wider than the document chase because a call is rescheduled and a filing deadline is not.',
     },
     {
-      id: 'ledgerline-review-queue',
+      id: 'ashcombe-review-queue',
       statement: 'Work parked for review is surfaced as overdue after one business day.',
       provenance: 'CLIENT_POLICY',
       verification: 'NOT_APPLICABLE',
@@ -450,7 +450,7 @@ export const LEDGERLINE: BusinessProfile = BusinessProfileSchema.parse({
         'Attention timeouts on any state awaiting a person. Review is the firm’s binding constraint in filing season and every machine-assisted document has to pass through it, so a queue that ages is the firm’s most reliable early warning of a missed deadline.',
     },
     {
-      id: 'ledgerline-dispatch-window',
+      id: 'ashcombe-dispatch-window',
       statement:
         'A prepared but unsent action is surfaced as overdue after eight hours, except where it is waiting on a signature the law requires before it may be sent at all.',
       provenance: 'CLIENT_POLICY',
@@ -460,7 +460,7 @@ export const LEDGERLINE: BusinessProfile = BusinessProfileSchema.parse({
         'Ready-but-unsent outbound actions. The carve-out matters more than the number: a return held for a signed e-file authorisation is legally blocked, and reporting it as overdue would blame the firm for obeying a rule.',
     },
     {
-      id: 'ledgerline-reactivation-cadence',
+      id: 'ashcombe-reactivation-cadence',
       statement:
         'A dormant client receives at most two reactivation approaches across a one-hundred-and-twenty-day window before being left alone.',
       provenance: 'CLIENT_POLICY',
@@ -470,7 +470,7 @@ export const LEDGERLINE: BusinessProfile = BusinessProfileSchema.parse({
         'Reactivation attempt limits and sequence duration. The window is a quarter rather than a month because a lapsed client re-enters on the filing calendar, not on a marketing cadence, and a generic three-touch sequence borrowed from another trade would arrive at meaningless moments.',
     },
     {
-      id: 'ledgerline-identity-resolution',
+      id: 'ashcombe-identity-resolution',
       statement:
         'Two records are treated as the same taxpayer only on an exact taxpayer-identifier match. Short of certainty, a person confirms.',
       provenance: 'CLIENT_POLICY',
@@ -480,7 +480,7 @@ export const LEDGERLINE: BusinessProfile = BusinessProfileSchema.parse({
         'Identity resolution. Set at certainty rather than at a high probability because merging two records that each carry a Social Security number is a disclosure decision with criminal exposure attached, not a data-quality one — and because owner-managed clients routinely operate several near-identically named entities.',
     },
     {
-      id: 'ledgerline-collection-ladder',
+      id: 'ashcombe-collection-ladder',
       statement:
         'An invoice fourteen days past due is escalated to the Managing Partner before the following month is worked.',
       provenance: 'CLIENT_POLICY',
@@ -490,7 +490,7 @@ export const LEDGERLINE: BusinessProfile = BusinessProfileSchema.parse({
         'Receivables escalation timing. Short because the subscription is billed in advance: an invoice still unpaid at day fourteen means the firm is about to work a second month unpaid, which is the failure the advance-billing model exists to prevent.',
     },
     {
-      id: 'ledgerline-engagement-authority',
+      id: 'ashcombe-engagement-authority',
       statement:
         'An engagement letter or fee quote may be prepared automatically but is released only by a CPA holding signing authority, and no period is worked before it is signed.',
       provenance: 'CLIENT_POLICY',
@@ -500,7 +500,7 @@ export const LEDGERLINE: BusinessProfile = BusinessProfileSchema.parse({
         'The authority ceiling on outbound commercial documents, and whose desk approval lands on. The engagement letter is the document that defines what the firm did and did not promise, so it is the last thing in this business that should be issuable without a credentialed signature.',
     },
     {
-      id: 'ledgerline-engagement-approval-window',
+      id: 'ashcombe-engagement-approval-window',
       statement: 'An engagement letter awaiting internal approval is surfaced as overdue after forty-eight hours.',
       provenance: 'CLIENT_POLICY',
       verification: 'NOT_APPLICABLE',
@@ -509,7 +509,7 @@ export const LEDGERLINE: BusinessProfile = BusinessProfileSchema.parse({
         'Approval attention timeouts on outbound commercial documents. Two days, because work does not start until the letter is signed, so an unapproved letter is a delivery delay before it is ever a sales delay.',
     },
     {
-      id: 'ledgerline-reporting-freshness',
+      id: 'ashcombe-reporting-freshness',
       statement: 'Owner reporting draws on the closed month. Operational data older than thirty days is not relied on.',
       provenance: 'CLIENT_POLICY',
       verification: 'NOT_APPLICABLE',
@@ -518,7 +518,7 @@ export const LEDGERLINE: BusinessProfile = BusinessProfileSchema.parse({
         'Input staleness tolerance for periodic analysis. This is the one threshold the trade itself sets rather than the firm: the product sold is a monthly close with monthly controller oversight, so the reporting clock is the month, not the hour or the week.',
     },
     {
-      id: 'ledgerline-variance-materiality',
+      id: 'ashcombe-variance-materiality',
       statement:
         'A ten percent variance against the client’s budget comparative is treated as an exception worth the owner’s attention.',
       provenance: 'CLIENT_POLICY',
@@ -528,7 +528,7 @@ export const LEDGERLINE: BusinessProfile = BusinessProfileSchema.parse({
         'Exception-candidate materiality thresholds. The comparison itself is standard — a profit-and-loss statement read against prior period and budget is a named deliverable of this service — but no published materiality percentage exists, so the ten is the firm’s own.',
     },
     {
-      id: 'ledgerline-malformed-intake',
+      id: 'ashcombe-malformed-intake',
       statement: 'An unparseable inbound payload is retried once and then handed to a person.',
       provenance: 'CLIENT_POLICY',
       verification: 'NOT_APPLICABLE',
@@ -539,23 +539,23 @@ export const LEDGERLINE: BusinessProfile = BusinessProfileSchema.parse({
   ],
 
   operatingParameters: [
-    { key: 'acknowledgementTargetSeconds', label: 'Acknowledgement target', value: 3600, unit: 'seconds', policyId: 'ledgerline-ack-window' },
-    { key: 'routingTargetMinutes', label: 'Routing target, published hours', value: 240, unit: 'minutes', policyId: 'ledgerline-routing-window' },
-    { key: 'maxInformationQuestions', label: 'Maximum clarifying questions before a person takes over', value: 4, unit: 'questions', policyId: 'ledgerline-routing-window' },
-    { key: 'confidenceFloor', label: 'Minimum confidence to act on an interpretation', value: 0.95, unit: 'probability', policyId: 'ledgerline-judgment-floor' },
-    { key: 'replyWaitWindowHours', label: 'Document-chase wait window before escalation', value: 48, unit: 'hours', policyId: 'ledgerline-document-chase' },
-    { key: 'bookingOfferWindowHours', label: 'Review-call offer wait window', value: 72, unit: 'hours', policyId: 'ledgerline-meeting-offer' },
-    { key: 'humanReviewTimeoutHours', label: 'Review queue attention timeout', value: 24, unit: 'hours', policyId: 'ledgerline-review-queue' },
-    { key: 'dispatchTimeoutHours', label: 'Ready-but-unsent attention timeout', value: 8, unit: 'hours', policyId: 'ledgerline-dispatch-window' },
-    { key: 'dormantMaxAttempts', label: 'Maximum reactivation approaches', value: 2, unit: 'attempts', policyId: 'ledgerline-reactivation-cadence' },
-    { key: 'dormantWindowDays', label: 'Reactivation sequence window', value: 120, unit: 'days', policyId: 'ledgerline-reactivation-cadence' },
-    { key: 'entityMatchThreshold', label: 'Minimum confidence to accept an entity match', value: 1, unit: 'probability', policyId: 'ledgerline-identity-resolution' },
-    { key: 'collectionEscalationDays', label: 'Escalation to the Managing Partner past due', value: 14, unit: 'days past due', policyId: 'ledgerline-collection-ladder' },
-    { key: 'proposalAuthorityCeiling', label: 'Authority required to release an engagement letter', value: 3, unit: 'authority level', policyId: 'ledgerline-engagement-authority' },
-    { key: 'proposalApprovalTimeoutHours', label: 'Engagement letter approval attention timeout', value: 48, unit: 'hours', policyId: 'ledgerline-engagement-approval-window' },
-    { key: 'inputStalenessToleranceHours', label: 'Analysis input staleness tolerance', value: 720, unit: 'hours', policyId: 'ledgerline-reporting-freshness' },
-    { key: 'exceptionVarianceThresholdPct', label: 'Exception-candidate variance threshold', value: 10, unit: 'percent', policyId: 'ledgerline-variance-materiality' },
-    { key: 'malformedRetryBudget', label: 'Attempts on a malformed intake payload before a person is asked', value: 1, unit: 'attempts', policyId: 'ledgerline-malformed-intake' },
+    { key: 'acknowledgementTargetSeconds', label: 'Acknowledgement target', value: 3600, unit: 'seconds', policyId: 'ashcombe-ack-window' },
+    { key: 'routingTargetMinutes', label: 'Routing target, published hours', value: 240, unit: 'minutes', policyId: 'ashcombe-routing-window' },
+    { key: 'maxInformationQuestions', label: 'Maximum clarifying questions before a person takes over', value: 4, unit: 'questions', policyId: 'ashcombe-routing-window' },
+    { key: 'confidenceFloor', label: 'Minimum confidence to act on an interpretation', value: 0.95, unit: 'probability', policyId: 'ashcombe-judgment-floor' },
+    { key: 'replyWaitWindowHours', label: 'Document-chase wait window before escalation', value: 48, unit: 'hours', policyId: 'ashcombe-document-chase' },
+    { key: 'bookingOfferWindowHours', label: 'Review-call offer wait window', value: 72, unit: 'hours', policyId: 'ashcombe-meeting-offer' },
+    { key: 'humanReviewTimeoutHours', label: 'Review queue attention timeout', value: 24, unit: 'hours', policyId: 'ashcombe-review-queue' },
+    { key: 'dispatchTimeoutHours', label: 'Ready-but-unsent attention timeout', value: 8, unit: 'hours', policyId: 'ashcombe-dispatch-window' },
+    { key: 'dormantMaxAttempts', label: 'Maximum reactivation approaches', value: 2, unit: 'attempts', policyId: 'ashcombe-reactivation-cadence' },
+    { key: 'dormantWindowDays', label: 'Reactivation sequence window', value: 120, unit: 'days', policyId: 'ashcombe-reactivation-cadence' },
+    { key: 'entityMatchThreshold', label: 'Minimum confidence to accept an entity match', value: 1, unit: 'probability', policyId: 'ashcombe-identity-resolution' },
+    { key: 'collectionEscalationDays', label: 'Escalation to the Managing Partner past due', value: 14, unit: 'days past due', policyId: 'ashcombe-collection-ladder' },
+    { key: 'proposalAuthorityCeiling', label: 'Authority required to release an engagement letter', value: 3, unit: 'authority level', policyId: 'ashcombe-engagement-authority' },
+    { key: 'proposalApprovalTimeoutHours', label: 'Engagement letter approval attention timeout', value: 48, unit: 'hours', policyId: 'ashcombe-engagement-approval-window' },
+    { key: 'inputStalenessToleranceHours', label: 'Analysis input staleness tolerance', value: 720, unit: 'hours', policyId: 'ashcombe-reporting-freshness' },
+    { key: 'exceptionVarianceThresholdPct', label: 'Exception-candidate variance threshold', value: 10, unit: 'percent', policyId: 'ashcombe-variance-materiality' },
+    { key: 'malformedRetryBudget', label: 'Attempts on a malformed intake payload before a person is asked', value: 1, unit: 'attempts', policyId: 'ashcombe-malformed-intake' },
   ],
 
   accountabilities: [
@@ -563,7 +563,7 @@ export const LEDGERLINE: BusinessProfile = BusinessProfileSchema.parse({
       action: 'PROPOSAL_APPROVAL',
       roleId: 'tax-principal',
       escalatesToRoleId: 'managing-partner',
-      policyId: 'ledgerline-engagement-authority',
+      policyId: 'ashcombe-engagement-authority',
     },
   ],
 });
