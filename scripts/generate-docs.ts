@@ -432,7 +432,13 @@ Found while authoring \`${gap.foundBy}\`.
 | **What the model does instead** | ${esc(gap.modelDoesInstead)} |
 | **What a fix would need** | ${esc(gap.aFixWouldNeed)} |
 | **Reported by** | ${esc(gap.discovery.reportedBy)}, ${gap.discovery.reportedOn} |
-| **Working from** | ${esc(gap.discovery.workingFrom)} |`,
+| **Working from** | ${esc(gap.discovery.workingFrom)} |${
+          gap.addressed === undefined
+            ? ''
+            : `
+| **Addressed ${gap.addressed.on}** | ${esc(gap.addressed.what)} |
+| **What that fix does not do** | ${esc(gap.addressed.limit)} |`
+        }`,
       )
       .join('\n\n');
 

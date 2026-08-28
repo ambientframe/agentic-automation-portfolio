@@ -101,6 +101,30 @@ describe('the model-gap register', () => {
     ).toBe(profiles.size);
   });
 
+  /**
+   * A closed gap stays in the register. Deleting it would erase the evidence that an outside
+   * author found a real limit — and a fix that cannot state what it still does not do is a
+   * claim rather than a result.
+   */
+  it.each(MODEL_GAPS.filter((g) => g.addressed !== undefined).map((g) => [g.id, g] as const))(
+    '%s states what shipped and what that fix still does not do',
+    (id, gap) => {
+      expect(gap.addressed?.on, `${id} records no date`).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+      expect(gap.addressed?.what.length, `${id} does not say what shipped`).toBeGreaterThan(80);
+      expect(
+        gap.addressed?.limit.length,
+        `${id} claims a fix with no stated limit. A closed gap is still a bounded claim.`,
+      ).toBeGreaterThan(80);
+    },
+  );
+
+  it('leaves closed gaps in the register rather than deleting them', () => {
+    expect(
+      MODEL_GAPS.some((gap) => gap.addressed !== undefined),
+      'no gap is recorded as addressed. If one was closed, the record of it being found must survive.',
+    ).toBe(true);
+  });
+
   it('distinguishes what generalises from what is one trade’s quirk', () => {
     const general = MODEL_GAPS.filter((gap) => gap.generality === 'GENERALISES');
     expect(

@@ -77,6 +77,19 @@ export interface ModelGap {
   /** The shape a fix would have to take. A statement of shape, never a plan. */
   readonly aFixWouldNeed: string;
   readonly generality: GapGenerality;
+  /**
+   * Set ONLY when a gap has actually been closed, and deliberately not removed from the register
+   * when it is. Deleting a closed gap would erase the evidence that an outside author found a
+   * real limit, which is the thing this file exists to keep. Most gaps will never carry this:
+   * a discovered limitation earns implementation when it materially improves fidelity,
+   * reliability, learning, reuse or commercial value, and otherwise it stays a recorded finding.
+   */
+  readonly addressed?: {
+    readonly on: string;
+    readonly what: string;
+    /** What the fix does NOT do. Required, because a closed gap is still a bounded claim. */
+    readonly limit: string;
+  };
 }
 
 export const MODEL_GAPS: readonly ModelGap[] = [
@@ -97,6 +110,13 @@ export const MODEL_GAPS: readonly ModelGap[] = [
     aFixWouldNeed:
       'A way to declare that an action is gated on an external precondition, so the engine can hold it in a state distinct from overdue and not start the clock until the gate clears. The distinction has to reach the operational view, or a person still sees "late".',
     generality: 'GENERALISES',
+    addressed: {
+      on: '2026-08-28',
+      what:
+        'Profiles declare `externalGates`, each naming what is blocked, the fact that releases it, the event that satisfies it, who owns the dependency, what release authorizes, and the rule it rests on. `checkWaitIncident` returns a distinct ATTENTION_BLOCKED outcome, derived from the handler’s own recorded decision rather than re-derived at the boundary. The action SLA never starts while a gate is closed — nothing is suspended — and the dependency carries its own follow-up window on the same anchor, so chasing a missing signature and being late on a despatch stay two separate facts.',
+      limit:
+        'One action is wired so far (`DISPATCH`, in Lead Rescue). The primitive is vertical-agnostic and every profile may declare gates, but no other handler consults them yet, so a gate on any other action would be declared and unread. Gate evaluation is presence-of-fact only: it cannot judge whether the evidence recorded is genuine, and bounded AI judgment may propose the fact but never waive the gate.',
+    },
   },
   {
     id: 'confidence-floor-cannot-say-never',

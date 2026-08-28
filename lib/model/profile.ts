@@ -220,9 +220,127 @@ export const BusinessProfileSchema = z.strictObject({
       }),
     )
     .optional(),
+
+  /**
+   * WHAT THIS BUSINESS CANNOT DO YET, AND WHY THAT IS NOT THE SAME AS BEING LATE.
+   *
+   * A completed tax return waiting on a signed Form 8879 is legally forbidden to send. The firm
+   * is obeying a rule, not dropping a ball, and no amount of waiting makes the return sendable —
+   * only the signature does. Before this existed the model had one verdict for both, so a firm
+   * behaving correctly was reported as a firm behind on its work. `docs/MODEL_GAPS.md` records
+   * where that was found and by whom.
+   *
+   * THE DISTINCTION THIS EXISTS TO KEEP:
+   *
+   *   OVERDUE            an AUTHORIZED obligation was not completed in time.
+   *   ATTENTION_BLOCKED  execution is not authorized, because a declared dependency is unsatisfied.
+   *
+   * TWO CLOCKS, NOT ONE SUSPENDED CLOCK. A blocked action and a neglected dependency are
+   * different obligations and are measured separately. The action's SLA does not begin while the
+   * gate is closed, because there is no authorized obligation for it to measure. The firm may
+   * still owe somebody a chase for the missing signature, and `followUp` is that second clock.
+   * Nothing here freezes a running timer: the action clock never starts, which is a different and
+   * more honest thing than pausing one.
+   *
+   * DETERMINISTIC, AND DELIBERATELY UNINTELLIGENT. A gate is closed because `releasedByFact` is
+   * absent from the case's facts. Bounded AI judgment may propose that the fact be recorded —
+   * through the ordinary provider port, with a decision on the record and a confidence the
+   * evaluation harness can score — but it may not waive a gate, and no confidence value reaches
+   * the gate check itself. Execution authority is never invented.
+   *
+   * Optional, because most businesses have no external gate on most actions and a profile should
+   * say nothing rather than invent one.
+   */
+  externalGates: z
+    .array(
+      z.strictObject({
+        id: z.string().min(1),
+        /**
+         * Vertical-agnostic action id this gate blocks, matching the `accountabilities.action`
+         * idiom. A gate that applied to everything would report every timeout as blocked, which
+         * is the opposite failure and just as dishonest.
+         */
+        gatesAction: z.string().min(1),
+        /** What is blocked. Written for an operator reading it on a queue, not for a developer. */
+        blocks: z.string().min(1),
+        /**
+         * THE EVIDENCE. The gate is CLOSED while this fact is absent from the case, and OPEN once
+         * it is present, whatever its value. A named fact rather than a computed condition, so a
+         * reader can see exactly what would have to be true to release it.
+         */
+        releasedByFact: z.string().min(1),
+        /** The real-world event that satisfies it. */
+        satisfiedBy: z.string().min(1),
+        /** Who owns the dependency. Usually NOT a role in this firm — that is the whole point. */
+        ownedBy: z.string().min(1),
+        /** What becomes authorized on release. */
+        authorizes: z.string().min(1),
+        /** Why the gate exists at all: the rule, contract, or regulation behind it. */
+        basis: z.string().min(1),
+        /**
+         * The SECOND clock. While blocked, the firm may still owe somebody a chase. Optional,
+         * because some dependencies are genuinely waited on rather than pursued.
+         */
+        followUp: z
+          .strictObject({
+            /** Hours from the action becoming ready, not from the gate being observed. */
+            chaseAfterHours: z.number().positive(),
+            /** Must resolve to an id in `roles`. Who owes the chase. */
+            roleId: z.string().min(1),
+          })
+          .optional(),
+        /**
+         * THE ESCAPE HATCH, and it is a required boolean rather than an optional one on purpose.
+         * A profile whose business clock genuinely continues despite the dependency says so here
+         * and explains itself in the linked policy. Making it explicit per gate is what stops
+         * "blocked" quietly losing its meaning everywhere else.
+         */
+        actionClockRunsWhileBlocked: z.boolean(),
+        /** Must resolve to an id in `policies`. A gate with no policy is an assumption. */
+        policyId: z.string().min(1),
+      }),
+    )
+    .optional(),
 });
 
 export type BusinessProfile = z.infer<typeof BusinessProfileSchema>;
+
+export type ExternalGate = NonNullable<BusinessProfile['externalGates']>[number];
+
+/**
+ * The vertical-agnostic action ids gates may block, and the decision a handler records when one
+ * holds. Shared rather than string-matched in two places: `wait-resume.ts` reads this decision to
+ * decide ATTENTION_BLOCKED, and a typo in either half would silently report a block as overdue.
+ */
+export const GATED_ACTION_DISPATCH = 'DISPATCH';
+export const GATE_HELD_ACTION = 'hold_for_external_gate';
+
+/** The gate with this id, or undefined. Never throws — a caller asking about an absent gate is asking a fair question. */
+export function gateById(profile: BusinessProfile, id: string): ExternalGate | undefined {
+  return profile.externalGates?.find((gate) => gate.id === id);
+}
+
+/**
+ * Every gate on `action` whose releasing fact is absent from `facts`.
+ *
+ * The whole gate check, and it is deliberately this small. Presence, not value: a fact recorded
+ * as an empty string still releases the gate, because the business event happened and it is not
+ * this function's job to grade the evidence. Nothing here reads a confidence, and nothing here
+ * can waive a gate — see the schema docstring for why that boundary is drawn where it is.
+ *
+ * Returns every closed gate rather than the first, so an operator sees all of what is missing
+ * instead of discovering the next blocker only after clearing this one.
+ */
+export function closedGatesFor(
+  profile: BusinessProfile,
+  action: string,
+  facts: Readonly<Record<string, string>>,
+): readonly ExternalGate[] {
+  return (profile.externalGates ?? []).filter(
+    (gate) => gate.gatesAction === action && facts[gate.releasedByFact] === undefined,
+  );
+}
+
 
 /**
  * WHAT THE ENGINE DEMANDS OF ANY PROFILE.
@@ -392,6 +510,53 @@ export function validateProfileConsistency(profile: BusinessProfile): ProfileIss
   // 12. Every declared accountability must name real people and escalate genuinely upward.
   const rolesById = new Map(profile.roles.map((role) => [role.id, role]));
   const seenActions = new Set<string>();
+  // 13. A declared external gate must resolve everything it names.
+  //
+  // A gate is the thing standing between a prepared action and its execution, so a gate that
+  // points at a policy nobody wrote or a chaser who does not work here is worse than no gate:
+  // it reports an authoritative-looking reason for inaction that cannot be checked.
+  const parameterPolicyIds = new Set(profile.operatingParameters.map((p) => p.policyId));
+  const seenGateIds = new Set<string>();
+  for (const gate of profile.externalGates ?? []) {
+    if (seenGateIds.has(gate.id)) {
+      push(
+        'EXTERNAL_GATE_DUPLICATE',
+        `external gate "${gate.id}" is declared more than once. Two gates with one id cannot be told apart on a queue or in a capture.`,
+      );
+    }
+    seenGateIds.add(gate.id);
+
+    if (!policyIds.has(gate.policyId)) {
+      push(
+        'EXTERNAL_GATE_POLICY_REF',
+        `external gate "${gate.id}" references policy "${gate.policyId}", which does not exist. A gate with no stated policy is an unexplained refusal to act.`,
+      );
+    }
+
+    // A gate's policy must be the gate's OWN. Sharing one with an operating parameter is a
+    // category error rather than a style point: a parameter implements "act within N", a gate
+    // says "you may not act at all", and one statement cannot be both. It also catches the
+    // realistic way a gate ends up citing the wrong rule — pointing at some other policy that
+    // happens to exist, so the reference resolves and the operator is shown an unrelated rule
+    // as the reason nothing is happening.
+    //
+    // LIMIT: this catches a gate borrowing an existing policy. An author who writes a bespoke
+    // policy that is simply wrong about the gate still passes, and nothing here can judge that.
+    if (parameterPolicyIds.has(gate.policyId)) {
+      push(
+        'EXTERNAL_GATE_POLICY_SHARED',
+        `external gate "${gate.id}" cites policy "${gate.policyId}", which an operating parameter already implements. A threshold and a prohibition are different claims and cannot share one statement — an operator asking why nothing happened would be shown a service level instead of the rule that forbids acting.`,
+      );
+    }
+
+    if (gate.followUp !== undefined && !rolesById.has(gate.followUp.roleId)) {
+      push(
+        'EXTERNAL_GATE_FOLLOWUP_REF',
+        `external gate "${gate.id}" sends its follow-up to role "${gate.followUp.roleId}", which this profile does not declare. The chase would have no owner.`,
+      );
+    }
+  }
+
   for (const entry of profile.accountabilities ?? []) {
     const accountable = rolesById.get(entry.roleId);
     if (accountable === undefined) {

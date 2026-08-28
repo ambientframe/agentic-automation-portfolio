@@ -44,6 +44,8 @@ Found while authoring `ashcombe`.
 | **What a fix would need** | A way to declare that an action is gated on an external precondition, so the engine can hold it in a state distinct from overdue and not start the clock until the gate clears. The distinction has to reach the operational view, or a person still sees "late". |
 | **Reported by** | Cursor Stage B run, accounting / CAS profile (handed back as `ledgerline`, renamed at registration), 2026-08-28 |
 | **Working from** | docs/PROFILE_AUTHORING_PACKET.md and its own Stage A research brief. No access to CHECKPOINT.md, PATTERN_LEDGER.md, or this repository's reasoning. |
+| **Addressed 2026-08-28** | Profiles declare `externalGates`, each naming what is blocked, the fact that releases it, the event that satisfies it, who owns the dependency, what release authorizes, and the rule it rests on. `checkWaitIncident` returns a distinct ATTENTION_BLOCKED outcome, derived from the handler’s own recorded decision rather than re-derived at the boundary. The action SLA never starts while a gate is closed — nothing is suspended — and the dependency carries its own follow-up window on the same anchor, so chasing a missing signature and being late on a despatch stay two separate facts. |
+| **What that fix does not do** | One action is wired so far (`DISPATCH`, in Lead Rescue). The primitive is vertical-agnostic and every profile may declare gates, but no other handler consults them yet, so a gate on any other action would be declared and unread. Gate evaluation is presence-of-fact only: it cannot judge whether the evidence recorded is genuine, and bounded AI judgment may propose the fact but never waive the gate. |
 
 ### A confidence floor cannot express "never"
 

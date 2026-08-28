@@ -1,5 +1,6 @@
 import type { BusinessProfile } from '@/lib/model/profile';
 import type { SystemDefinition } from '@/lib/model/system';
+import { GATE_HELD_ACTION } from '@/lib/model/profile';
 import type { CanonicalEvent, SideEffect, TimelineEntry } from '@/lib/model/runtime';
 import type { WaitIncidentRecord, WaitIncidentStore } from '@/lib/persistence/wait-incident-store';
 import type { ClaimAttempt, OperationClaimRecord, OperationClaimStore } from '@/lib/persistence/operation-claim-store';
@@ -166,6 +167,21 @@ export type WaitCheckOutcome =
    * dispatch resolves it.
    */
   | 'ATTENTION_OVERDUE'
+  /**
+   * A configured window was NOT measured, because execution is not authorized: a declared
+   * external gate on the action is closed. Distinct from ATTENTION_OVERDUE in the one way that
+   * matters to whoever reads the queue —
+   *
+   *   ATTENTION_OVERDUE  an AUTHORIZED obligation was not completed in time.
+   *   ATTENTION_BLOCKED  execution is not authorized, because a declared dependency is unsatisfied.
+   *
+   * A firm holding a completed tax return for a signature it may not legally proceed without is
+   * obeying a rule, not dropping a ball, and reporting the two identically was the defect. Like
+   * ATTENTION_OVERDUE the lifecycle does not move and the same check stays eligible to run again.
+   * Unlike it, nothing here is late: the action's clock never started. The dependency may have
+   * its OWN clock and its own chase, which is a separate obligation and is reported separately.
+   */
+  | 'ATTENTION_BLOCKED'
   | 'STALE_REVISION'
   | 'UNCERTAIN';
 
@@ -397,7 +413,27 @@ export async function checkWaitIncident(
   // that case entirely, and an effects-only gate would have missed the blocked-effect case.
   const lifecycleMoved = result.state.lifecycleState !== record.engineState.lifecycleState;
   const candidateEffects = executedSideEffects(result.entries);
+
+  // Asked of the handler's own recorded decision, exactly as `lifecycleMoved` is asked of the
+  // state: this module never re-derives whether a gate is closed, because two implementations of
+  // that question would eventually disagree and the disagreement would surface as a case
+  // reported late that the firm was forbidden to action.
+  const heldByGate = result.entries
+    .flatMap((entry) => entry.decisions)
+    .some((decision) => decision.selectedAction === GATE_HELD_ACTION);
+
   if (!lifecycleMoved && candidateEffects.length === 0) {
+    // A held case usually proposes nothing — there is no chase due yet — and would otherwise
+    // fall out here as STILL_WAITING. That is not wrong so much as silent: it reports a case
+    // nobody may action identically to one everybody is simply still waiting on, which is the
+    // distinction this outcome exists to draw.
+    if (heldByGate) {
+      await observeEvaluation(
+        'REFUSED',
+        'Execution is not authorized: a declared external dependency is unsatisfied. Nothing was proposed and no window was measured, because there is no authorized obligation to measure.',
+      );
+      return { incidentId, outcome: 'ATTENTION_BLOCKED', state: result.state, entries: result.entries };
+    }
     return { incidentId, outcome: 'STILL_WAITING', state: result.state, entries: result.entries };
   }
 
@@ -512,6 +548,18 @@ export async function checkWaitIncident(
     if (resolution === 'NOT_FOUND') return { incidentId, outcome: 'NOT_FOUND' };
     await observeEvaluation('RESOLVED', `The configured window elapsed; the case moved to ${result.state.lifecycleState}.`);
     return { incidentId, outcome: 'ELAPSED', state: result.state, entries };
+  }
+
+  if (heldByGate) {
+    await observeEvaluation(
+      'REFUSED',
+      'Execution is not authorized: a declared external dependency is unsatisfied. The case stays parked and is NOT reported as overdue — no window was measured against it.',
+      // Deliberately NO failure class. Every member of FAILURE_CLASSES names something going
+      // wrong, and nothing has: the firm is declining to act because it is not permitted to.
+      // Filing this under a failure mode would put correct behaviour in the failure register,
+      // which is the same mislabelling as calling it overdue, one layer down.
+    );
+    return { incidentId, outcome: 'ATTENTION_BLOCKED', state: result.state, entries };
   }
 
   await observeEvaluation(

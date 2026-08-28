@@ -393,6 +393,16 @@ export const ASHCOMBE: BusinessProfile = BusinessProfileSchema.parse({
 
   policies: [
     {
+      id: 'ashcombe-8879-gate',
+      statement:
+        'A completed individual return is not transmitted until a signed Form 8879 is held on file. No elapsed time, internal approval, or client verbal instruction substitutes for the signature.',
+      provenance: 'CLIENT_POLICY',
+      verification: 'NOT_APPLICABLE',
+      sourceIds: [],
+      appliesTo:
+        'The e-file authorisation gate. This is not a service level the firm chose and could relax — an ERO may not transmit without the signed authorisation, so the firm is prohibited rather than slow. It is declared as an external gate precisely so the systems stop reporting a return held for a missing signature as work the firm is late on. The separate obligation, which the firm DOES own, is chasing the taxpayer for the signature; that is the follow-up clock and it is deliberately a different number.',
+    },
+    {
       id: 'ashcombe-ack-window',
       statement:
         'Every inbound enquiry is acknowledged within one hour during published hours, and answered by a person the same business day.',
@@ -556,6 +566,26 @@ export const ASHCOMBE: BusinessProfile = BusinessProfileSchema.parse({
     { key: 'inputStalenessToleranceHours', label: 'Analysis input staleness tolerance', value: 720, unit: 'hours', policyId: 'ashcombe-reporting-freshness' },
     { key: 'exceptionVarianceThresholdPct', label: 'Exception-candidate variance threshold', value: 10, unit: 'percent', policyId: 'ashcombe-variance-materiality' },
     { key: 'malformedRetryBudget', label: 'Attempts on a malformed intake payload before a person is asked', value: 1, unit: 'attempts', policyId: 'ashcombe-malformed-intake' },
+  ],
+
+  externalGates: [
+    {
+      id: 'ashcombe-signed-8879',
+      gatesAction: 'DISPATCH',
+      blocks:
+        'Transmitting a completed individual return to the tax authority. The return may be prepared, reviewed and signed off internally and still not be sendable.',
+      releasedByFact: 'signedForm8879ReceivedAt',
+      satisfiedBy:
+        'A signed Form 8879 is received from the taxpayer and recorded against the engagement.',
+      ownedBy: 'The taxpayer — a client-side signer, not anyone employed by this firm.',
+      authorizes:
+        'Transmission of the return by the firm acting as Electronic Return Originator, and nothing else.',
+      basis:
+        'IRS e-file rules require a signed Form 8879 on file before an ERO may transmit an individual return. The constraint is legal, not commercial.',
+      followUp: { chaseAfterHours: 48, roleId: 'client-coordinator' },
+      actionClockRunsWhileBlocked: false,
+      policyId: 'ashcombe-8879-gate',
+    },
   ],
 
   accountabilities: [

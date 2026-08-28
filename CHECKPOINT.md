@@ -3,7 +3,81 @@
 > One per accepted package (Constitution §14). Repository truth is authoritative; this file
 > is an index, not a source. Append the new checkpoint above the previous one.
 
-## Current — Thirteen limits found by people with no stake in the answer, finally written down · 2026-08-28
+## Current — Blocked is not overdue, and the engine can finally tell them apart · 2026-08-28
+
+**Verified state.** `npm run verify`: 80 files, **1535 passed / 1 skipped**, exit 0, no lint
+warnings. `npm run build`: compiled, exit 0. $0 spent.
+
+**The contract.** A profile declares `externalGates`. Each names what is blocked, the fact that
+releases it, the event that satisfies it, who owns the dependency, what release authorizes, the
+rule it rests on, an optional follow-up window with its owner, and an explicit
+`actionClockRunsWhileBlocked`. `checkWaitIncident` returns a distinct outcome:
+
+| Outcome | Means |
+| --- | --- |
+| `ATTENTION_OVERDUE` | an **authorized** obligation was not completed in time |
+| `ATTENTION_BLOCKED` | execution is **not authorized** — a declared dependency is unsatisfied |
+
+**Two clocks, and nothing is suspended.** The gate is checked *before* the window comparison, so
+the action SLA never starts while execution is unauthorized — which is a different and more
+honest thing than pausing a running timer. The dependency keeps its own window on the same
+anchor: at +40h the case is blocked and silent; at +60h it is still blocked and a chase is raised
+to the declared follow-up owner. Chasing a missing signature and being late on a despatch are two
+facts and are reported as two.
+
+**Derived, never guessed.** `wait-resume.ts` reads the handler's own recorded decision
+(`GATE_HELD_ACTION`, a shared constant) exactly as it reads state for `lifecycleMoved`. Two
+implementations of "is this gate closed?" would eventually disagree, and the disagreement would
+surface as a case reported late that the firm was forbidden to action.
+
+**A block carries no failure class, deliberately.** Every member of `FAILURE_CLASSES` names
+something going wrong. Nothing has: the firm is declining to act because it is not permitted to.
+Filing correct behaviour in the failure register is the same mislabelling as calling it overdue,
+one layer down.
+
+**The strongest case, and it is grounded.** `ashcombe` declares `ashcombe-signed-8879`: an ERO may
+not transmit an individual return without a signed Form 8879 on file. The same parked case, the
+same instant, the same anchor returns `ATTENTION_BLOCKED` under `ashcombe` and `ATTENTION_OVERDUE`
+under `kestrel`, which declares no such gate. **Kestrel was deliberately given none** — it has no
+external gate on this action, and inventing one so something would render is the fabrication this
+repository exists to refuse.
+
+**Falsification: 8 mutations, all failing.** The gate ceasing to hold, the closed-test inverted,
+the boundary no longer distinguishing a held case, the escape hatch inverted, the chase firing on
+the action window instead of its own, a gate applying to every action, the block recording no
+actionable evidence, and a gate citing a policy that merely exists. **Two survived the first run
+and both were real.** The evidence test searched the whole decision for a substring, so removing
+the dependency owner survived because the name appeared elsewhere — now asserted per labelled
+fact. And a gate could cite any existing policy; `validateProfileConsistency` now rejects a gate
+sharing a policy with an operating parameter, because a threshold and a prohibition are different
+claims. That catches the realistic error and **cannot** catch a bespoke-but-wrong policy, which is
+recorded rather than papered over.
+
+**A harness bug corrupted a source file mid-run, and it is worth recording.** Two of the four
+mutation targets are named `profile.ts`; keying backups by basename mapped them to one temp file,
+so a "restore" wrote `data/profiles/ashcombe/profile.ts` over `lib/model/profile.ts`. Caught
+immediately by the harness's own SHA-256 restore check, which is exactly what that check is for.
+The file was restored from HEAD and its three edits re-applied. **The safety net was the hash
+comparison, not the tests** — the suite would have failed loudly, but only after the damage.
+
+**Maturity. Unchanged, and this package does not move it.** Lead Rescue stays
+`INTERACTIVE_PROTOTYPE`. What improved is fidelity, not liveness: the model can now express a
+distinction real firms make daily and previously could not, and one action is wired.
+
+**What the fix does not do**, recorded in the gap register beside the gap itself: only `DISPATCH`
+consults gates today. The primitive is vertical-agnostic and any profile may declare a gate on any
+action, but no other handler reads them, so such a gate would be declared and unread. Gate
+evaluation is presence-of-fact only — it cannot judge whether the recorded evidence is genuine.
+
+**`MODEL_GAPS` keeps closed gaps rather than deleting them.** An `addressed` block records what
+shipped and what it still does not do; removing the entry would erase the evidence that an outside
+author found a real limit, which is the whole point of the file.
+
+**Next package.** The evidence layer. `MODEL_GAPS.md`, the fidelity ledger, and now
+`ATTENTION_BLOCKED` are three structured sources a buyer cannot see, and the third is precisely
+"where external dependencies constrain execution" from the canon decision.
+
+## Earlier — Thirteen limits found by people with no stake in the answer, finally written down · 2026-08-28
 
 **Verified state.** `npm run verify`: 78 files, **1494 passed / 1 skipped**, exit 0. `npm run
 build`: compiled, exit 0. $0 spent.

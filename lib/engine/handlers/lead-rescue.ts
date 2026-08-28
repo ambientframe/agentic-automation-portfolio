@@ -1,5 +1,9 @@
 import { z } from 'zod';
-import { numberParam, resolveEscalationOwner, type BusinessProfile } from '@/lib/model/profile';
+import { numberParam, resolveEscalationOwner, type BusinessProfile,
+  closedGatesFor,
+  GATED_ACTION_DISPATCH,
+  GATE_HELD_ACTION,
+} from '@/lib/model/profile';
 import type { AuthorityLevel } from '@/lib/model/system';
 import type { DecisionRecord } from '@/lib/model/runtime';
 import type { HandlerContext, HandlerOutcome, HandlerStep, ProposedEffect, SystemHandlers } from '../types';
@@ -1765,6 +1769,113 @@ function handleDispatchAttentionTimeout(ctx: HandlerContext): HandlerOutcome {
   const windowMs = windowHours * 60 * 60 * 1000;
   const elapsed = elapsedMs >= windowMs;
   const elapsedHours = Math.round((elapsedMs / (60 * 60 * 1000)) * 10) / 10;
+
+  /**
+   * BLOCKED IS NOT OVERDUE.
+   *
+   * Checked BEFORE the window comparison, and that ordering is the whole fix: a case whose
+   * execution is not authorized has no SLA to have missed. Nothing is suspended here — the
+   * action clock never starts, which is a different and more honest thing than pausing one.
+   *
+   * The dependency is a separate obligation with its own window on the same anchor. The firm
+   * cannot send the return, and it still owes the taxpayer a chase for the signature; those are
+   * two facts and they are reported as two.
+   *
+   * A gate whose profile has explicitly declared `actionClockRunsWhileBlocked` falls through to
+   * the ordinary overdue path. That is the escape hatch for a business whose clock genuinely
+   * runs regardless, and it is per-gate and explicit so that "blocked" keeps one meaning
+   * everywhere else.
+   */
+  const holding = closedGatesFor(profile, GATED_ACTION_DISPATCH, state.facts).filter(
+    (gate) => !gate.actionClockRunsWhileBlocked,
+  );
+
+  if (holding.length > 0) {
+    const gate = holding[0]!;
+    const chaseDue =
+      gate.followUp !== undefined &&
+      elapsedMs >= gate.followUp.chaseAfterHours * 60 * 60 * 1000;
+
+    return {
+      steps: [
+        {
+          id: id('dispatch-blocked'),
+          label: 'Dispatch blocked by an external dependency',
+          atOffsetSeconds: 0,
+          // No transitionTo, no offerSentAt, and deliberately no overdue condition: the firm is
+          // not late, it is not permitted to act.
+          summary:
+            `Ready but not authorized to despatch: ${gate.blocks} Held on "${gate.id}", which releases when ${gate.satisfiedBy} ` +
+            `The dependency is owned by ${gate.ownedBy}` +
+            (chaseDue
+              ? ` and has been outstanding beyond the ${gate.followUp?.chaseAfterHours}-hour follow-up window, so a chase was raised.`
+              : `, and is still inside its follow-up window.`),
+          decisions: [
+            decision({
+              id: id('d-dispatch-blocked'),
+              eventId: event.eventId,
+              mechanism: 'DETERMINISTIC_RULE',
+              objective: 'Determine whether execution is authorized before measuring any window against it.',
+              relevantState: state.lifecycleState,
+              evidenceRefs: [`state.facts.${gate.releasedByFact}`, 'state.facts.bookingReadyAt', 'event.occurredAt'],
+              deterministicFacts: [
+                { label: 'External gate', value: gate.id },
+                { label: 'Releasing fact', value: `${gate.releasedByFact} — not recorded` },
+                { label: 'Released when', value: gate.satisfiedBy },
+                { label: 'Dependency owned by', value: gate.ownedBy },
+                { label: 'Release authorizes', value: gate.authorizes },
+                { label: 'Basis', value: gate.basis },
+                { label: 'Ready at', value: bookingReadyAt },
+                { label: 'Checked at', value: event.occurredAt },
+                { label: 'Elapsed', value: `${elapsedHours} hours` },
+                {
+                  label: 'Follow-up window',
+                  value:
+                    gate.followUp === undefined
+                      ? 'none declared — this dependency is waited on, not chased'
+                      : `${gate.followUp.chaseAfterHours} hours${chaseDue ? ' (elapsed)' : ' (not yet elapsed)'}`,
+                },
+              ],
+              missingInformation: [...state.missingInformation, `${gate.releasedByFact} (owned by ${gate.ownedBy})`],
+              permittedActions: chaseDue ? ['hold_for_external_gate', 'chase_dependency_owner'] : ['hold_for_external_gate'],
+              forbiddenActions: [
+                'despatch_offer_automatically',
+                'record_dispatch_overdue',
+                'waive_external_gate',
+                'fabricate_gate_release_evidence',
+              ],
+              selectedAction: GATE_HELD_ACTION,
+              applicablePolicy: [`CLIENT_POLICY ${gate.policyId}: ${gate.basis}`],
+              authority: 0,
+            }),
+          ],
+          effects: chaseDue
+            ? [
+                {
+                  id: id('effect:notify-dependency-chase'),
+                  kind: 'NOTIFICATION',
+                  description:
+                    `Tell the declared follow-up owner that this dependency is outstanding beyond its window, so a person can chase it. ` +
+                    `This is the dependency's own clock, not the action's — the despatch stays unauthorized either way, and nothing here contacts ${gate.ownedBy} directly.`,
+                  target: `role:${gate.followUp?.roleId ?? 'unassigned'}`,
+                  idempotencyKey: `notify:${event.entityId}:dependency-chase`,
+                  // Same authority as the overdue escalation beside it: an internal notification
+                  // to a named owner. Deliberately NOT authority to contact the dependency owner,
+                  // which is a commercial action a person still takes.
+                  authority: 3,
+                  policyPermits: true,
+                  verification: {
+                    check: 'Confirm the chase was addressed to the declared follow-up owner.',
+                    expect: `Notification addressed to role ${gate.followUp?.roleId ?? 'unassigned'}.`,
+                  },
+                },
+              ]
+            : [],
+          verifications: [],
+        },
+      ],
+    };
+  }
 
   if (!elapsed) {
     return {
