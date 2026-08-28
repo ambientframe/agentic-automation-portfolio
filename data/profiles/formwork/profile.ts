@@ -1,7 +1,15 @@
 import { BusinessProfileSchema, type BusinessProfile } from '@/lib/model/profile';
 
 /**
- * FORMWORK ARCHITECTURE + ENGINEERING — a fictional demonstration business.
+ * WRENFIELD ARCHITECTURE + ENGINEERING — a fictional demonstration business.
+ *
+ * NAMING. This profile was authored as "Formwork Architecture + Engineering" and renamed at
+ * registration, because "Formwork Architecture" is the trading name of several real practices
+ * in this exact trade — in St. Louis, Barbados, London, and Australia among others. The
+ * authoring packet forbids a fictional business from carrying a real company's name, and a
+ * search for "Wrenfield" returns no design practice. The directory, `id`, and exported const
+ * remain `formwork`: those are internal keys that reach no rendered surface, and every
+ * document in this repository refers to this profile by that slug.
  *
  * EVERY NUMBER AND FACT BELOW IS SYNTHETIC. No real practice is described here, and the
  * schema pins `provenance` to the FIXTURE literal so none of it can be read as a researched
@@ -69,7 +77,7 @@ import { BusinessProfileSchema, type BusinessProfile } from '@/lib/model/profile
  * `validateProfileConsistency` enforces the rest, so a careless edit to one figure fails a
  * test rather than quietly producing contradictory KPIs across the six systems.
  *
- * SCOPE OF THE FICTION: Formwork designs and administers. It does not construct, does not
+ * SCOPE OF THE FICTION: Wrenfield designs and administers. It does not construct, does not
  * warrant the Owner's construction cost, and does not control means, methods, or site safety.
  * That is not colour — under design-bid-build it is the boundary the standard of care is
  * measured against, and it is stated in `explicitlyNot`.
@@ -77,12 +85,12 @@ import { BusinessProfileSchema, type BusinessProfile } from '@/lib/model/profile
 
 const RAW = {
   id: 'formwork',
-  name: 'Formwork Architecture + Engineering',
+  name: 'Wrenfield Architecture + Engineering',
   tagline: 'Design-led architecture and in-house structural engineering for civic, institutional, and commercial owners.',
 
   provenance: 'FIXTURE',
   fictionalDisclosure:
-    'Formwork Architecture + Engineering is a fictional practice created for this portfolio. Its owners, commissions, staff, figures, and incidents are invented. Nothing here describes a real practice, a real project, or a real result.',
+    'Wrenfield Architecture + Engineering is a fictional practice created for this portfolio. Its owners, commissions, staff, figures, and incidents are invented. Nothing here describes a real practice, a real project, or a real result.',
 
   company: {
     headcount: 28,
@@ -91,7 +99,7 @@ const RAW = {
     operatingModel:
       'A principal-led seller-doer practice. Twenty-eight staff cover architecture and in-house structural engineering; mechanical, electrical, civil, and landscape are engaged as sub-consultants per commission. Two principals win almost all work personally, so pursuit capacity — not demand — is the binding constraint, and it competes directly with the design review time those same two people owe live projects.',
     explicitlyNot: [
-      'Does not construct the work. Formwork is not the contractor and not a construction manager at risk.',
+      'Does not construct the work. Wrenfield is not the contractor and not a construction manager at risk.',
       'Does not warrant or represent that bids or negotiated prices will not vary from the Owner’s budget for the cost of the work, or from any estimate the practice prepared or agreed to.',
       'Does not have control over or responsibility for construction means, methods, techniques, sequences, or procedures, or for site safety precautions and programmes.',
       'Does not seal, or take responsible control of, technical submissions prepared outside the practice. Reviewing a completed set produced by others is not responsible control.',

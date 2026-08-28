@@ -223,8 +223,21 @@ Do the arithmetic explicitly before you write the file. Most failures are here.
 ## 8. Registration snippet — do not edit the register yourself
 
 Several agents are authoring profiles in parallel. If each edits `data/profiles/index.ts` the
-edits collide. **Do not touch that file.** Instead, hand back this block alongside your profile,
-filled in.
+edits collide. **Do not touch that file.**
+
+**Write the snippet to `data/profiles/<your-slug>/registration.snippet.ts` instead. Do not put it
+in your report.** This instruction used to say "hand back this block alongside your profile", and
+that cost three finished profiles a working day. Reports travel through whatever channel the
+operator happens to use, and the three that arrived did so as PDF-converted markdown, which split
+every `fi`/`fl` ligature (`profile` → `pro fi le`, `verified` → `veri fi ed`) and collapsed line
+breaks into double spaces. **The grounding quotes were no longer verbatim and could not pass
+capture** — through no fault of the authors, whose originals were exact. The snippets were
+eventually recovered from a less-processed `.rtf` export of the same handbacks and captured
+first time, which is the whole point: **a verbatim quote must travel through a channel that
+cannot reformat it, and git is such a channel.** A report is not.
+
+The file is a leaf — nothing imports it, so it cannot collide with a sibling agent — and the
+merger moves its contents into the register by hand. Fill it in like this:
 
 **This snippet is now the ONLY merge step.** Registering a profile used to also require adding its
 id by hand to a lexicon inside `tests/seam.test.ts` — which rule 2.1 forbids you from doing, so no
@@ -290,5 +303,24 @@ sell into any of them.
 | `ledgerline` | 11–30 staff accounting / bookkeeping / CAS firm | Recurring deadlines, expensive professional labour, heavy client-request routing |
 | `formwork` | Design-led architecture / engineering practice | High project values, long pursuit cycles, fragmented handoffs and approvals |
 
-**The names above are fictional and deliberately not real firms.** If your assigned name collides
-with a real business you find while researching, choose a different invented name and say so.
+**The slugs above are internal keys, not cleared names. Two of the three collide with real
+firms in the exact trade they name** — "Ledgerline" is a Canadian CPA practice, an Omaha
+bookkeeping firm, and a virtual accounting service; "Formwork Architecture" is the trading name
+of practices in St. Louis, Barbados, London, and Australia. This paragraph previously asserted
+that the names were "deliberately not real firms", which was untrue and actively harmful: the
+accounting author caught the collision by accident while researching, and the architecture author
+reasonably trusted the assurance and shipped a real practice's name. Do not trust it.
+
+**Choosing the trading name is your job, and it carries a required check.** The slug may stay as
+assigned. The `name` field is what reads as a company's identity, and rule 2.2 forbids it from
+being a real business's name. So:
+
+1. Search your intended trading name against the trade it operates in before you commit to it.
+2. If anything trades under it, invent a different name and use that.
+3. State in your handback what you searched, what you found, and what the name became. If you
+   did not check, say that in those words — the merger will run it, and an unchecked name is a
+   finding, not a failure.
+
+A web search is not a company-register or trademark search, and neither you nor the merger can
+close that gap from here. Record it as `[unverified — verify by: a formal register and trademark
+search]` and let it stand.

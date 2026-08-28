@@ -3,7 +3,70 @@
 > One per accepted package (Constitution §14). Repository truth is authoritative; this file
 > is an index, not a source. Append the new checkpoint above the previous one.
 
-## Current — Two parallel authors found four defects in the gate · 2026-08-28
+## Current — Three agent-authored profiles registered, and a real firm's name caught on the way in · 2026-08-28
+
+**Verified state.** `npm run verify`: 76 files, **1291 passed / 1 skipped**, exit 0 (baseline was
+1214 — the parametrized suites picked up 77 tests on registration). `npm run build`: compiled
+successfully, exit 0. $0 spent.
+
+**Proof claim earned.** `stratum`, `ledgerline` and `formwork` are registered `DEMONSTRATION`
+profiles. Three independent Cursor agents, working from `docs/PROFILE_AUTHORING_PACKET.md` and
+nothing else, each authored a profile declaring exactly the seventeen `PROFILE_ENGINE_CONTRACT`
+keys, returning `[]` from `validateProfileConsistency`, and passing the seam swap **with no engine
+or handler change**. Pattern #26 amended rather than duplicated: the seam is now exercised by five
+profiles, three of them authored by agents that never read this repository's reasoning.
+
+**The blocker was a channel, not a defect.** The three registration snippets had reached this
+repository only inside PDF-converted markdown, which split every `fi`/`fl` ligature (`profile` →
+`pro fi le`) and collapsed line breaks. The quotes were no longer verbatim and could not pass
+capture — through no fault of the authors. The recorded plan was to de-corrupt them by hand and
+let the gate adjudicate the repair. **That was the wrong instinct.** A `.rtf` export of the same
+three handbacks was sitting beside each PDF, carried the text unmodified, and captured first
+time. Snippets were extracted by script and spliced mechanically, so nothing verbatim was routed
+through generated text. Pattern #31 earned: look for a less-processed copy before reconstructing
+anything, and never repair a payload to compensate for a lossy channel.
+
+**Capture: 34 of 34 sources, every quote located on a live re-fetch.** kestrel 3, stratum 7,
+ledgerline 10, formwork 14; 31 HTML and 3 PDF. The B101 owner–architect agreement captured three
+times from one URL at three offsets, and one blog twice — which only works because captures are
+now keyed by quote as well as URL, and because PDFs are parsed rather than tag-stripped. Both
+fixes were made in the previous package and this is the first batch to actually need them.
+
+**A real firm's name was caught, and the packet was the cause.** `formwork` shipped as *Formwork
+Architecture + Engineering* — the trading name of several real practices, in St. Louis, Barbados,
+London, and Australia. Renamed to **Wrenfield Architecture + Engineering** at registration. The
+author was not at fault: packet §11 asserted "the names above are fictional and deliberately not
+real firms", which was **untrue for two of the three**, so the one author who checked
+(`ledgerline`, which collides with three real accounting practices) found it by accident. §11 now
+requires an active check and forbids the assurance. `stratum` was checked here and clears.
+
+**Slugs stay; trading names were the thing at risk.** `ledgerline` and `formwork` remain as
+directory, `id`, and const, because nothing renders the register — it is consumed only by tests
+and the capture script — and every document here refers to these profiles by slug. Each register
+note now states the collision out loud rather than leaving it for a reader to discover.
+
+**Falsification.** 4 mutations, each separately confirmed to fail — a word changed inside a
+captured quote, an `establishes` claim edited after capture, a grounded demonstration relabelled
+`STRUCTURAL_FIXTURE`, and a revenue mix no longer summing to 100. No survivors. Files restored
+byte-for-byte and verified by SHA-256.
+
+**Maturity. Unchanged, and this package does not move it.** Lead Rescue stays
+`INTERACTIVE_PROTOTYPE`. Four grounded synthetic profiles prove retargetability across authored
+businesses; they prove nothing about a real firm's messy inbound, and `COMMERCIAL_THESIS.md` §6
+requires that stay stated rather than blurred. No customer exists.
+
+**What these profiles found that the model cannot express** — reported by the authors, not
+complaints: blocked is not overdue (a return awaiting a signed Form 8879 is legally gated, not
+late); a confidence floor cannot say "never" where a regulator is categorical; client-side
+approvers have no home in `roles`; pursuit cost has nowhere to live; qualifications-based
+selection is not a pipeline the model recognises. These are genuine findings about the six
+systems and are the strongest candidates for the next model change.
+
+**Next package.** The fidelity ledger still has no row for independent verification — a
+capability proven live against real n8n and invisible on the buyer surface. That is the
+"built it, buyer can't see it" gap, and it has now been deferred twice.
+
+## Earlier — Two parallel authors found four defects in the gate · 2026-08-28
 
 **Verified state.** `npm run verify`: 76 files, 1214 passed / 1 skipped, exit 0. `npm run build`:
 compiled successfully, exit 0.
