@@ -35,6 +35,17 @@ export interface GroundingCaptureEntry {
   readonly profileId: string;
   /** The URL as cited in the register. */
   readonly url: string;
+  /**
+   * How the text was obtained. `pdf` means the bytes were parsed as a document rather than
+   * tag-stripped as markup.
+   *
+   * This field exists because the HTML path did something worse than fail on a PDF: it ran the
+   * raw object stream through the tag stripper and produced tens of thousands of characters of
+   * binary, in which a short quote can COINCIDENTALLY match. That is a false positive inside an
+   * integrity check — a capture that looks valid and proves nothing. Recording how the text was
+   * obtained makes the two paths distinguishable after the fact.
+   */
+  readonly contentKind: 'html' | 'pdf';
   /** Where the request actually ended up. A redirect is not a discrepancy, but it is a fact. */
   readonly finalUrl: string;
   readonly httpStatus: number;
@@ -69,23 +80,71 @@ export function claimFingerprint(establishes: string): string {
   return createHash('sha256').update(establishes.replace(/\s+/g, ' ').trim()).digest('hex');
 }
 
+/**
+ * Named entities worth decoding by hand. Deliberately not exhaustive — the numeric branch in
+ * `decodeEntities` covers everything else, and every character here has a numeric form a page
+ * may equally well use.
+ */
+const NAMED_ENTITIES: Readonly<Record<string, string>> = {
+  nbsp: ' ',
+  amp: '&',
+  lt: '<',
+  gt: '>',
+  quot: '"',
+  apos: "'",
+  rsquo: '’',
+  lsquo: '‘',
+  ldquo: '“',
+  rdquo: '”',
+  mdash: '—',
+  ndash: '–',
+  hellip: '…',
+  sect: '§',
+  para: '¶',
+  middot: '·',
+  bull: '•',
+  deg: '°',
+  pound: '£',
+  euro: '€',
+  cent: '¢',
+  copy: '©',
+  reg: '®',
+  trade: '™',
+  times: '×',
+  minus: '−',
+  frac12: '½',
+  eacute: 'é',
+  uuml: 'ü',
+};
+
+/**
+ * Decodes character references.
+ *
+ * The numeric branch exists because of a real miss. This started as a hand-written list of
+ * fourteen NAMED entities and nothing else, and two independently authored profiles hit it: four
+ * faithfully transcribed quotes failed capture because their pages served `&#8211;`, `&#8217;`,
+ * `&#8220;` and `&sect;` rather than the named forms. The quotes were correct and the extractor
+ * was wrong, which is the worst way for an integrity gate to fail — it accuses the citation.
+ */
+function decodeEntities(input: string): string {
+  return input
+    .replace(/&#x([0-9a-f]+);/gi, (_, hex: string) => safeFromCodePoint(parseInt(hex, 16)))
+    .replace(/&#(\d+);/g, (_, dec: string) => safeFromCodePoint(parseInt(dec, 10)))
+    .replace(/&([a-z][a-z0-9]*);/gi, (whole, name: string) => NAMED_ENTITIES[name.toLowerCase()] ?? whole);
+}
+
+function safeFromCodePoint(code: number): string {
+  if (!Number.isFinite(code) || code < 0 || code > 0x10ffff) return '';
+  try {
+    return String.fromCodePoint(code);
+  } catch {
+    return '';
+  }
+}
+
 /** Strips markup to the visible text a quote would have been read from. */
 export function extractText(html: string): string {
   const withoutScripts = html.replace(/<(script|style|noscript)[^>]*>[\s\S]*?<\/\1>/gi, ' ');
   const withoutTags = withoutScripts.replace(/<[^>]+>/g, ' ');
-  const unescaped = withoutTags
-    .replace(/&nbsp;/g, ' ')
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/&#x27;/g, "'")
-    .replace(/&rsquo;/g, '’')
-    .replace(/&lsquo;/g, '‘')
-    .replace(/&ldquo;/g, '“')
-    .replace(/&rdquo;/g, '”')
-    .replace(/&mdash;/g, '—')
-    .replace(/&ndash;/g, '–');
-  return unescaped.replace(/\s+/g, ' ').trim();
+  return decodeEntities(withoutTags).replace(/\s+/g, ' ').trim();
 }

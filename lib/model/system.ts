@@ -431,7 +431,7 @@ export function validateLifecycle(system: SystemDefinition): StructuralIssue[] {
    * fails, and so does a marker on a movement that has since become buildable — otherwise the
    * escape hatch rots into exactly the kind of stale annotation it was introduced to replace.
    */
-  const declared = new Set(system.lifecycle.transitions.map((t) => `${t.from} ${t.to}`));
+  const declared = new Set(system.lifecycle.transitions.map((t) => `${t.from}\u0000${t.to}`));
   for (const mode of system.failureModes) {
     if (mode.recoveryPath.shape !== 'MOVES') continue;
     for (const move of mode.recoveryPath.moves) {
@@ -443,7 +443,7 @@ export function validateLifecycle(system: SystemDefinition): StructuralIssue[] {
         );
         continue;
       }
-      const buildable = declared.has(`${move.from} ${move.to}`);
+      const buildable = declared.has(`${move.from}\u0000${move.to}`);
       if (!buildable && move.unbuildable !== true) {
         push(
           'UNBUILDABLE_RECOVERY',

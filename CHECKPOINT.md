@@ -3,7 +3,56 @@
 > One per accepted package (Constitution §14). Repository truth is authoritative; this file
 > is an index, not a source. Append the new checkpoint above the previous one.
 
-## Current — Kestrel's recurring revenue stops being made up in volume · 2026-08-28
+## Current — Two parallel authors found four defects in the gate · 2026-08-28
+
+**Verified state.** `npm run verify`: 76 files, 1214 passed / 1 skipped, exit 0. `npm run build`:
+compiled successfully, exit 0.
+
+**Proof claim earned.** The grounding gate stops rejecting good evidence and stops accepting bad
+evidence. Two Stage B agents authored profiles independently and both reported the same
+obstructions; every one was a defect in this repository, not in their work. Each was reproduced
+here before being fixed.
+
+| Defect | Consequence | Fix |
+| --- | --- | --- |
+| `extractText` decoded 14 named entities and no numeric references | Four faithfully transcribed quotes failed capture. **The gate accused the citation when the extractor was wrong.** | Decimal and hex references decoded generically; named set widened |
+| PDFs ran through the HTML tag stripper | Worse than failing — a quote can **coincidentally match** inside binary metadata, so the gate could PASS on garbage. Verified: `f8879.pdf` yielded 38,715 chars of object stream in which a real phrase matched | Content type detected, PDF text parsed properly, `contentKind` recorded |
+| Captures keyed by `(profileId, url)` | One page could support only one claim | Keyed by quote as well |
+| `tests/seam.test.ts` required a hand-added profile id | **Registration required editing a test the packet forbids authors to touch.** Neither agent could hand back a green tree, however good the profile | Lexicon derives registered ids from the register |
+
+**The PDF defect was the expensive one.** Regulator publications and standards-body benchmarks are
+almost always PDFs, so the gate had been quietly biased toward vendor blogs and journalism and
+against primary sources — the opposite of what the evidence standard wants. The accounting author
+put it exactly right, and it cost that profile the AICPA MAP survey, Circular 230, and the IRS
+publications, leaving it grounded on secondary commentary about documents it could not cite.
+Verified fixed end to end: a real IRS PDF now captures as `contentKind: pdf`, 11,144 characters of
+readable text, quote located at offset 82.
+
+**A fifth defect surfaced while fixing them, and the suite could never have caught it.** Two
+committed source files contained **raw NUL bytes** used as composite-key delimiters — valid
+TypeScript, identical at runtime, all tests green. What they broke was the toolchain: `grep` and
+`sed` treat such files as binary and go silent. Earlier this session `grep` returned nothing on a
+506-line file and that was written off as tool flakiness rather than investigated; it was this. It
+also defeated three consecutive edit attempts against text that was visibly present. Converted to
+`\u0000` escapes, and `tests/source-hygiene.test.ts` now fails if a raw NUL returns.
+
+**Falsification.** 4 mutations, each separately confirmed to fail — reintroducing a raw NUL, a
+capture claiming `html` while retaining PDF bytes, an unrecognised `contentKind`, and the seam
+lexicon ceasing to derive ids. All restored and verified.
+
+**Maturity.** Unchanged. $0 spent.
+
+**Patterns.** #30 earned — a defect the suite cannot see is one the toolchain will hide. #28 and
+#29 amended rather than duplicated: both were written this session and both were wrong in ways
+only an independent author could reveal.
+
+**Next package.** Admit `stratum` and `ledgerline` once the third brief lands, or sooner if
+waiting is not worth it. Both handbacks are held and both now merge with a single register edit.
+Two things to weigh at merge: `ledgerline` reports that "Ledgerline" is a real accounting firm and
+trades under `Ashcombe CPAs & Advisors` while keeping the slug, and `stratum` states plainly that
+its own firm name was never checked against a company register. Neither agent hid it.
+
+## Earlier — Kestrel's recurring revenue stops being made up in volume · 2026-08-28
 
 **Verified state.** `npm run verify`: 75 files, 1212 passed / 1 skipped, exit 0. `npm run build`:
 compiled successfully, exit 0.

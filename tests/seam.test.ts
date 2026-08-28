@@ -16,9 +16,8 @@ import { REGISTERED_PROFILES } from '@/data/profiles';
 
 const SYSTEMS_DIR = join(process.cwd(), 'data', 'systems');
 
-/** Vocabulary belonging to the Kestrel profile, which must never appear in a system definition. */
-const FORBIDDEN = [
-  'kestrel',
+/** Hand-curated vocabulary that must never appear in a system definition. */
+const CURATED_VOCABULARY = [
   'soc 2',
   'soc2',
   'iso 27001',
@@ -42,10 +41,26 @@ const FORBIDDEN = [
   // Meridian's own vocabulary. `localisation` and `linguist` are distinctive to that trade and
   // appear nowhere in `data/systems/**`; its generic operational words deliberately are not
   // listed, because they legitimately belong to the systems as well.
-  'meridian',
   'localisation',
   'linguist',
 ];
+
+/**
+ * Every registered profile's own id, DERIVED rather than remembered.
+ *
+ * This was a hand-maintained entry per profile, and it created a contradiction that made the
+ * parallel-authoring workflow impossible: registering a profile required adding its id here, but
+ * `docs/PROFILE_AUTHORING_PACKET.md` rule 2.1 forbids a profile author from editing tests. Two
+ * independently authored profiles hit it on the same day and both reported the same thing — they
+ * could not hand back a state where `npm run verify` was green, however good the profile was.
+ *
+ * The id was always the one part of this lexicon that did not need remembering. Deriving it means
+ * registering a profile guards its id automatically, and the packet's prohibition and this file's
+ * requirement stop disagreeing.
+ */
+const REGISTERED_IDS = REGISTERED_PROFILES.map((entry) => entry.profile.id.toLowerCase());
+
+const FORBIDDEN = [...CURATED_VOCABULARY, ...REGISTERED_IDS];
 
 function systemFiles(): string[] {
   return readdirSync(SYSTEMS_DIR)
@@ -81,38 +96,39 @@ describe('profile / system seam', () => {
   );
 
   /**
-   * THE LEXICON ABOVE FAILS OPEN, AND THIS IS THE ONE PART OF IT THAT DOES NOT.
+   * THE CURATED HALF FAILS OPEN. THE DERIVED HALF DOES NOT.
    *
-   * `FORBIDDEN` is remembered, not derived: it guards the terms somebody thought of. That was
-   * survivable with one profile and is not with several, because a profile can now be added
-   * whose vocabulary nothing on that list covers, and the seam would report clean while leaking.
+   * `CURATED_VOCABULARY` guards the terms somebody thought of, and a term nobody remembered is
+   * exactly how `bramwell` — a Kestrel client name — came to sit inside a system definition with
+   * the whole suite green.
    *
-   * Deriving the whole lexicon from the register was tried and does not work. Every naming
-   * field across both profiles yields ~95 terms of which ~70 ALREADY appear legitimately in
-   * `data/systems/**` — "approval", "review", "client", "proposal" — so the allowance list
-   * needed to make it usable would be larger, and more hand-maintained, than the blacklist it
-   * replaced. Narrowing to proper nouns cuts the noise but misses the terms that matter most:
-   * `halcyon`, `northwind`, and `vantage ledger` are fictional CLIENT names living in
-   * `data/profiles/<id>/scenarios/**`, not in `profile.ts`, so no extraction from the profile
-   * object finds them. Recorded as a dead end rather than half-built.
+   * Deriving the WHOLE lexicon was tried and does not work. Every naming field across the
+   * registered profiles yields ~95 terms, ~70 of which already appear legitimately in
+   * `data/systems/**` — "approval", "review", "client", "proposal" — so the allowance list needed
+   * to make it usable would be larger and more hand-maintained than the blacklist it replaced.
+   * Narrowing to proper nouns cuts the noise but misses the terms that matter most: `halcyon`,
+   * `northwind`, and `vantage ledger` are fictional CLIENT names living in
+   * `data/profiles/<id>/scenarios/**` rather than in `profile.ts`, so no extraction from the
+   * profile object reaches them. Recorded as a dead end rather than half-built.
    *
-   * What IS exact is a profile's own id. It is guaranteed distinctive, it is the term most
-   * likely to be typed into a system definition by someone working on that profile, and
-   * requiring it here means a new profile cannot be registered without its author meeting this
-   * list. That is a smaller claim than a derived lexicon and it is one that actually holds.
+   * A profile's own id is the exception, and it is now derived into `FORBIDDEN` rather than
+   * copied there by hand. These tests assert the derivation actually happened — a silent break
+   * in it would remove a guard while every scan below still reported clean.
    */
-  describe.each(REGISTERED_PROFILES.map((r) => [r.profile.id] as const))(
-    'registered profile %s',
-    (id) => {
-      it('has its own id in the forbidden lexicon', () => {
-        expect(
-          FORBIDDEN,
-          `"${id}" is registered as a profile but is not guarded here, so writing it into a ` +
-            'system definition would leak the seam with every test still green. Add it.',
-        ).toContain(id.toLowerCase());
-      });
-    },
-  );
+  it('derives an id for every registered profile', () => {
+    expect(REGISTERED_IDS.length).toBe(REGISTERED_PROFILES.length);
+    expect(REGISTERED_IDS.length, 'no profiles are registered, so the scans assert nothing').toBeGreaterThan(0);
+  });
+
+  it('carries every derived id into the lexicon the scans actually use', () => {
+    const missing = REGISTERED_IDS.filter((id) => !FORBIDDEN.includes(id));
+    expect(
+      missing,
+      'a registered profile id is not in FORBIDDEN, so writing it into a system definition would ' +
+        'leak the seam with every test still green.',
+    ).toEqual([]);
+  });
+
 
   it('keeps the engine core free of business vocabulary too', () => {
     const enginePath = join(process.cwd(), 'lib', 'engine', 'reducer.ts');

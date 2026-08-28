@@ -39,6 +39,23 @@ interface Failure {
   readonly reason: string;
 }
 
+/**
+ * Minimal slice of `unpdf`, declared locally and loaded through a variable specifier so
+ * `next build` — which typechecks `scripts/` — never needs the package resolved to compile.
+ */
+interface UnpdfSlice {
+  getDocumentProxy(data: Uint8Array): Promise<unknown>;
+  extractText(doc: unknown, options: { mergePages: boolean }): Promise<{ text: string | string[] }>;
+}
+
+async function pdfToText(bytes: Uint8Array): Promise<string> {
+  const specifier = 'unpdf';
+  const unpdf = (await import(/* webpackIgnore: true */ specifier)) as unknown as UnpdfSlice;
+  const doc = await unpdf.getDocumentProxy(bytes);
+  const { text } = await unpdf.extractText(doc, { mergePages: true });
+  return (Array.isArray(text) ? text.join(' ') : text).replace(/\s+/g, ' ').trim();
+}
+
 async function capture(
   profileId: string,
   url: string,
@@ -47,7 +64,7 @@ async function capture(
 ): Promise<GroundingCaptureEntry | Failure> {
   let response: Response;
   try {
-    response = await fetch(url, { headers: { 'user-agent': USER_AGENT, accept: 'text/html,*/*' }, redirect: 'follow' });
+    response = await fetch(url, { headers: { 'user-agent': USER_AGENT, accept: 'text/html,application/pdf,*/*' }, redirect: 'follow' });
   } catch (error) {
     return { profileId, url, reason: `did not resolve: ${error instanceof Error ? error.message : String(error)}` };
   }
@@ -56,7 +73,26 @@ async function capture(
     return { profileId, url, reason: `answered HTTP ${response.status}` };
   }
 
-  const text = extractText(await response.text());
+  // Decided by content type, never by the URL's extension: plenty of PDFs are served from paths
+  // that do not end in .pdf, and running document bytes through a tag stripper is exactly the
+  // failure that lets a quote match binary noise.
+  const contentType = (response.headers.get('content-type') ?? '').toLowerCase();
+  const isPdf = contentType.includes('application/pdf');
+
+  let text: string;
+  if (isPdf) {
+    try {
+      text = await pdfToText(new Uint8Array(await response.arrayBuffer()));
+    } catch (error) {
+      return {
+        profileId,
+        url,
+        reason: `served a PDF that could not be parsed: ${error instanceof Error ? error.message : String(error)}`,
+      };
+    }
+  } else {
+    text = extractText(await response.text());
+  }
   const quoteOffset = text.indexOf(quote);
   if (quoteOffset < 0) {
     return {
@@ -71,6 +107,7 @@ async function capture(
   return {
     profileId,
     url,
+    contentKind: isPdf ? 'pdf' : 'html',
     finalUrl: response.url,
     httpStatus: response.status,
     capturedAt: new Date().toISOString(),

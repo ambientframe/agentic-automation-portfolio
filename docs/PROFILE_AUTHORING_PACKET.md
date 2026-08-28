@@ -163,6 +163,20 @@ correct — that stays interpretation, and a reader is expected to judge it. Whi
 the quote must be real: it is the only part of your citation anyone can check without repeating
 your research.
 
+**PDFs are citeable — prefer them where they are the primary source.** The capture script detects
+content type and parses PDF text properly. Regulator publications, professional-body standards,
+and benchmark reports are usually the strongest evidence available for a trade, and they are
+usually PDFs. Cite the primary document rather than journalism about it wherever you can.
+
+*(This was not always true. An earlier version ran PDF bytes through an HTML tag stripper, so
+every regulator and standards source silently failed to capture and only secondary commentary
+survived — a gate biased toward vendor blogs and against primary sources, which is the opposite
+of what the evidence standard wants. Two profile authors found it. It is fixed.)*
+
+**One page may support more than one claim.** If a dense benchmark page establishes two distinct
+facts, cite it twice with two different quotes. Captures are keyed by quote as well as URL, so
+this works — do not go hunting for a weaker second source to avoid reusing a strong one.
+
 Ground at least these:
 
 - the vocabulary — what practitioners call their work, clients, deliverables, and stages
@@ -210,7 +224,13 @@ Do the arithmetic explicitly before you write the file. Most failures are here.
 
 Several agents are authoring profiles in parallel. If each edits `data/profiles/index.ts` the
 edits collide. **Do not touch that file.** Instead, hand back this block alongside your profile,
-filled in:
+filled in.
+
+**This snippet is now the ONLY merge step.** Registering a profile used to also require adding its
+id by hand to a lexicon inside `tests/seam.test.ts` — which rule 2.1 forbids you from doing, so no
+author could hand back a green tree however good the profile was. Two authors hit that on the same
+day and both reported it. The lexicon now derives registered ids automatically, so registration is
+one edit and `npm run verify` will be green once it is made.
 
 ```ts
 {
