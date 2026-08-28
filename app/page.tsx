@@ -4,6 +4,7 @@ import type { SystemDefinition } from '@/lib/model/system';
 import { KESTREL } from '@/data/profiles/kestrel/profile';
 import { ALL_RUNNABLE_SCENARIOS, RUNNABLE_SYSTEMS } from '@/lib/engine/registry';
 import { MaturityBadge, ProvenanceBadge } from '@/components/badges';
+import { deriveRetargetingEvidence } from '@/lib/proof/retargeting-evidence';
 
 /**
  * Index-First. The page IS the index — six systems, then the runnable incidents.
@@ -13,6 +14,7 @@ import { MaturityBadge, ProvenanceBadge } from '@/components/badges';
  */
 export default function PortfolioPage() {
   const runnable = new Set(ALL_RUNNABLE_SCENARIOS.map((s) => s.systemId));
+  const retargeting = deriveRetargetingEvidence();
 
   return (
     <div className="mx-auto max-w-6xl px-6 py-14 space-y-16">
@@ -57,6 +59,59 @@ export default function PortfolioPage() {
           Every figure above is invented. System definitions carry no business vocabulary, so
           retargeting the portfolio to another vertical is a data change rather than a rewrite.
         </p>
+
+        {/*
+          The sentence above used to end the section, which left the artifact's central
+          commercial claim asserted and unbackable — COMMERCIAL_THESIS.md §5. What follows is
+          the evidence for it, derived from the register at build time so it cannot drift.
+        */}
+        <div className="border-t rule pt-4 space-y-3">
+          <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+            <span className="label">That claim, checked</span>
+            <p className="instrument" style={{ color: 'var(--ink-faint)' }}>
+              {retargeting.businesses.length} businesses · {retargeting.contractKeyCount} contract
+              keys each · {retargeting.authoredScenarioCount} scenarios under every one
+            </p>
+          </div>
+
+          <p className="instrument leading-relaxed prose-measure" style={{ color: 'var(--ink-muted)' }}>
+            Each business below declares the same {retargeting.contractKeyCount} operating
+            parameters the engine reads, and the six systems run against it unchanged. Every
+            authored scenario executes under each profile it was <em>not</em> written for, and
+            each must reach different outcomes from the others in at least three of the six
+            systems — a profile the handlers read and then ignored would fail that. Three of these
+            were authored by separate agents working only from the written packet.
+          </p>
+
+          <ul className="instrument">
+            {retargeting.businesses.map((business) => (
+              <li
+                key={business.id}
+                className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 border-b rule py-2"
+              >
+                <span className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                  <span style={{ color: 'var(--ink)' }}>{business.name}</span>
+                  <span style={{ color: 'var(--ink-faint)' }}>{business.trade}</span>
+                </span>
+                <span className="flex flex-wrap items-baseline gap-x-4 gap-y-1" style={{ color: 'var(--ink-faint)' }}>
+                  <span>{business.headcount} people</span>
+                  <span>${(business.approximateAnnualRevenue / 1_000_000).toFixed(2)}M</span>
+                  <span>{business.groundingSourceCount} sources</span>
+                  {business.isRendered && <span className="badge">Depicted above</span>}
+                </span>
+              </li>
+            ))}
+          </ul>
+
+          <p className="instrument leading-relaxed prose-measure" style={{ color: 'var(--ink-faint)' }}>
+            {retargeting.structuralFixtureCount === 1
+              ? 'One further profile is a structural fixture: it is'
+              : `A further ${retargeting.structuralFixtureCount} profiles are structural fixtures: they are`}{' '}
+            deliberately ungrounded, {retargeting.structuralFixtureCount === 1 ? 'appears' : 'appear'}{' '}
+            on no page as a business, and {retargeting.structuralFixtureCount === 1 ? 'exists' : 'exist'}{' '}
+            only so the seam can be falsified rather than asserted. {retargeting.limit}
+          </p>
+        </div>
       </section>
 
       {/* --- Index one: the six systems ------------------------------------- */}

@@ -3,7 +3,48 @@
 > One per accepted package (Constitution §14). Repository truth is authoritative; this file
 > is an index, not a source. Append the new checkpoint above the previous one.
 
-## Current — Three profiles had never run anything, and now every profile runs everything · 2026-08-28
+## Current — The artifact's central commercial claim stops being asserted · 2026-08-28
+
+**Verified state.** `npm run verify`: 77 files, **1453 passed / 1 skipped**, exit 0. `npm run
+build`: compiled, exit 0. $0 spent.
+
+**Proof claim earned.** `COMMERCIAL_THESIS.md` §5 names retargetability as *the* commercial claim
+the artifact must support. The home page asserted it in one sentence — "retargeting the portfolio
+to another vertical is a data change rather than a rewrite" — and **no rendered surface referenced
+any profile but Kestrel.** A reader had the claim and no way to check it, which under §3 is the one
+thing this artifact must never do. The section now carries the evidence, derived from the register
+at build time by `lib/proof/retargeting-evidence.ts`: four grounded businesses, the seventeen
+contract keys each declares, the twenty-two authored scenarios that run under every profile they
+were not written for, and each firm's headcount, revenue, and grounding-source count.
+
+**It refuses to show the fixture as a business.** Meridian is ungrounded by design — that is what
+lets it falsify the seam — so it is reported as a count and a role and never as a firm. Confirmed
+in the prerendered page: all four business names present, "Meridian" absent entirely. A mutation
+that lets the fixture leak into the list fails the suite.
+
+**The limit ships with the claim, not after it.** The same block states that every business is
+synthetic, that coherent synthetic profiles prove the engine retargets and each firm is internally
+consistent, and that they prove nothing about a real firm's messy inbound. A test asserts the limit
+names both the synthetic bound and the real-firm gap, so it cannot be trimmed to read better.
+
+**Falsification.** 5 mutations: the fixture leaking in as a business, grounding counts written
+rather than read, the contract width hard-coded, the limit ceasing to name the synthetic bound, and
+every business claiming to be the rendered one. Four failed.
+
+**One survived, and it is an equivalent mutant — recorded rather than chased.** Hard-coding
+`contractKeyCount: 17` is undetectable because `PROFILE_ENGINE_CONTRACT.length` *is* 17 today. The
+moment an eighteenth key is added the assertion fails, so the mutation is invisible exactly while
+it is harmless. A source scan could close it; it would be chasing a difference that has no
+consequence until the thing it guards changes, and the guard fires then.
+
+**Maturity. Unchanged.** No customer exists. Four synthetic businesses on one engine is
+retargetability across authored profiles and nothing more.
+
+**Next package.** Kestrel's `explicitlyNot` and vocabulary remain the least-grounded part of the
+reference profile — and it is now the only one of the four demonstrations a visitor sees in depth.
+The model gaps the three profiles surfaced (blocked-vs-overdue first) are the larger prize.
+
+## Earlier — Three profiles had never run anything, and now every profile runs everything · 2026-08-28
 
 **Verified state.** `npm run verify`: 76 files, **1446 passed / 1 skipped**, exit 0. Suite duration
 1.57s. `npm run build`: compiled, exit 0. $0 spent.
