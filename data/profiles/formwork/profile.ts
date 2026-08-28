@@ -7,10 +7,11 @@ import { BusinessProfileSchema, type BusinessProfile } from '@/lib/model/profile
  * schema pins `provenance` to the FIXTURE literal so none of it can be read as a researched
  * benchmark about a real firm.
  *
- * Synthetic is not arbitrary. The vocabulary, the authority model, and four of the seventeen
- * operating thresholds are CALIBRATED against sources cited from `data/profiles/index.ts`.
- * Those sources establish facts about US architecture and engineering practice; they say
- * nothing about this firm, which does not exist.
+ * Synthetic is not arbitrary. The authority model, the contractual boundaries, and five of the
+ * seventeen operating thresholds are CALIBRATED against sources cited from
+ * `data/profiles/index.ts` and retained in `docs/evidence/grounding-captures.json`. Those
+ * sources establish facts about US architecture and engineering practice; they say nothing
+ * about this firm, which does not exist.
  *
  * WHAT IS GROUNDED AND WHAT IS CHOSEN — stated here because the distinction is the whole
  * point, and because the research behind this profile found far less published convention
@@ -20,9 +21,11 @@ import { BusinessProfileSchema, type BusinessProfile } from '@/lib/model/profile
  *              design-led practice of this size); receivables escalation to a principal at
  *              45 days past due and principal-to-principal correspondence beyond 90; the 10%
  *              variance that demands immediate management review; the weekly work-in-progress
- *              rhythm the review and staleness windows are set against; who may sign and seal
- *              a technical submission and what responsible control does not include.
- *   CHOSEN     the project/recurring split, and thirteen of the seventeen thresholds. No
+ *              rhythm the review and staleness windows are set against; final approval of an
+ *              outbound fee proposal sitting with the principal; who may sign and seal a
+ *              technical submission and what responsible control does not include; and every
+ *              boundary in `explicitlyNot` that the owner–architect agreement itself states.
+ *   CHOSEN     the project/recurring split, and twelve of the seventeen thresholds. No
  *              retrieved AIA, ACEC, Zweig, Deltek, or SMPS material publishes a
  *              seconds/minutes/hours SLA for enquiry handling, human review, dispatch,
  *              reactivation, or entity matching, and the one architecture-specific source on
@@ -30,24 +33,30 @@ import { BusinessProfileSchema, type BusinessProfile } from '@/lib/model/profile
  *              fictional firm's own risk tolerance, not an industry finding, and each says so
  *              in the policy it implements.
  *
- * A THIRD CATEGORY, AND IT MUST NOT BE READ AS THE FIRST. Several claims below rest on
- * research that is real but that this repository CANNOT MECHANICALLY RETAIN, so they are
- * absent from the register and from `docs/evidence/grounding-captures.json`:
+ * A THIRD CATEGORY, AND IT MUST NOT BE READ AS THE FIRST. Some claims below rest on research
+ * that is real but that this repository cannot retain, so it is absent from the register and
+ * from `docs/evidence/grounding-captures.json`. After the grounding gate learned to decode
+ * numeric character references and to parse PDFs properly, exactly one obstruction is left,
+ * and it is a network refusal rather than a defect here:
  *
- *   - The five Basic Services phase names, `Instruments of Service`, the professional-conduct
- *     rule against misleading a prospective client about achievable results, and the position
- *     definitions that put proposal preparation with a project manager all come from the
- *     trade institute's own pages, which answer HTTP 403 to automated retrieval.
- *   - The standard of care, the refusal to warrant bids or prices, the disclaimer of control
- *     over means and methods, and the requirement for each party's full legal name come from
- *     the standard owner–architect agreement, published as a PDF that `extractText` reads as
- *     binary.
- *   - The published guidance placing final fee-proposal approval with the firm's principal
- *     encodes its apostrophe as a numeric HTML entity the extractor does not decode.
+ *   - The five Basic Services phase names, the term `Instruments of Service`, the
+ *     professional-conduct rule against misleading a prospective client about achievable
+ *     results, and the position definitions that put proposal preparation with a project
+ *     manager rather than approval, all come from the trade institute's own pages. Every one
+ *     of them answers HTTP 403 to automated retrieval, so none can be captured.
  *
- * These are cited in the authoring report, not here as though captured. `proposalAuthorityCeiling`
- * is the one engine threshold that depends on them, and it is therefore the weakest-evidenced
- * number in this profile even though the underlying research is the clearest.
+ * The vocabulary this profile is built on is therefore its least evidenced part, which is an
+ * uncomfortable place for the gap to sit — `pipelineStages`, the phase language in
+ * `serviceLines`, and the deliverable term all depend on it. The contractual boundaries in
+ * `explicitlyNot` and the standard of care behind `formwork-confidence-floor` ARE captured,
+ * from the standard owner–architect agreement itself.
+ *
+ * ONE FIGURE IS WEAKER THAN THE RESEARCH BEHIND IT LOOKED. `closeRatePct` is 45. The
+ * retrievable evidence establishes a median win rate of 50.0% across a large A/E study; the
+ * architecture-specific 45% the Stage A research reported was flagged unverified in that
+ * research and could not be confirmed here. So 45 is a CHOICE seated below a verified median,
+ * on the reasoning that a 28-person practice competing on qualifications against larger firms
+ * should not be modelled as winning at the median of a population those firms dominate.
  *
  * The figures are deliberately reconcilable rather than precise:
  *   18 commissions x $230,000            = $4.14M project revenue     (82% of mix)
@@ -468,7 +477,7 @@ const RAW = {
       verification: 'NOT_APPLICABLE',
       sourceIds: [],
       appliesTo:
-        'Bounded AI judgement. The NUMBER is chosen. The reason it is high rests on the third category named in this file’s docstring — professional conduct rules forbid misleading a prospective client about the results achievable through the practice’s services, and performance is measured against the skill and care ordinarily provided by architects in the same locality, not against a confidence score. Neither standard is satisfied by a machine being usually right, so the floor sits well above where a lower-stakes business would set it.',
+        'Bounded AI judgement. The NUMBER is chosen; the reason it sits this high is grounded. The owner–architect agreement measures performance against the professional skill and care ordinarily provided by architects practising in the same or similar locality — a comparative standard, not a score — and professional conduct rules separately forbid misleading a prospective client about the results achievable through the practice’s services. The first of those is captured; the second is the trade institute page that cannot be retrieved. Neither standard is satisfied by a machine being usually right, so the floor sits well above where a lower-stakes business would set it.',
     },
     {
       id: 'formwork-reply-wait-window',
@@ -544,7 +553,7 @@ const RAW = {
       verification: 'NOT_APPLICABLE',
       sourceIds: [],
       appliesTo:
-        'The authority required for outbound commercial documents, set at the top of the ladder. Published practice guidance on architectural fee proposals puts final approval with the firm’s principal after internal review, and the position definitions this trade’s institute publishes have the project manager preparing proposals rather than approving them — but both of those sources fall in the third category named in this file’s docstring and are absent from the retained captures, which makes this the weakest-evidenced threshold here. The consequence is deliberate and uncomfortable: there is exactly one desk a fee proposal can clear, and it belongs to a person who is also selling and designing.',
+        'The authority required for outbound commercial documents, set at the top of the ladder. CALIBRATED: published guidance on architectural fee proposals treats final approval by the firm’s principal, after internal review, as the normal last step before delivery, and that source is captured. The corroborating half is not — the trade institute’s position definitions, which have a project manager PREPARING proposals rather than approving them, sit behind the HTTP 403 named in this file’s docstring. The consequence of the number is deliberate and uncomfortable: because only one role holds authority 4, there is exactly one desk a fee proposal can clear, and it belongs to a person who is also selling and designing.',
     },
     {
       id: 'formwork-proposal-approval-window',
