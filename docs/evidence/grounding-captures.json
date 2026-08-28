@@ -1,7 +1,7 @@
 {
   "schemaVersion": "grounding-capture-1",
-  "capturedAt": "2026-08-28T06:05:53.697Z",
-  "gitHead": "f877fd0f85a56e7c5aa5b39e914db8d506d5eff7",
+  "capturedAt": "2026-08-28T06:18:34.620Z",
+  "gitHead": "67b5b0fd712e73361426ed0c97e5392de3af0d94",
   "scopeStatement": "Each entry records that a cited URL resolved at the stated time with the stated status, and that the stated verbatim quote was present in the text retrieved from it. The surrounding context is retained so the quote can be read where it appeared rather than in isolation.",
   "doesNotProve": [
     "It does not prove that the claim in `establishes` follows from the quoted material. That is interpretation, no artifact can validate it, and a reader is expected to judge it for themselves — which is what retaining the quote and its context is for.",
@@ -16,7 +16,7 @@
       "url": "https://www.rocketlane.com/blogs/professional-services-maturity-index-2026",
       "finalUrl": "https://www.rocketlane.com/blogs/professional-services-maturity-index-2026",
       "httpStatus": 200,
-      "capturedAt": "2026-08-28T06:05:53.697Z",
+      "capturedAt": "2026-08-28T06:18:34.607Z",
       "contentSha256": "23b4f64161d0a1cbefe24d6060683a9879aac29fe6b9620f1458d5aa7db8ced4",
       "contentLength": 61217,
       "quote": "Revenue per employee climbed 6% to $168k",
@@ -29,7 +29,7 @@
       "url": "https://www.brightdefense.com/resources/soc-2-certification-cost/",
       "finalUrl": "https://www.brightdefense.com/resources/soc-2-certification-cost/",
       "httpStatus": 200,
-      "capturedAt": "2026-08-28T06:05:53.562Z",
+      "capturedAt": "2026-08-28T06:18:34.615Z",
       "contentSha256": "289886a89df0c480bbffc98dd5f8fc57e0e1fee42a1b5eba04c3838c4c912478",
       "contentLength": 21812,
       "quote": "A readiness assessment helps organizations pinpoint weaknesses, usually costing $5,000 to $20,000. Policy development and documentation may add another $5,000 to $15,000 if outsourced.",
@@ -42,13 +42,13 @@
       "url": "https://sidechannel.com/blog/the-ultimate-guide-to-vciso-pricing-everything-you-need-to-know/",
       "finalUrl": "https://sidechannel.com/blog/the-ultimate-guide-to-vciso-pricing-everything-you-need-to-know/",
       "httpStatus": 200,
-      "capturedAt": "2026-08-28T06:05:53.499Z",
+      "capturedAt": "2026-08-28T06:18:34.620Z",
       "contentSha256": "eaafb4ef40238ea1dba41b34d0a7e40f612019370c2f379791aeb85b8feba401",
       "contentLength": 18993,
       "quote": "For most mid-market companies, vCISO pricing runs $3,000 to $12,000 per month.",
       "quoteOffset": 1900,
       "context": "e of the organization, and the level of expertise required. Organizations today face significant cybersecurity challenges without the budget for a full-time security executive. A Virtual Chief Information Security Officer ( vCISO ) fills that gap — providing the security leadership of a CISO at a fraction of the cost. For most mid-market companies, vCISO pricing runs $3,000 to $12,000 per month. That range shifts based on company size, industry, scope of services, and the experience of the practitioner. This guide covers what drives that number and how to budget for it. I co-authored Cybersecurity Risk Management: Mastering the Fundamentals Using the NIST Cybersecurity Framework (Wiley, 2022) and have built v",
-      "claimSha256": "72b7e03c46a50073802f16ba2fa229109e0e1663e713dcd96c851adc9070e0c0"
+      "claimSha256": "e819fd56c51aacc95d1d0ad82a729c8b3ad385e5f4f0790033a8a817325fd483"
     }
   ]
 }

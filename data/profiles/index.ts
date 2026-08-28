@@ -73,12 +73,17 @@ export const MINIMUM_GROUNDING_SOURCES = 3;
  * research, and predating the requirement it failed. It has since been grounded against three
  * published 2026 benchmarks and removed.
  *
- * Its figures were not edited to fit those benchmarks. Two sit comfortably inside the published
- * ranges and one — the vCISO retainer — sits at the floor of its band for the segment claimed;
- * that divergence is recorded on the profile's grounding sources rather than corrected, because
- * changing the number would move every scenario and expected outcome built on it. Grounded means
- * anchored in retrievable evidence INCLUDING where it departs from that evidence, never that
- * every figure matched.
+ * Grounded means its figures are SYNTHETIC ASSUMPTIONS CALIBRATED against retrievable evidence.
+ * It never means a source verified a figure about Kestrel — no source can, because Kestrel does
+ * not exist. Each grounding note therefore separates the industry fact from our calibration, and
+ * says which is which.
+ *
+ * Two figures sat comfortably inside their published ranges from the start. The third did not:
+ * the vCISO retainer sat at the very floor of its band while the profile claimed a mid-market
+ * segment, spread across an implausible number of concurrent relationships for the headcount.
+ * That was published as a divergence for a day and then fixed on 2026-08-28, once it was clear
+ * the blast radius was one equation rather than every scenario. Publishing a gap is not a
+ * substitute for closing one that is cheap to close.
  *
  * `tests/profile-register.test.ts` pins this list. It may shrink; it has. Growing it means an
  * ungrounded business was shown to a visitor, which is a deliberate act that should require
@@ -92,10 +97,10 @@ export const REGISTERED_PROFILES: readonly RegisteredProfile[] = [
     role: 'DEMONSTRATION',
     note:
       'The reference business. Every rendered surface depicts this firm, and the six systems were built against its lifecycle. ' +
-      'Originally derived from the retained brief in docs/source/ rather than from research, and grounded afterwards against ' +
-      'published 2026 benchmarks. Its figures were NOT changed to fit those benchmarks — where one sits at the edge of the ' +
-      'published range, the divergence is recorded below rather than corrected, because altering the profile would move ' +
-      'every scenario and expected outcome built on it.',
+      'Originally derived from the retained brief in docs/source/ rather than from research, and calibrated afterwards ' +
+      'against published 2026 benchmarks whose source material is retained in docs/evidence/grounding-captures.json. ' +
+      'Every figure below is a synthetic assumption; the sources describe the industry and verify nothing about this ' +
+      'firm. Retainer economics were recalibrated on 2026-08-28 from 33 clients at $3,200/month to 20 at $5,000.',
     groundingSources: [
       {
         url: 'https://www.rocketlane.com/blogs/professional-services-maturity-index-2026',
@@ -114,7 +119,7 @@ export const REGISTERED_PROFILES: readonly RegisteredProfile[] = [
         url: 'https://sidechannel.com/blog/the-ultimate-guide-to-vciso-pricing-everything-you-need-to-know/',
         quote: 'For most mid-market companies, vCISO pricing runs $3,000 to $12,000 per month.',
         establishes:
-          'INDUSTRY FACT: mid-market vCISO retainers run $3,000–$12,000 per month. OUR CALIBRATION: Kestrel’s synthetic $3,200/month sits at the very floor of that band while the profile claims a mid-market segment — a weak assumption we have chosen rather than a fact the source supports, and one flagged for recalibration.',
+          'INDUSTRY FACT: mid-market vCISO retainers run $3,000–$12,000 per month. OUR CALIBRATION: Kestrel’s synthetic average retainer of $5,000/month across 20 clients is an assumption chosen to sit inside that band rather than at its floor. It was $3,200 across 33 clients until 2026-08-28, which put the rate at the band’s edge and the relationship count implausibly high for 14 staff. The source describes an industry; it verifies nothing about this firm, which does not exist.',
       },
     ],
   },

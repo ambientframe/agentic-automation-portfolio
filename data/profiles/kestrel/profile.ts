@@ -3,15 +3,26 @@ import { BusinessProfileSchema, type BusinessProfile } from '@/lib/model/profile
 /**
  * KESTREL COMPLIANCE GROUP — a fictional demonstration business.
  *
- * EVERY NUMBER AND FACT BELOW IS INVENTED. None of it is researched, benchmarked, or
- * drawn from a real company. The schema pins `provenance` to the FIXTURE literal so
- * this can never be confused with the evidence ledger.
+ * EVERY NUMBER AND FACT BELOW IS SYNTHETIC. No real company is described here, and the
+ * schema pins `provenance` to the FIXTURE literal so this can never be confused with the
+ * evidence ledger.
+ *
+ * Synthetic is not arbitrary. The economics are CALIBRATED against published industry
+ * benchmarks, retained with their source material in `docs/evidence/grounding-captures.json`
+ * and cited from `data/profiles/index.ts`. Those sources establish facts about the industry;
+ * they say nothing about this firm, which does not exist. Where a figure is chosen rather
+ * than derived, the register says so.
  *
  * The figures are deliberately reconcilable rather than precise:
  *   60 engagements x $32,000            = $1.92M project revenue      (60% of mix)
- *   33 retainers x $3,200 x 12          = $1.27M recurring revenue    (40% of mix)
+ *   20 retainers x $5,000 x 12          = $1.20M recurring revenue    (40% of mix)
  *   720 leads x 38% qualified x 22% won = 60.2 engagements            (funnel closes)
  *   $3.2M / 14 people                   = $229k per head              (plausible band)
+ *
+ * The retainer figures were recalibrated on 2026-08-28. They had been 33 clients at
+ * $3,200/month — a rate at the very floor of the $3,000–$12,000 mid-market band the captured
+ * source names, held by an implausible number of concurrent relationships for 14 staff. Both
+ * tells pointed the same way: recurring revenue made up in volume rather than in rate.
  *
  * `validateProfileConsistency` enforces all of this, so a careless edit to one figure
  * fails a test rather than quietly producing contradictory KPIs across the six systems.
@@ -87,7 +98,7 @@ const RAW = {
       description:
         'Ongoing evidence collection, control monitoring, drift detection, and audit liaison. Value shown is the monthly retainer fee.',
       deliveryModel: 'RECURRING',
-      typicalValue: 3_200,
+      typicalValue: 5_500,
     },
     {
       id: 'fractional-security-officer',
@@ -95,7 +106,7 @@ const RAW = {
       description:
         'Named senior contact for customer security reviews, vendor assessments, and board reporting. Value shown is the monthly retainer fee.',
       deliveryModel: 'RECURRING',
-      typicalValue: 2_400,
+      typicalValue: 4_000,
     },
   ],
 
@@ -104,8 +115,8 @@ const RAW = {
   derivedEconomics: {
     newProjectEngagementsPerYear: 60,
     averageProjectValue: 32_000,
-    activeRetainerClients: 33,
-    averageRetainerMonthlyFee: 3_200,
+    activeRetainerClients: 20,
+    averageRetainerMonthlyFee: 5_000,
     leadsPerYear: 720,
     qualifiedRatePct: 38,
     closeRatePct: 22,

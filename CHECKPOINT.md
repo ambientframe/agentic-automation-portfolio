@@ -3,7 +3,51 @@
 > One per accepted package (Constitution §14). Repository truth is authoritative; this file
 > is an index, not a source. Append the new checkpoint above the previous one.
 
-## Current — A citation nobody opened now fails loudly · 2026-08-28
+## Current — Kestrel's recurring revenue stops being made up in volume · 2026-08-28
+
+**Verified state.** `npm run verify`: 75 files, 1212 passed / 1 skipped, exit 0. `npm run build`:
+compiled successfully, exit 0.
+
+**Proof claim earned.** Kestrel's retainer economics move from 33 clients at $3,200/month to
+**20 at $5,000**. The old rate sat at the very floor of the $3,000–$12,000 mid-market band its own
+captured source names, while the profile claimed a mid-market segment; 33 concurrent retainer
+relationships alongside 60 annual projects was high for 14 staff. Both tells pointed the same way
+— recurring revenue made up in volume rather than in rate. One change fixes both.
+
+**Round numbers, no manufactured precision.** 20 × $5,000 × 12 = $1.20M against a 40% target of
+$1.28M — 6.25% off, well inside the 15% tolerance that exists because these are approximations.
+Revenue, headcount, mix, and revenue-per-head are untouched. Two service-line values moved with it
+($5,500 managed compliance, $4,000 fractional officer), correcting a pre-existing incoherence
+where the blended average equalled the higher of the two lines rather than sitting between them.
+
+**The gate worked on its author.** Editing the grounding note broke `claimSha256` and the suite
+failed loudly with "re-capture rather than adjusting the hash". Re-captured, as prescribed. That
+is the citation gate from the previous package catching a real claim-drift the same day it was
+built, on the person who built it.
+
+**Wording corrected throughout.** The profile docstring claimed "None of it is researched,
+benchmarked" — false since the grounding package. Grounded now means **synthetic assumptions
+calibrated against retrievable evidence**, never that a source verified a figure about a firm that
+does not exist. Each note separates `INDUSTRY FACT` from `OUR CALIBRATION`.
+
+**Publishing a gap is not a substitute for closing a cheap one.** The divergence was published for
+a day on the belief that changing it would cascade. It would not: the blast radius was one
+equation, no scenario and no test quotes either figure. The register now says that plainly rather
+than presenting the earlier restraint as rigour.
+
+**Falsification.** 2 mutations, each separately confirmed to fail — the old rate against the new
+client count, and the old count against the new rate. Both break `validateProfileConsistency`.
+Restored byte-for-byte, verified by MD5.
+
+**Maturity.** Unchanged. Kestrel remains fictional and labelled as such. $0 spent.
+
+**Next package.** Admit the Bot-authored profiles as grounded evidence when the briefs arrive. The
+packet now requires a verbatim quote per source and `scripts/capture-grounding.ts` refuses to
+write unless every quote is found, so their citations face the gate on arrival rather than after.
+Outside that sequence, one item remains open: the fidelity ledger has no row for independent
+verification, so a capability proven live this session is still invisible on the buyer surface.
+
+## Earlier — A citation nobody opened now fails loudly · 2026-08-28
 
 **Verified state.** `npm run verify`: 75 files, 1212 passed / 1 skipped, exit 0. `npm run build`:
 compiled successfully, exit 0.
