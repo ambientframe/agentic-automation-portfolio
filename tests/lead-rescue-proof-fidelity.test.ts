@@ -23,6 +23,7 @@ import {
   readEvaluationEvidence,
   readRuntimeEvidence,
   type EvaluationEvidence,
+  type RemoteVerificationEvidence,
   type RuntimeEvidence,
 } from '@/lib/proof/n8n-evidence';
 
@@ -73,6 +74,24 @@ const EVALUATED: Extract<EvaluationEvidence, { kind: 'PRESENT' }> = {
   safetyReading: 'every miss routed to a person',
   scopeStatement: 'local capture of a synthetic corpus',
   doesNotProve: ['NOT production traffic', 'NOT a production deployment'],
+  unrecognisedShape: false,
+};
+
+/** Shaped after the retained capture: a confirmation carrying the RECEIVER's id, and a
+ *  never-seen key that stayed unknown. Both halves are required — see the row's docstring. */
+const VERIFIED: Extract<RemoteVerificationEvidence, { kind: 'PRESENT' }> = {
+  kind: 'PRESENT',
+  capturedAt: '2026-08-28T05:55:56.221Z',
+  gitHead: '9e5c00f876679fcee60ab7fad36ae889d7f0c874',
+  receiverOrigin: 'https://ambientframes.app.n8n.cloud',
+  receiverOnThisMachine: false,
+  confirmedKind: 'CONFIRMED_EXECUTED',
+  confirmedExternalId: '8',
+  absentKind: 'STILL_UNKNOWN',
+  neverConfirmsANegative: true,
+  unconfiguredBehaviour: 'refused with AttemptUnavailableError',
+  scopeStatement: 'one confirmable delivery and one honest unknown',
+  doesNotProve: ['NOT live for a client', 'NOT proof a person read anything'],
   unrecognisedShape: false,
 };
 
@@ -221,6 +240,79 @@ describe('the ledger reports configuration, and never improves on it', () => {
 
     const proven = ledgerFor({ evidence: PROVEN, evaluation: NO_EVAL, env: {} });
     expect(proven.rows.find((entry) => entry.id === 'n8n-orchestration')?.status).toBe('REAL');
+  });
+
+  it('reports independent verification, and holds it at unverified without a readable capture', () => {
+    const absent = ledgerFor({ evidence: ABSENT, evaluation: NO_EVAL, env: {} });
+    const row = absent.rows.find((entry) => entry.id === 'remote-verification');
+    expect(row, 'the ledger has no row for independent verification').toBeDefined();
+    expect(row?.status).toBe('UNVERIFIED');
+    expect(row?.whatIsTrue).toContain('not claimed here');
+  });
+
+  it('reads a proving capture as real, and quotes the receiver’s own identifier', () => {
+    const row = ledgerFor({
+      evidence: ABSENT, evaluation: NO_EVAL, env: {}, remoteVerification: VERIFIED,
+    }).rows.find((entry) => entry.id === 'remote-verification');
+
+    expect(row?.status).toBe('REAL');
+    // The id must be the RECEIVER's. One this application generated would prove nothing.
+    expect(row?.whatIsTrue).toContain('8');
+    expect(row?.whatIsTrue).toContain('ambientframes.app.n8n.cloud');
+  });
+
+  /**
+   * The assertion this row exists for. A capture may show a perfectly good confirmation and
+   * ALSO show the boundary converting an unfound key into a confirmed negative. That is not
+   * weaker evidence of verification — it is evidence the boundary lied, and reading the
+   * confirmation half while ignoring the rest is exactly how a proof surface flatters itself.
+   */
+  it('refuses a capture whose boundary confirmed a negative, however good its confirmation', () => {
+    const liar = { ...VERIFIED, absentKind: 'CONFIRMED_NOT_EXECUTED', neverConfirmsANegative: false } as const;
+    const row = ledgerFor({
+      evidence: ABSENT, evaluation: NO_EVAL, env: {}, remoteVerification: liar,
+    }).rows.find((entry) => entry.id === 'remote-verification');
+
+    expect(row?.status).toBe('UNVERIFIED');
+    expect(row?.whatIsTrue).toContain('readable but does not show');
+  });
+
+  /**
+   * The observation outranks the artifact's description of itself. A capture can assert the
+   * standing guarantee in one field while the outcome it actually recorded contradicts it —
+   * a file describing its own good behaviour is the cheapest thing in the chain to forge, and
+   * the recorded verdict is the expensive one. This case exists because a mutation removing
+   * the recorded-verdict clause SURVIVED: the test above moved both fields together, so it
+   * could never tell which one was load-bearing.
+   */
+  it('trusts the recorded verdict over the capture’s claim about its own guarantee', () => {
+    const boastful = { ...VERIFIED, absentKind: 'CONFIRMED_NOT_EXECUTED' } as const;
+    expect(boastful.neverConfirmsANegative, 'the capture still claims the guarantee').toBe(true);
+
+    const row = ledgerFor({
+      evidence: ABSENT, evaluation: NO_EVAL, env: {}, remoteVerification: boastful,
+    }).rows.find((entry) => entry.id === 'remote-verification');
+
+    expect(row?.status).toBe('UNVERIFIED');
+  });
+
+  it('refuses a confirmation that carries no identifier from the receiver', () => {
+    const unattributed = { ...VERIFIED, confirmedExternalId: null } as const;
+    const row = ledgerFor({
+      evidence: ABSENT, evaluation: NO_EVAL, env: {}, remoteVerification: unattributed,
+    }).rows.find((entry) => entry.id === 'remote-verification');
+
+    expect(row?.status).toBe('UNVERIFIED');
+  });
+
+  it('never lets the row imply it could confirm an absence, in either state', () => {
+    for (const remote of [undefined, VERIFIED]) {
+      const row = ledgerFor({
+        evidence: ABSENT, evaluation: NO_EVAL, env: {}, remoteVerification: remote,
+      }).rows.find((entry) => entry.id === 'remote-verification');
+      expect(row?.limit).toContain('never confirm its absence');
+      expect(row?.limit).toContain('no customer');
+    }
   });
 
   it('never promotes customer deployment, whatever the configuration', () => {

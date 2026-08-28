@@ -3,7 +3,54 @@
 > One per accepted package (Constitution §14). Repository truth is authoritative; this file
 > is an index, not a source. Append the new checkpoint above the previous one.
 
-## Current — Three agent-authored profiles registered, and a real firm's name caught on the way in · 2026-08-28
+## Current — The strongest integration proof stops being invisible to a buyer · 2026-08-28
+
+**Verified state.** `npm run verify`: 76 files, **1297 passed / 1 skipped**, exit 0. `npm run
+build`: compiled, exit 0. $0 spent.
+
+**Proof claim earned.** The fidelity ledger carries a `remote-verification` row: *Independent
+verification of a despatch*, `REAL`, derived from
+`n8n/evidence/lead-rescue-remote-verification.json` through a new quarantined reader. Confirmed
+present in the prerendered `/lead-rescue` page — a buyer now reads that a notification which
+crossed to `ambientframes.app.n8n.cloud` was afterwards confirmed **carrying the receiver's own
+execution id (8)**, and that a key the receiver had never seen still came back `STILL_UNKNOWN`.
+
+**This was the gap, stated plainly.** For a day the remote-verification capability was the
+strongest integration evidence in the repository and appeared on **no rendered surface**. It
+existed in `scripts/`, in `n8n/evidence/`, and in `tests/` — and in nothing under `lib/` or
+`app/`. Built, retained, tested, invisible. Ledger row count 14 → 15; REAL 10 → 11.
+
+**The row is REAL only on a conjunction, and that is the whole design.** A confirmation carrying
+the receiver's identifier AND a never-seen key preserved as unknown. A capture showing a
+confident confirmed-negative is not weaker evidence of verification — it is evidence the boundary
+**lied**, and reading the confirmation half while ignoring the rest is exactly how a proof surface
+flatters itself. `evidenceProvesIndependentVerification` returns false for it.
+
+**One neighbouring clause was corrected, and only one.** The `n8n-orchestration` row's limit said
+orchestration "does not establish a hosted deployment" — true of the local capture it reads, and
+self-contradictory once a sibling row evidences a hosted receiver. Scoped to the artifact it
+reads and pointed at the new row.
+
+**Falsification, including a survivor that was a real hole.** 5 mutations: the row self-promoting
+to REAL, the gate dropping the receiver-identifier requirement, the gate dropping the
+preserved-unknown requirement, the limit ceasing to say an absence can never be confirmed, and
+the retained artifact corrupted to confirm a negative. **The third survived the first run.** The
+"boundary lied" test moved two fields together, so it could never isolate which clause was
+load-bearing. Repaired with a case asserting that the recorded verdict outranks the capture's
+claim about its own guarantee — an artifact describing its own good behaviour is the cheapest
+thing in the chain to forge. All five fail now; files restored byte-for-byte, verified by
+SHA-256.
+
+**Maturity. Unchanged.** Lead Rescue stays `INTERACTIVE_PROTOTYPE`. The row's own limit is the
+load-bearing half: it confirms an effect and can never confirm an absence, the receiver is an
+automation platform holding a record rather than a person who read anything, and no customer is
+on either end. `customer-deployment` remains the `UNVERIFIED` row that bounds the page.
+
+**Next package.** Kestrel's `explicitlyNot` and vocabulary are still the least-grounded part of
+the reference profile — the firm on every rendered surface. Alternatively, the model gaps the
+three new profiles surfaced (blocked-vs-overdue is the most generalisable).
+
+## Earlier — Three agent-authored profiles registered, and a real firm's name caught on the way in · 2026-08-28
 
 **Verified state.** `npm run verify`: 76 files, **1291 passed / 1 skipped**, exit 0 (baseline was
 1214 — the parametrized suites picked up 77 tests on registration). `npm run build`: compiled

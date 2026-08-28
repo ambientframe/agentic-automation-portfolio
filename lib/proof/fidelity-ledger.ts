@@ -13,12 +13,15 @@ import {
 } from '@/lib/config/side-effect-executor-config';
 import { resolveOperatorAuth, type OperatorAuthResolution } from '@/lib/config/operator-auth-config';
 import {
+  evidenceProvesIndependentVerification,
   evidenceProvesOrchestration,
   evidenceRecordsEvaluation,
   LIVE_CLASSIFICATION_EVIDENCE_RELATIVE_PATH,
   OBSERVATION_INTEGRITY_EVIDENCE_RELATIVE_PATH,
+  REMOTE_VERIFICATION_EVIDENCE_RELATIVE_PATH,
   type EvaluationEvidence,
   type ObservationIntegrityEvidence,
+  type RemoteVerificationEvidence,
   type RuntimeEvidence,
 } from './n8n-evidence';
 
@@ -298,6 +301,51 @@ function observabilityRow(
   };
 }
 
+/**
+ * INDEPENDENT VERIFICATION, and why it is a row rather than a sentence in another one.
+ *
+ * Every other row on this page is something this application did. This is the only one about
+ * something a party that is not this application will corroborate — the difference between
+ * "we recorded that we sent it" and "the receiver, which we cannot write to, says it holds it."
+ *
+ * The limit is doing more work than the claim. A verification channel confirms an effect and
+ * can NEVER confirm its absence: a request can be accepted at the socket and die before the
+ * receiver's first write, so silence is indistinguishable from never-arrived. The retained
+ * capture probed exactly that — a key the receiver had never seen, answered `found: false`
+ * with HTTP 200 — and the boundary still refused to call it a confirmed negative. A row that
+ * advertised the confirmation without that refusal would be advertising the half a reader
+ * should trust least.
+ */
+function remoteVerificationRow(
+  remote: RemoteVerificationEvidence | undefined,
+): Pick<FidelityRow, 'status' | 'whatIsTrue' | 'basis' | 'limit'> {
+  const limit =
+    'It confirms an effect and can never confirm its absence — an unfound key stays UNKNOWN, because a request can be accepted and die before the receiver records it. The receiver is an automation platform holding a record, not a person who read anything, and no customer is on either end of this exchange.';
+
+  if (remote === undefined || remote.kind !== 'PRESENT' || !evidenceProvesIndependentVerification(remote)) {
+    const detail =
+      remote !== undefined && remote.kind === 'PRESENT'
+        ? 'a retained capture is readable but does not show a confirmation carrying the receiver’s own identifier alongside a preserved unknown, so it is not read as proof'
+        : 'no retained capture is readable from this build';
+    return {
+      status: 'UNVERIFIED',
+      whatIsTrue: `A lookup channel exists in the repository for narrowing an unresolved despatch against its receiver, but ${detail}, so independent verification is not claimed here.`,
+      basis: 'lib/ports/webhook-side-effect-executor.ts · scripts/remote-verification-proof.ts',
+      limit,
+    };
+  }
+
+  const origin = remote.receiverOrigin ?? 'a third-party origin';
+  const offMachine = remote.receiverOnThisMachine === false ? ', which does not run on this machine,' : '';
+
+  return {
+    status: 'REAL',
+    whatIsTrue: `An unresolved despatch was narrowed by asking the receiver itself. A notification that genuinely crossed to ${origin}${offMachine} was afterwards confirmed as executed, and the confirmation carries the receiver’s own execution id (${remote.confirmedExternalId}) rather than any identifier this application generated. In the same run a key the receiver had never seen came back unfound with HTTP 200, and the boundary still returned STILL_UNKNOWN rather than a confirmed negative. With no lookup endpoint configured at all it refuses outright instead of guessing.`,
+    basis: `${REMOTE_VERIFICATION_EVIDENCE_RELATIVE_PATH} · lib/ports/webhook-side-effect-executor.ts · tests/remote-verification-evidence.test.ts`,
+    limit,
+  };
+}
+
 export interface LedgerInputs {
   readonly evidence: RuntimeEvidence;
   /** The retained evaluation capture, read through the same quarantined adapter. */
@@ -307,6 +355,11 @@ export interface LedgerInputs {
    * keeps working unchanged; absent means the row claims nothing rather than assuming.
    */
   readonly observation?: ObservationIntegrityEvidence;
+  /**
+   * The retained remote-verification capture. Optional on the same terms as `observation`:
+   * absent means the row claims nothing, never that the capability is missing.
+   */
+  readonly remoteVerification?: RemoteVerificationEvidence;
   /** Defaults to `process.env`. Injectable so tests can assert both configured states. */
   readonly env?: Env;
   /**
@@ -326,6 +379,7 @@ export function deriveFidelityLedger({
   evidence,
   evaluation,
   observation,
+  remoteVerification,
   env = process.env,
   profile,
 }: LedgerInputs): FidelityLedger {
@@ -422,7 +476,12 @@ export function deriveFidelityLedger({
         ? 'n8n/workflows/*.json · n8n/evidence/lead-rescue-runtime-execution.json'
         : 'n8n/workflows/*.json (definitions only)',
       limit:
-        'Any capture came from a local n8n instance driving a local application. It does not establish a hosted deployment or a client-connected trigger.',
+        'This capture came from a local n8n instance driving a local application. It does not establish a client-connected trigger. Reachability of a hosted receiver is a separate claim, evidenced — or not — by the independent-verification row below rather than by this one.',
+    },
+    {
+      id: 'remote-verification',
+      capability: 'Independent verification of a despatch',
+      ...remoteVerificationRow(remoteVerification),
     },
     {
       id: 'ai-classification',

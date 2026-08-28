@@ -593,3 +593,117 @@ export async function readObservationIntegrityEvidence(): Promise<ObservationInt
     doesNotProve: Array.isArray(doesNotProve) ? doesNotProve.filter((v): v is string => typeof v === 'string') : [],
   };
 }
+
+// ---------------------------------------------------------------------------
+// Retained REMOTE VERIFICATION capture.
+// ---------------------------------------------------------------------------
+
+export const REMOTE_VERIFICATION_EVIDENCE_RELATIVE_PATH =
+  'n8n/evidence/lead-rescue-remote-verification.json';
+
+/**
+ * The retained capture of an OUTCOME_UNKNOWN closed against a receiver this application does
+ * not own and cannot write to.
+ *
+ * WHY THE LEDGER NEEDS THIS AT ALL. Without it the proof surface can say a despatch left the
+ * process and can say an unknown outcome exists, and has no way to say the unknown was ever
+ * NARROWED. That silence reads as a missing capability rather than as an unread artifact —
+ * the capability was proven live on 2026-08-27 and was invisible to every visitor, which is
+ * the precise failure this panel exists to prevent.
+ *
+ * WHAT MAKES IT PROVEN, and it is deliberately a conjunction rather than a field lookup:
+ * a confirmation must carry the RECEIVER'S OWN identifier, and the probe for a key the
+ * receiver never saw must still have come back STILL_UNKNOWN. A capture showing a confident
+ * confirmed-negative is not weaker evidence of verification — it is evidence the boundary
+ * LIED, and `evidenceProvesIndependentVerification` returns false for it rather than reading
+ * the confirmation half and ignoring the rest.
+ *
+ * SAME QUARANTINE, SAME THREE RULES: never throws, never invents, reports its own recognition.
+ */
+export type RemoteVerificationEvidence =
+  | { readonly kind: 'ABSENT'; readonly detail: string }
+  | { readonly kind: 'UNREADABLE'; readonly detail: string }
+  | {
+      readonly kind: 'PRESENT';
+      readonly capturedAt: string | null;
+      readonly gitHead: string | null;
+      /** Where the receiver lives. Retained so a reader can see it is not this machine. */
+      readonly receiverOrigin: string | null;
+      readonly receiverOnThisMachine: boolean | null;
+      /** The verdict reached for a delivery that genuinely crossed. */
+      readonly confirmedKind: string | null;
+      /** The receiver's own execution id. Ours would prove nothing. */
+      readonly confirmedExternalId: string | null;
+      /** The verdict reached for a key the receiver has never seen. */
+      readonly absentKind: string | null;
+      readonly neverConfirmsANegative: boolean;
+      /** What the boundary does when no lookup channel is configured at all. */
+      readonly unconfiguredBehaviour: string | null;
+      readonly scopeStatement: string | null;
+      readonly doesNotProve: readonly string[];
+      readonly unrecognisedShape: boolean;
+    };
+
+export async function readRemoteVerificationEvidence(): Promise<RemoteVerificationEvidence> {
+  let text: string;
+  try {
+    text = await readFile(evidenceFilePath(REMOTE_VERIFICATION_EVIDENCE_RELATIVE_PATH), 'utf8');
+  } catch {
+    return {
+      kind: 'ABSENT',
+      detail: `No capture found at ${REMOTE_VERIFICATION_EVIDENCE_RELATIVE_PATH}. Independent verification is reported as unverified rather than assumed.`,
+    };
+  }
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(text);
+  } catch {
+    return {
+      kind: 'UNREADABLE',
+      detail: `${REMOTE_VERIFICATION_EVIDENCE_RELATIVE_PATH} exists but is not valid JSON. Reported as unverified rather than partially interpreted.`,
+    };
+  }
+
+  const receiver = child(parsed, 'receiver');
+  const confirmable = child(parsed, 'confirmable');
+  const absent = child(parsed, 'absent');
+  const guarantee = child(parsed, 'standingGuarantee');
+
+  const confirmedKind = str(child(confirmable, 'verifyOutcome'), 'kind');
+  const absentKind = str(child(absent, 'verifyOutcome'), 'kind');
+
+  return {
+    kind: 'PRESENT',
+    capturedAt: str(parsed, 'capturedAt'),
+    gitHead: str(parsed, 'gitHead'),
+    receiverOrigin: str(receiver, 'origin'),
+    receiverOnThisMachine: bool(receiver, 'onThisMachine'),
+    confirmedKind,
+    confirmedExternalId: str(child(confirmable, 'verifyOutcome'), 'externalId'),
+    absentKind,
+    neverConfirmsANegative: bool(guarantee, 'neverConfirmsANegative') === true,
+    unconfiguredBehaviour: str(child(parsed, 'unconfiguredLookup'), 'behaviour'),
+    scopeStatement: str(parsed, 'scopeStatement'),
+    doesNotProve: strings(parsed, 'doesNotProve'),
+    unrecognisedShape: confirmedKind === null && absentKind === null,
+  };
+}
+
+/**
+ * The single question the fidelity ledger asks of this capture, kept here so the ledger never
+ * inspects evidence internals and so "what counts as proven independent verification" has one
+ * definition. All four clauses are required — see the type docstring for why the negative
+ * probe is not optional.
+ */
+export function evidenceProvesIndependentVerification(
+  evidence: RemoteVerificationEvidence,
+): boolean {
+  return (
+    evidence.kind === 'PRESENT' &&
+    evidence.confirmedKind === 'CONFIRMED_EXECUTED' &&
+    evidence.confirmedExternalId !== null &&
+    evidence.absentKind === 'STILL_UNKNOWN' &&
+    evidence.neverConfirmsANegative
+  );
+}
