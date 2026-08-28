@@ -3,7 +3,57 @@
 > One per accepted package (Constitution §14). Repository truth is authoritative; this file
 > is an index, not a source. Append the new checkpoint above the previous one.
 
-## Current — The artifact's central commercial claim stops being asserted · 2026-08-28
+## Current — The reference business stops being the least-grounded one · 2026-08-28
+
+**Verified state.** `npm run verify`: 77 files, **1461 passed / 1 skipped**, exit 0. `npm run
+build`: compiled, exit 0. Capture: **38 of 38 sources**, every quote located on a live re-fetch.
+$0 spent.
+
+**Shipping the retargeting surface exposed this within the hour.** The home page now prints each
+demonstration's grounding-source count side by side, and Kestrel showed **3** against 7, 10 and 14
+for the agent-authored profiles. The firm on every rendered surface — the only one a visitor sees
+in depth — was visibly the least-evidenced. That is the published-gap mechanism working on its
+author: a surface built to make a claim checkable immediately made a weakness legible.
+
+**Kestrel 3 → 7 sources, and the four new ones close exactly the two weakest areas.** Its original
+three all priced the trade and none touched `explicitlyNot` or the vocabulary, which
+`PATTERN_LEDGER.md` had flagged as least-grounded since the profile was written.
+
+**The boundaries turn out to be professional rules, not modesty.** A SOC 2 report may be issued
+only by a licensed CPA firm; the opinion is signed by a CPA partner who applies the professional
+judgment; and services central to a client's control environment threaten independence when
+delivered by the entity that also audits it — the emphasis the AICPA's 2022 SOC 2 Guide revision
+added. Kestrel's four `explicitlyNot` entries now each trace to a retrievable page, so a reader
+can check that the fictional firm's limits are the trade's limits rather than ours.
+
+**The vocabulary is cited from the standards body itself**, via the AICPA's own publication title
+naming the five trust services categories. Worth recording against the architecture profile's
+disclosed gap: `aicpa-cima.com` answers automated retrieval where every `aia.org` page returns 403,
+so the same class of evidence was available for one trade and not the other. That asymmetry is
+about the institutes, not about the profiles.
+
+**Two sources from one page, which only works now.** Both legalclarity quotes come from the same
+URL at different offsets — citable only because captures became keyed by quote as well as URL two
+packages ago. This is the second batch to need that fix.
+
+**Method note worth keeping.** The quotes were located with a probe that runs the gate's *own*
+`extractText`, then sliced from the extracted text and written into the register by script — never
+retyped. Pattern #31 applies to me exactly as it applied to the handbacks: a model retyping a
+verbatim quote into its own output is the same lossy channel that cost a working day.
+
+**Falsification.** Changing one word inside a newly added Kestrel quote — "can only" to "may only"
+— fails two assertions in `tests/grounding-capture-evidence.test.ts`. Restored and verified by
+SHA-256.
+
+**Maturity. Unchanged.** These sources describe the trade and verify nothing about Kestrel, which
+does not exist. Grounded still means synthetic assumptions calibrated against retrievable evidence.
+
+**Next package.** The model gaps the three profiles surfaced are now the largest prize, and
+blocked-vs-overdue is the most generalisable: a return awaiting a signed Form 8879 is legally
+gated, not late, and the model has only "overdue". It generalises to any permit, consent, or
+signature gate.
+
+## Earlier — The artifact's central commercial claim stops being asserted · 2026-08-28
 
 **Verified state.** `npm run verify`: 77 files, **1453 passed / 1 skipped**, exit 0. `npm run
 build`: compiled, exit 0. $0 spent.

@@ -147,7 +147,13 @@ export const REGISTERED_PROFILES: readonly RegisteredProfile[] = [
       'Originally derived from the retained brief in docs/source/ rather than from research, and calibrated afterwards ' +
       'against published 2026 benchmarks whose source material is retained in docs/evidence/grounding-captures.json. ' +
       'Every figure below is a synthetic assumption; the sources describe the industry and verify nothing about this ' +
-      'firm. Retainer economics were recalibrated on 2026-08-28 from 33 clients at $3,200/month to 20 at $5,000.',
+      'firm. Retainer economics were recalibrated on 2026-08-28 from 33 clients at $3,200/month to 20 at $5,000. ' +
+      'GROUNDING EXTENDED 2026-08-28: the three original sources all priced the trade and none of them touched the '  +
+      'two weakest parts of this profile — the explicitlyNot boundaries and the vocabulary. Both are now cited. The '  +
+      'boundaries turn out to be real professional rules rather than modesty: a SOC 2 report may be issued only by a '  +
+      'licensed CPA firm, the opinion is signed by a CPA partner, and services central to a control environment '  +
+      'threaten independence when the same entity audits it. The vocabulary is cited from the standards body itself, '  +
+      'which was retrievable here where the architecture profile’s equivalent was not.',
     nameCheck: {
       searchedFor: 'Kestrel Compliance Group',
       checkedOn: '2026-08-28',
@@ -173,6 +179,34 @@ export const REGISTERED_PROFILES: readonly RegisteredProfile[] = [
         quote: 'For most mid-market companies, vCISO pricing runs $3,000 to $12,000 per month.',
         establishes:
           'INDUSTRY FACT: mid-market vCISO retainers run $3,000–$12,000 per month. OUR CALIBRATION: Kestrel’s synthetic average retainer of $5,000/month across 20 clients is an assumption chosen to sit inside that band rather than at its floor. It was $3,200 across 33 clients until 2026-08-28, which put the rate at the band’s edge and the relationship count implausibly high for 14 staff. The source describes an industry; it verifies nothing about this firm, which does not exist.',
+      },
+      {
+        url: 'https://legalclarity.org/who-performs-a-soc-2-audit-cpa-requirements-explained/',
+        quote:
+          'SOC 2 reports can only be issued by licensed CPA firms.',
+        establishes:
+          'INDUSTRY FACT: a SOC 2 report may be issued only by a licensed CPA firm, so a readiness consultancy structurally cannot produce the artefact its clients are buying. OUR CALIBRATION: this is the source of the first entry in Kestrel’s explicitlyNot — not a certification body, issues no certificates or attestations — and it is why no service line in this profile terminates in a report. It is a constraint on what the fictional firm may be modelled as selling, not a figure about it.',
+      },
+      {
+        url: 'https://legalclarity.org/who-performs-a-soc-2-audit-cpa-requirements-explained/',
+        quote:
+          'A licensed CPA partner reviews everything, applies professional judgment about whether the evidence supports the conclusions, and signs the final document in the firm’s name.',
+        establishes:
+          'INDUSTRY FACT: the professional judgment about whether evidence supports the conclusions, and the signature on the report, belong to a licensed CPA partner at the audit firm. OUR CALIBRATION: Kestrel’s explicitlyNot states it does not perform the audit or issue the opinion, and works alongside an audit firm the client engages separately. This quote is why that boundary is a rule rather than a modesty. A second passage from the same page, citable only because captures are keyed by quote as well as URL.',
+      },
+      {
+        url: 'https://sensiba.com/resources/insights/aicpa-emphasizes-auditor-independence-in-the-soc-2-industry/',
+        quote:
+          'All of those services are central to the control environment, and thus represent a threat to independence if such services are delivered by the same entity responsible for auditing the client’s environment.',
+        establishes:
+          'INDUSTRY FACT: services central to a client’s control environment threaten auditor independence when delivered by the entity that also audits that environment — the AICPA’s 2022 SOC 2 Guide revision put the emphasis there specifically. OUR CALIBRATION: this grounds the third explicitlyNot entry, that Kestrel is never in a position to promise an audit outcome or timeline, and it is the reason a firm doing readiness work is modelled as permanently outside the attestation. LIMIT: this is a CPA firm’s commentary on the guidance, not the guidance itself; the AICPA Guide is a paid publication and is not retrievable here.',
+      },
+      {
+        url: 'https://www.aicpa-cima.com/resources/landing/system-and-organization-controls-soc-suite-of-services',
+        quote:
+          'SOC 2® Reporting on an Examination of Controls at a Service Organization Relevant to Security, Availability, Processing Integrity, Confidentiality, or Privacy',
+        establishes:
+          'INDUSTRY FACT: the standards body’s own publication title names the subject matter of a SOC 2 examination and, with it, the five trust services categories — security, availability, processing integrity, confidentiality, privacy. OUR CALIBRATION: this is the vocabulary Kestrel’s service lines and scenario language are built from, taken from the institute that defines it rather than from a vendor restatement. Worth recording that this was retrievable at all: the equivalent trade-institute grounding for the architecture profile could not be captured, because every aia.org page refuses automated retrieval.',
       },
     ],
   },
