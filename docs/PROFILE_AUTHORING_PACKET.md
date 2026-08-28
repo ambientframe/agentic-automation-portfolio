@@ -47,6 +47,17 @@ Read everything.
 If you have been handed this document and are unsure which stage you are on: if you cannot open
 `lib/model/profile.ts`, you are on Stage A.
 
+**Stage B runs belong in separate git worktrees.** Three ran in one checkout on 2026-08-28 and it
+cost them: they raced on the gitignored `.data/` directory, and one agent read a stale copy of a
+test file and drew a wrong conclusion from it. It also weakens the thing that makes your findings
+valuable — a limit you report about the model is strong evidence precisely because you could not
+see anyone else's work, and a shared checkout means nobody can prove you did not.
+
+**Report what the model could not express about your trade.** That section of your handback is not
+a courtesy; it is recorded in `data/model-gaps.ts` and published in `docs/MODEL_GAPS.md` with your
+run credited. State each limit as a concrete case from the trade — an abstract complaint cannot be
+checked or fixed, and will not be recorded.
+
 ## 2. Rules that will get your work rejected
 
 These are not style preferences. They come from `COMMERCIAL_THESIS.md` and `CLAUDE.md`, both of

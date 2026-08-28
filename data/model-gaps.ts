@@ -2,10 +2,15 @@
  * WHAT THE SIX SYSTEMS CANNOT EXPRESS — found by authors who did not build them.
  *
  * `docs/PROFILE_AUTHORING_PACKET.md` asks every profile author to report what the model could
- * not express about their trade. Three independent agents did exactly that, working from the
- * packet alone with no access to this repository's reasoning, and each hit real boundaries and
- * argued them precisely. **Those findings then lived nowhere.** They arrived inside handback
- * documents, were summarised in one line of a checkpoint, and were otherwise lost.
+ * not express about their trade. Three separate authoring runs did exactly that, each working
+ * from the packet and its own research brief rather than from this repository's reasoning, and
+ * each hit real boundaries and argued them precisely. **Those findings then lived nowhere.**
+ * They arrived inside handback documents, were summarised in one line of a checkpoint, and were
+ * otherwise lost.
+ *
+ * How far the independence claim goes, and where it stops, is recorded on `GapDiscovery` —
+ * including the part that weakens it. Read that before citing this register as independent
+ * evidence.
  *
  * That is a bad place for them, because under `COMMERCIAL_THESIS.md` §3 a retained negative
  * result is a commercial asset. An artifact that publishes only what it can do gives a stranger
@@ -26,6 +31,35 @@
 
 export type GapGenerality = 'ONE_TRADE' | 'GENERALISES';
 
+/**
+ * WHAT THE INDEPENDENCE CLAIM RESTS ON, AND WHERE IT STOPS.
+ *
+ * The value of this register is that the limits were found by authors with no stake in the
+ * answer. That claim needs to be auditable rather than asserted, so each gap records who
+ * reported it, when, and what they were working from.
+ *
+ * **The honest limit, recorded because it weakens the claim.** The three Stage B runs were
+ * separate agent sessions each working from `docs/PROFILE_AUTHORING_PACKET.md` and its own
+ * Stage A research brief — but they ran **in the same working tree**, sequentially, and could
+ * in principle have read one another's profile files. One of them reported exactly that
+ * interference ("sibling agents are active in this same working tree, and it showed twice").
+ * So this is independence of *authorship and brief*, not isolation. Separate worktrees would
+ * be needed for the stronger claim, and the packet now says so.
+ *
+ * The raw handbacks are held outside the repository. They are referenced rather than copied in:
+ * a verbatim dump would be archival theatre, and the structured record is what an auditor
+ * actually needs.
+ */
+export interface GapDiscovery {
+  /** The authoring run that reported it. Distinctness across runs is what "independent" means here. */
+  readonly reportedBy: string;
+  readonly reportedOn: string;
+  /** What that author had access to — the basis of the independence claim. */
+  readonly workingFrom: string;
+  /** Where the original handback is held. Outside the repository, deliberately. */
+  readonly handbackHeld: string;
+}
+
 export interface ModelGap {
   readonly id: string;
   readonly title: string;
@@ -34,6 +68,8 @@ export interface ModelGap {
    * cannot be attributed to a business that does not exist — including one we later renamed.
    */
   readonly foundBy: string;
+  /** Who reported it, when, and from what. See `GapDiscovery` for the limit on this. */
+  readonly discovery: GapDiscovery;
   /** A concrete case from that trade. Required: see the module docstring. */
   readonly example: string;
   /** What the model does today in place of the missing distinction. */
@@ -48,6 +84,12 @@ export const MODEL_GAPS: readonly ModelGap[] = [
     id: 'blocked-is-not-overdue',
     title: 'Blocked is not the same as overdue, and the model has only overdue',
     foundBy: 'ashcombe',
+    discovery: {
+      reportedBy: 'Cursor Stage B run, accounting / CAS profile (handed back as `ledgerline`, renamed at registration)',
+      reportedOn: '2026-08-28',
+      workingFrom: 'docs/PROFILE_AUTHORING_PACKET.md and its own Stage A research brief. No access to CHECKPOINT.md, PATTERN_LEDGER.md, or this repository\'s reasoning.',
+      handbackHeld: 'Held outside the repository as the original handback export; referenced rather than copied in.',
+    },
     example:
       'A completed tax return waiting on a signed Form 8879 is legally forbidden to send. The firm is obeying a rule, not dropping a ball, and no amount of waiting makes the return sendable — only the signature does.',
     modelDoesInstead:
@@ -60,6 +102,12 @@ export const MODEL_GAPS: readonly ModelGap[] = [
     id: 'confidence-floor-cannot-say-never',
     title: 'A confidence floor cannot express "never"',
     foundBy: 'ashcombe',
+    discovery: {
+      reportedBy: 'Cursor Stage B run, accounting / CAS profile (handed back as `ledgerline`, renamed at registration)',
+      reportedOn: '2026-08-28',
+      workingFrom: 'docs/PROFILE_AUTHORING_PACKET.md and its own Stage A research brief. No access to CHECKPOINT.md, PATTERN_LEDGER.md, or this repository\'s reasoning.',
+      handbackHeld: 'Held outside the repository as the original handback export; referenced rather than copied in.',
+    },
     example:
       'The regulator’s rule is categorical: a machine may not decide a tax position at any confidence. The profile can only approximate that with 0.95, which still says "at 0.96, go ahead."',
     modelDoesInstead:
@@ -72,6 +120,12 @@ export const MODEL_GAPS: readonly ModelGap[] = [
     id: 'entity-match-conflates-confidence-with-permission',
     title: '`entityMatchThreshold` conflates confidence with permission',
     foundBy: 'ashcombe',
+    discovery: {
+      reportedBy: 'Cursor Stage B run, accounting / CAS profile (handed back as `ledgerline`, renamed at registration)',
+      reportedOn: '2026-08-28',
+      workingFrom: 'docs/PROFILE_AUTHORING_PACKET.md and its own Stage A research brief. No access to CHECKPOINT.md, PATTERN_LEDGER.md, or this repository\'s reasoning.',
+      handbackHeld: 'Held outside the repository as the original handback export; referenced rather than copied in.',
+    },
     example:
       'The trade’s rule is not "be very sure before merging". It is "do not auto-merge, because combining two records that each carry a Social Security number is a disclosure decision with criminal exposure."',
     modelDoesInstead:
@@ -84,6 +138,12 @@ export const MODEL_GAPS: readonly ModelGap[] = [
     id: 'client-side-approver-has-no-home',
     title: 'The client is a required actor, and the model has no way to say so',
     foundBy: 'stratum',
+    discovery: {
+      reportedBy: 'Cursor Stage B run, RevOps / CRM implementation profile',
+      reportedOn: '2026-08-27',
+      workingFrom: 'docs/PROFILE_AUTHORING_PACKET.md and its own Stage A research brief. No access to CHECKPOINT.md, PATTERN_LEDGER.md, or this repository\'s reasoning.',
+      handbackHeld: 'Held outside the repository as the original handback export; referenced rather than copied in.',
+    },
     example:
       'In a CRM implementation, which duplicate record wins, which field is authoritative, and whether a phase gate passes all belong to a named person at the client — not to anyone on the delivering firm’s staff.',
     modelDoesInstead:
@@ -96,6 +156,12 @@ export const MODEL_GAPS: readonly ModelGap[] = [
     id: 'change-order-has-no-second-path',
     title: 'A change order is a second commercial document, and there is one proposal path',
     foundBy: 'stratum',
+    discovery: {
+      reportedBy: 'Cursor Stage B run, RevOps / CRM implementation profile',
+      reportedOn: '2026-08-27',
+      workingFrom: 'docs/PROFILE_AUTHORING_PACKET.md and its own Stage A research brief. No access to CHECKPOINT.md, PATTERN_LEDGER.md, or this repository\'s reasoning.',
+      handbackHeld: 'Held outside the repository as the original handback export; referenced rather than copied in.',
+    },
     example:
       'A change order is smaller than the original SOW, raised mid-delivery, urgent, approved by both parties — and skipping it is the exact thing that becomes a disputed invoice.',
     modelDoesInstead:
@@ -108,6 +174,12 @@ export const MODEL_GAPS: readonly ModelGap[] = [
     id: 'project-then-retainer-unlinked',
     title: 'A project-then-retainer sequence is modelled as two unrelated numbers',
     foundBy: 'stratum',
+    discovery: {
+      reportedBy: 'Cursor Stage B run, RevOps / CRM implementation profile',
+      reportedOn: '2026-08-27',
+      workingFrom: 'docs/PROFILE_AUTHORING_PACKET.md and its own Stage A research brief. No access to CHECKPOINT.md, PATTERN_LEDGER.md, or this repository\'s reasoning.',
+      handbackHeld: 'Held outside the repository as the original handback export; referenced rather than copied in.',
+    },
     example:
       'Most retainer clients are the same clients continuing after go-live. That relationship is what makes the churn driver "support tailed off after go-live" a revenue event rather than a satisfaction one.',
     modelDoesInstead:
@@ -120,6 +192,12 @@ export const MODEL_GAPS: readonly ModelGap[] = [
     id: 'reactivation-assumed-time-driven',
     title: 'Reactivation is assumed to be time-driven when it is event-driven',
     foundBy: 'stratum',
+    discovery: {
+      reportedBy: 'Cursor Stage B run, RevOps / CRM implementation profile',
+      reportedOn: '2026-08-27',
+      workingFrom: 'docs/PROFILE_AUTHORING_PACKET.md and its own Stage A research brief. No access to CHECKPOINT.md, PATTERN_LEDGER.md, or this repository\'s reasoning.',
+      handbackHeld: 'Held outside the repository as the original handback export; referenced rather than copied in.',
+    },
     example:
       'In this trade a dormant account reopens on a renewal date, a new revenue leader, or an acquisition. A firm would rather wait indefinitely and act on a trigger than run three touches over 45 days.',
     modelDoesInstead:
@@ -132,6 +210,12 @@ export const MODEL_GAPS: readonly ModelGap[] = [
     id: 'no-escalation-above-the-top',
     title: 'A stalled approval at the top of the firm reads as an omission, not a risk',
     foundBy: 'wrenfield',
+    discovery: {
+      reportedBy: 'Cursor Stage B run, architecture / engineering profile (handed back as `formwork`, renamed at registration)',
+      reportedOn: '2026-08-28',
+      workingFrom: 'docs/PROFILE_AUTHORING_PACKET.md and its own Stage A research brief. No access to CHECKPOINT.md, PATTERN_LEDGER.md, or this repository\'s reasoning. Its Stage A brief\'s tool-stack citations were not supplied to it, which it reported.',
+      handbackHeld: 'Held outside the repository as the original handback export; referenced rather than copied in.',
+    },
     example:
       'In an architecture practice the fee-proposal approver is the managing principal — the top of the ladder. The brief identifies that person as the practice’s defining operational bottleneck.',
     modelDoesInstead:
@@ -144,6 +228,12 @@ export const MODEL_GAPS: readonly ModelGap[] = [
     id: 'pursuit-cost-has-nowhere-to-live',
     title: 'Pursuit cost has nowhere to live',
     foundBy: 'wrenfield',
+    discovery: {
+      reportedBy: 'Cursor Stage B run, architecture / engineering profile (handed back as `formwork`, renamed at registration)',
+      reportedOn: '2026-08-28',
+      workingFrom: 'docs/PROFILE_AUTHORING_PACKET.md and its own Stage A research brief. No access to CHECKPOINT.md, PATTERN_LEDGER.md, or this repository\'s reasoning. Its Stage A brief\'s tool-stack citations were not supplied to it, which it reported.',
+      handbackHeld: 'Held outside the repository as the original handback export; referenced rather than copied in.',
+    },
     example:
       'Unpaid qualifications submissions, interviews, and fee negotiation are real, principal-priced, and written off entirely when a pursuit is lost.',
     modelDoesInstead:
@@ -156,6 +246,12 @@ export const MODEL_GAPS: readonly ModelGap[] = [
     id: 'qualifications-based-selection-unmodelled',
     title: 'Rank-then-negotiate-with-one is not a pipeline the model recognises',
     foundBy: 'wrenfield',
+    discovery: {
+      reportedBy: 'Cursor Stage B run, architecture / engineering profile (handed back as `formwork`, renamed at registration)',
+      reportedOn: '2026-08-28',
+      workingFrom: 'docs/PROFILE_AUTHORING_PACKET.md and its own Stage A research brief. No access to CHECKPOINT.md, PATTERN_LEDGER.md, or this repository\'s reasoning. Its Stage A brief\'s tool-stack citations were not supplied to it, which it reported.',
+      handbackHeld: 'Held outside the repository as the original handback export; referenced rather than copied in.',
+    },
     example:
       'Public architecture work is ranked on competence, and the fee is then negotiated with the top-ranked firm only. No stage of that pipeline is a competitive fee bid.',
     modelDoesInstead:
@@ -168,6 +264,12 @@ export const MODEL_GAPS: readonly ModelGap[] = [
     id: 'recurring-assumes-guaranteed-revenue',
     title: '"Recurring" assumes guaranteed revenue that an on-call agreement does not provide',
     foundBy: 'wrenfield',
+    discovery: {
+      reportedBy: 'Cursor Stage B run, architecture / engineering profile (handed back as `formwork`, renamed at registration)',
+      reportedOn: '2026-08-28',
+      workingFrom: 'docs/PROFILE_AUTHORING_PACKET.md and its own Stage A research brief. No access to CHECKPOINT.md, PATTERN_LEDGER.md, or this repository\'s reasoning. Its Stage A brief\'s tool-stack citations were not supplied to it, which it reported.',
+      handbackHeld: 'Held outside the repository as the original handback export; referenced rather than copied in.',
+    },
     example:
       'An on-call or IDIQ appointment guarantees nothing. It is a term appointment against which task orders may or may not be issued.',
     modelDoesInstead:
@@ -180,6 +282,12 @@ export const MODEL_GAPS: readonly ModelGap[] = [
     id: 'seasonality-is-not-expressible',
     title: 'Recurring revenue has no notion of a seasonal peak',
     foundBy: 'ashcombe',
+    discovery: {
+      reportedBy: 'Cursor Stage B run, accounting / CAS profile (handed back as `ledgerline`, renamed at registration)',
+      reportedOn: '2026-08-28',
+      workingFrom: 'docs/PROFILE_AUTHORING_PACKET.md and its own Stage A research brief. No access to CHECKPOINT.md, PATTERN_LEDGER.md, or this repository\'s reasoning.',
+      handbackHeld: 'Held outside the repository as the original handback export; referenced rather than copied in.',
+    },
     example:
       'Between January and April this firm’s capacity is fixed and its inbound roughly triples. The same SLA means something different in February than in August.',
     modelDoesInstead:
@@ -192,6 +300,12 @@ export const MODEL_GAPS: readonly ModelGap[] = [
     id: 'consent-is-typed-not-boolean',
     title: 'Consent is typed, and the model has one boolean',
     foundBy: 'ashcombe',
+    discovery: {
+      reportedBy: 'Cursor Stage B run, accounting / CAS profile (handed back as `ledgerline`, renamed at registration)',
+      reportedOn: '2026-08-28',
+      workingFrom: 'docs/PROFILE_AUTHORING_PACKET.md and its own Stage A research brief. No access to CHECKPOINT.md, PATTERN_LEDGER.md, or this repository\'s reasoning.',
+      handbackHeld: 'Held outside the repository as the original handback export; referenced rather than copied in.',
+    },
     example:
       'Consent to be contacted commercially is a different object from the written §7216 consent required before return information may be disclosed to an offshore preparer.',
     modelDoesInstead:

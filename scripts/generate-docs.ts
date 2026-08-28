@@ -430,7 +430,9 @@ Found while authoring \`${gap.foundBy}\`.
 | --- | --- |
 | **The case** | ${esc(gap.example)} |
 | **What the model does instead** | ${esc(gap.modelDoesInstead)} |
-| **What a fix would need** | ${esc(gap.aFixWouldNeed)} |`,
+| **What a fix would need** | ${esc(gap.aFixWouldNeed)} |
+| **Reported by** | ${esc(gap.discovery.reportedBy)}, ${gap.discovery.reportedOn} |
+| **Working from** | ${esc(gap.discovery.workingFrom)} |`,
       )
       .join('\n\n');
 
@@ -452,6 +454,20 @@ model has edges: **limits reported by people with no stake in the answer.**
 
 Every entry names a concrete case. A gap stated abstractly cannot be checked or fixed; one stated
 as an instance can be evaluated by a practitioner and either fixed or refused on the merits.
+
+## How far the independence claim goes
+
+Each entry records who reported it, when, and what that author had access to, so the claim can be
+audited rather than taken on trust.
+
+**The limit, stated because it weakens the claim.** The three authoring runs were separate agent
+sessions, each working from the packet and its own research brief — but they ran **in the same
+working tree**, sequentially, and could in principle have read one another's profile files. One of
+them reported exactly that interference. So this is independence of *authorship and brief*, not
+isolation; separate worktrees would be needed for the stronger claim.
+
+The original handbacks are held outside this repository. They are referenced rather than copied in:
+a verbatim dump would be archival theatre, and the structured record is what an auditor needs.
 
 ## Gaps that generalise beyond one trade
 

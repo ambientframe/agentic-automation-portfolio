@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest';
 
 import {
   ALL_PROFILES,
-  DEMONSTRATION_PROFILES,
   MINIMUM_GROUNDING_SOURCES,
   MINIMUM_NAME_CHECK_FINDING_CHARS,
   REGISTERED_PROFILES,

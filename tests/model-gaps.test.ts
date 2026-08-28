@@ -71,6 +71,36 @@ describe('the model-gap register', () => {
     ).toBeGreaterThan(1);
   });
 
+  /**
+   * The independence claim is the register's whole value, so it has to be auditable rather than
+   * asserted. Each gap records who reported it, when, and what they had access to — and the
+   * limit on that claim (three runs, one working tree) is stated on `GapDiscovery` rather than
+   * left for a reader to discover.
+   */
+  it.each(MODEL_GAPS.map((gap) => [gap.id, gap] as const))(
+    '%s records who reported it, when, and from what',
+    (id, gap) => {
+      expect(gap.discovery.reportedBy.length, `${id} names no reporting run`).toBeGreaterThan(20);
+      expect(gap.discovery.reportedOn, `${id} has no report date`).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+      expect(
+        gap.discovery.workingFrom,
+        `${id} does not say what its author was working from, so independence cannot be audited`,
+      ).toContain('PROFILE_AUTHORING_PACKET');
+      expect(gap.discovery.handbackHeld.length, `${id} does not say where the original is`).toBeGreaterThan(20);
+    },
+  );
+
+  it('attributes gaps to as many distinct authoring runs as it does profiles', () => {
+    const runs = new Set(MODEL_GAPS.map((gap) => gap.discovery.reportedBy));
+    const profiles = new Set(MODEL_GAPS.map((gap) => gap.foundBy));
+    expect(
+      runs.size,
+      'the number of distinct authoring runs no longer matches the number of crediting ' +
+        'profiles. Two gaps credited to different profiles but the same run would inflate the ' +
+        'independence claim.',
+    ).toBe(profiles.size);
+  });
+
   it('distinguishes what generalises from what is one trade’s quirk', () => {
     const general = MODEL_GAPS.filter((gap) => gap.generality === 'GENERALISES');
     expect(
