@@ -4,6 +4,7 @@ import {
   ALL_PROFILES,
   DEMONSTRATION_PROFILES,
   MINIMUM_GROUNDING_SOURCES,
+  MINIMUM_NAME_CHECK_FINDING_CHARS,
   REGISTERED_PROFILES,
   UNGROUNDED_DEMONSTRATIONS,
   registeredProfile,
@@ -106,6 +107,69 @@ describe('the ungrounded exemption does not become a loophole', () => {
         `"${id}" is exempt but cites sources. Either it is grounded — remove it from the exemption — or it is not.`,
       ).toEqual([]);
     }
+  });
+});
+
+/**
+ * THE NAME CHECK, MADE CHECKABLE.
+ *
+ * A demonstration profile shipped with a real architecture practice's trading name. Nobody was
+ * careless: the authoring packet ASSERTED the assigned names were "deliberately not real firms",
+ * which was untrue for two of three, so the one author who checked found it by accident. The
+ * correction to the packet is prose, and Pattern #28 says a guard that must be remembered has
+ * already failed.
+ *
+ * So the register must now STATE the check rather than have run it. This cannot verify that a
+ * name is unused — no offline test can reach a company register. What it enforces is narrower
+ * and is the thing that actually broke: **the name that was checked must be the name that
+ * shipped.** Renaming a firm after checking it, or checking one variant and shipping another,
+ * now fails here instead of on a visitor's screen.
+ */
+describe('a demonstration profile states the name check that cleared it', () => {
+  const demonstrations = REGISTERED_PROFILES.filter((r) => r.role === 'DEMONSTRATION');
+
+  it.each(demonstrations.map((r) => [r.profile.id, r] as const))(
+    '%s declares one',
+    (id, entry) => {
+      expect(
+        entry.nameCheck,
+        `"${id}" is shown to visitors as "${entry.profile.name}" and records no name check. ` +
+          'An unchecked trading name is how a fictional firm ends up wearing a real one.',
+      ).toBeDefined();
+    },
+  );
+
+  it.each(demonstrations.map((r) => [r.profile.id, r] as const))(
+    '%s checked the name it actually ships',
+    (id, entry) => {
+      expect(
+        entry.nameCheck?.searchedFor,
+        `"${id}" ships as "${entry.profile.name}" but records a check of ` +
+          `"${entry.nameCheck?.searchedFor}". Checking one name and shipping another is worth nothing.`,
+      ).toBe(entry.profile.name);
+    },
+  );
+
+  it.each(demonstrations.map((r) => [r.profile.id, r] as const))(
+    '%s says what the search found, and when',
+    (id, entry) => {
+      expect(
+        entry.nameCheck?.finding.length,
+        `${id} records a finding too short to be a search result. A mutation proved the earlier ` +
+          'floor worthless: "Nothing was found at all." cleared it, which is a shrug in the shape ' +
+          'of a check.',
+      ).toBeGreaterThanOrEqual(MINIMUM_NAME_CHECK_FINDING_CHARS);
+      expect(entry.nameCheck?.checkedOn, `${id} records no date`).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    },
+  );
+
+  it('records a distinct finding per profile, because one generic negative is how this rots', () => {
+    const findings = demonstrations.map((r) => r.nameCheck?.finding);
+    expect(
+      new Set(findings).size,
+      'two or more profiles record the same name-check finding. Each searched a different name ' +
+        'in a different trade; identical results mean the text was pasted, not obtained.',
+    ).toBe(findings.length);
   });
 });
 

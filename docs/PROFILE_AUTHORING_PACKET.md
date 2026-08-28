@@ -317,9 +317,20 @@ being a real business's name. So:
 
 1. Search your intended trading name against the trade it operates in before you commit to it.
 2. If anything trades under it, invent a different name and use that.
-3. State in your handback what you searched, what you found, and what the name became. If you
-   did not check, say that in those words — the merger will run it, and an unchecked name is a
-   finding, not a failure.
+3. Put what you searched, when, and what you found into a `nameCheck` block in your registration
+   snippet. `tests/profile-register.test.ts` requires one on every demonstration profile and
+   fails if `searchedFor` is not exactly the `name` your profile ships — checking one variant
+   and shipping another is the failure it exists to stop. If you did not check, say that in
+   those words rather than inventing a record; the merger will run it, and an unchecked name is
+   a finding, not a failure.
+
+```ts
+  nameCheck: {
+    searchedFor: '<the trading name your profile actually ships>',
+    checkedOn: '<YYYY-MM-DD>',
+    finding: '<what came back, INCLUDING near-misses — a bare "nothing found" fails the floor>',
+  },
+```
 
 A web search is not a company-register or trademark search, and neither you nor the merger can
 close that gap from here. Record it as `[unverified — verify by: a formal register and trademark

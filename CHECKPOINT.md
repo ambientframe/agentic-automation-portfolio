@@ -3,7 +3,55 @@
 > One per accepted package (Constitution §14). Repository truth is authoritative; this file
 > is an index, not a source. Append the new checkpoint above the previous one.
 
-## Current — The strongest integration proof stops being invisible to a buyer · 2026-08-28
+## Current — The name check stops being something someone has to remember · 2026-08-28
+
+**Verified state.** `npm run verify`: 76 files, **1310 passed / 1 skipped**, exit 0. `npm run
+build`: compiled, exit 0. $0 spent.
+
+**Proof claim earned.** Every `DEMONSTRATION` profile now carries a `nameCheck` in the register —
+what was searched, when, and what came back. `tests/profile-register.test.ts` enforces the
+property that actually broke: **`searchedFor` must equal the `name` the profile ships.** Renaming
+a firm after clearing it, or clearing one variant and shipping another, now fails in the suite
+instead of on a visitor's screen.
+
+**This closes a gap opened the same day rather than publishing it.** The previous package caught
+`formwork` wearing a real practice's trading name and recorded the check in prose. Prose is not
+checkable, and Pattern #28 says a guard that must be remembered has already failed. The
+`CHECKPOINT` rule is the tiebreak: publishing a gap is not a substitute for closing one that is
+cheap to close. This one was cheap.
+
+**It immediately found the profile nobody had checked.** Requiring the record forced a search on
+`Kestrel Compliance Group` — the firm on every rendered surface, whose name had never been
+checked in the life of the project. It clears: no company trades under it. The nearest neighbour
+is Kestrel Labs, a Denver building-code compliance platform, recorded in the finding because a
+reader deserves the near-miss rather than a bare negative.
+
+**Falsification, and the first version of the rule was worthless.** 5 mutations: a demonstration
+shipping with no check, the firm renamed after its check cleared the old name, a check recorded
+for a name never shipped, the finding emptied to a bare negative, and one generic negative pasted
+across two profiles. **The bare-negative mutation survived** — the rule asked only that a finding
+be non-empty, and `'Nothing was found at all.'` cleared it: a shrug in the costume of a check.
+Repaired with `MINIMUM_NAME_CHECK_FINDING_CHARS` and a distinctness assertion, because the
+realistic way this rots is one generic negative copied everywhere. All five fail now; files
+restored byte-for-byte and verified by SHA-256.
+
+**A note on the first mutation run, because it is the more useful lesson.** The bare-negative
+mutation initially *appeared* to survive for the wrong reason: it left the informative half of
+the finding in place, so it never created the defect it named. A mutation that does not produce
+the condition it claims is evidence about the mutation, not about the test. Re-specified, it
+survived for the right reason, and only then was the test repaired.
+
+**What this cannot do, stated in the field's own docstring.** It cannot establish that a name is
+unused. No offline test reaches a company register, and every finding here came from a web
+search, not a trademark search — each carries `[unverified — verify by: a formal register and
+trademark search]`. It records diligence and pins it to the shipped name; it does not certify
+availability.
+
+**Next package.** Kestrel's `explicitlyNot` and vocabulary remain the least-grounded part of the
+reference profile. The model gaps the three new profiles surfaced are the larger prize, and
+blocked-vs-overdue is the most generalisable of them.
+
+## Earlier — The strongest integration proof stops being invisible to a buyer · 2026-08-28
 
 **Verified state.** `npm run verify`: 76 files, **1297 passed / 1 skipped**, exit 0. `npm run
 build`: compiled, exit 0. $0 spent.

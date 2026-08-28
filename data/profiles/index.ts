@@ -56,6 +56,32 @@ export interface GroundingSource {
   readonly quote: string;
 }
 
+/**
+ * THE RECORD THAT A TRADING NAME WAS CHECKED AGAINST REAL FIRMS.
+ *
+ * `formwork` was authored as "Formwork Architecture + Engineering" and was one merge away from
+ * being shown to visitors under the trading name of real practices in four countries. The
+ * author was not careless — `docs/PROFILE_AUTHORING_PACKET.md` §11 asserted the assigned names
+ * were "deliberately not real firms", which was false for two of the three.
+ *
+ * WHAT THIS CAN AND CANNOT DO. It cannot establish that a name is unused: no offline test
+ * reaches a company register, and a web search is not a trademark search. It records what was
+ * looked for, when, and what came back — and `tests/profile-register.test.ts` enforces the one
+ * property that actually broke, which is that **the name checked must be the name shipped.**
+ * Renaming a firm after clearing it, or clearing one variant and shipping another, fails there.
+ */
+export interface NameCheck {
+  /**
+   * The trading name searched. Pinned to `profile.name` by test, because the failure mode is
+   * not forgetting to search — it is searching one string and shipping a different one.
+   */
+  readonly searchedFor: string;
+  /** ISO date of the search. A check has a shelf life; a reader should see how old it is. */
+  readonly checkedOn: string;
+  /** What came back, including near-misses. A bare "nothing found" hides the interesting part. */
+  readonly finding: string;
+}
+
 export interface RegisteredProfile {
   readonly profile: BusinessProfile;
   readonly role: ProfileRole;
@@ -63,10 +89,28 @@ export interface RegisteredProfile {
   readonly note: string;
   /** Required for DEMONSTRATION, forbidden for STRUCTURAL_FIXTURE. */
   readonly groundingSources: readonly GroundingSource[];
+  /**
+   * Required for DEMONSTRATION. Optional here rather than mandatory because a structural
+   * fixture is never rendered and so cannot wear a real firm's name in front of anyone; the
+   * role rule lives in the test, alongside the grounding rule it mirrors.
+   */
+  readonly nameCheck?: NameCheck;
 }
 
 /** The minimum a DEMONSTRATION profile must cite. Low, and a floor rather than a target. */
 export const MINIMUM_GROUNDING_SOURCES = 3;
+
+/**
+ * How much a name check has to actually say. A floor, like the one above.
+ *
+ * It exists because a mutation proved the first version of this rule worthless: the test asked
+ * only that a finding be non-empty, and "Nothing was found at all." passed it. That is a shrug
+ * wearing the costume of a check, and it is exactly what a hurried author would write. A real
+ * search reports what it looked at and what came near — `tests/profile-register.test.ts` also
+ * requires the findings to differ from one another, because the realistic way this degrades is
+ * one generic negative pasted across every profile.
+ */
+export const MINIMUM_NAME_CHECK_FINDING_CHARS = 120;
 
 /**
  * DEMONSTRATION PROFILES THAT DO NOT MEET THE GROUNDING FLOOR.
@@ -104,6 +148,12 @@ export const REGISTERED_PROFILES: readonly RegisteredProfile[] = [
       'against published 2026 benchmarks whose source material is retained in docs/evidence/grounding-captures.json. ' +
       'Every figure below is a synthetic assumption; the sources describe the industry and verify nothing about this ' +
       'firm. Retainer economics were recalibrated on 2026-08-28 from 33 clients at $3,200/month to 20 at $5,000.',
+    nameCheck: {
+      searchedFor: 'Kestrel Compliance Group',
+      checkedOn: '2026-08-28',
+      finding:
+        'No company trades under this name. The nearest neighbour is Kestrel Labs, a Denver building-code compliance platform inside BIM — a different name in a different trade, recorded here because a reader should see the near-miss rather than a bare negative. This is the firm on every rendered surface and its name had never been checked until now. A web search, NOT a company-register or trademark search. `[unverified — verify by: a formal register and trademark search]`',
+    },
     groundingSources: [
       {
         url: 'https://www.rocketlane.com/blogs/professional-services-maturity-index-2026',
@@ -141,6 +191,12 @@ export const REGISTERED_PROFILES: readonly RegisteredProfile[] = [
       'no firm of that name was found, which is why this profile keeps both its slug and its trading name. That was a ' +
       'web search, NOT a company-register or trademark search — `[unverified — verify by: a formal register and ' +
       'trademark search]` still stands for the stronger claim.',
+    nameCheck: {
+      searchedFor: 'Stratum Revenue Systems',
+      checkedOn: '2026-08-28',
+      finding:
+        'No company trades under this name. The author stated plainly that the name was invented and never checked; the check was run at registration and cleared it. A web search, NOT a company-register or trademark search. `[unverified — verify by: a formal register and trademark search]`',
+    },
     groundingSources: [
       {
         url: 'https://www.hubspot.com/partners/faqs',
@@ -205,6 +261,12 @@ export const REGISTERED_PROFILES: readonly RegisteredProfile[] = [
       'bookkeeping practice, and a virtual accounting service. The author caught this and set the trading name to the ' +
       'invented `Ashcombe CPAs & Advisors`; the slug was kept because it is an internal key that reaches no rendered ' +
       'surface and every document here refers to this profile by it. Nothing a visitor reads carries the real name.',
+    nameCheck: {
+      searchedFor: 'Ashcombe CPAs & Advisors',
+      checkedOn: '2026-08-28',
+      finding:
+        'No US accounting firm trades under this name; the only "Ashcombe" in finance is a UK corporate-finance advisory. Chosen BECAUSE the assigned slug collides: "Ledgerline" is a Canadian CPA practice, an Omaha bookkeeping firm, and a virtual accounting service. The author found that collision and renamed the firm rather than the slug. A web search, NOT a company-register or trademark search. `[unverified — verify by: a formal register and trademark search]`',
+    },
     groundingSources: [
       {
         url: 'https://www.intuit.com/blog/innovative-thinking/client-accounting-services/',
@@ -296,6 +358,12 @@ export const REGISTERED_PROFILES: readonly RegisteredProfile[] = [
       'practices in this exact trade — St. Louis, Barbados, London, and Australia among them. The author did not check ' +
       'the name and did not claim to have; the check was run here and it failed. As with `ledgerline`, the slug stays ' +
       'because it is an internal key that reaches no rendered surface.',
+    nameCheck: {
+      searchedFor: 'Wrenfield Architecture + Engineering',
+      checkedOn: '2026-08-28',
+      finding:
+        'No design practice trades under this name. Renamed at registration from "Formwork Architecture + Engineering", which IS the trading name of real practices in St. Louis, Barbados, London, and Australia — the collision this field exists to stop. A web search, NOT a company-register or trademark search. `[unverified — verify by: a formal register and trademark search]`',
+    },
     groundingSources: [
       {
         url: 'https://monograph.com/blog/architecture-business-benchmarks-understanding-and-increasing-net-revenue-per-full-time-equivalent',
