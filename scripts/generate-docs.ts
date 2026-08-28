@@ -17,8 +17,10 @@
  */
 
 import { writeFileSync } from 'node:fs';
+
 import { join } from 'node:path';
 import { ALL_SYSTEMS } from '../data/systems';
+import { MODEL_GAPS } from '../data/model-gaps';
 import { SOURCES, sourceById } from '../data/research/sources';
 import { KESTREL } from '../data/profiles/kestrel/profile';
 import {
@@ -413,10 +415,59 @@ ${KESTREL.operatingParameters.map((p) => `| ${p.label} | ${p.value} | ${p.unit} 
 `;
 }
 
+function modelGaps(): string {
+  const byAuthor = [...new Set(MODEL_GAPS.map((gap) => gap.foundBy))].sort();
+  const general = MODEL_GAPS.filter((gap) => gap.generality === 'GENERALISES');
+
+  const section = (generality: 'GENERALISES' | 'ONE_TRADE') =>
+    MODEL_GAPS.filter((gap) => gap.generality === generality)
+      .map(
+        (gap) => `### ${esc(gap.title)}
+
+Found while authoring \`${gap.foundBy}\`.
+
+| Field | |
+| --- | --- |
+| **The case** | ${esc(gap.example)} |
+| **What the model does instead** | ${esc(gap.modelDoesInstead)} |
+| **What a fix would need** | ${esc(gap.aFixWouldNeed)} |`,
+      )
+      .join('\n\n');
+
+  return `# Model Gaps
+
+> Generated from the typed model. Do not hand-edit — change \`data/model-gaps.ts\` and run \`npm run docs\`.
+
+**${MODEL_GAPS.length} limits of the six systems, found by ${byAuthor.length} independent profile authors**
+(\`${byAuthor.join('\`, \`')}\`) working from \`docs/PROFILE_AUTHORING_PACKET.md\` alone, with no access
+to this repository's reasoning. ${general.length} of them are not specific to one trade.
+
+This is not a backlog and not a roadmap. Nothing here is scheduled, and \`CLAUDE.md\` scope
+discipline requires the running system to produce the need before a capability is added — several
+of these may never be built, and saying so is the point.
+
+It exists because these findings had nowhere to live. They arrived inside handback documents and
+were otherwise lost, which is a poor fate for the strongest evidence this artifact has that its
+model has edges: **limits reported by people with no stake in the answer.**
+
+Every entry names a concrete case. A gap stated abstractly cannot be checked or fixed; one stated
+as an instance can be evaluated by a practitioner and either fixed or refused on the merits.
+
+## Gaps that generalise beyond one trade
+
+${section('GENERALISES')}
+
+## Gaps specific to one trade
+
+${section('ONE_TRADE')}
+`;
+}
+
 // ---------------------------------------------------------------------------
 
 export const DOCUMENTS: Record<string, () => string> = {
   'NORTH_STAR_CANON.md': northStarCanon,
+  'MODEL_GAPS.md': modelGaps,
   'FAILURE_MODE_REGISTER.md': failureRegister,
   'RESEARCH_LEDGER.md': researchLedger,
 };

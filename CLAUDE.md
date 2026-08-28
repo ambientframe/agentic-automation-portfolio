@@ -15,6 +15,7 @@ sources below or compute them.
 | `docs/STATUS.md` | What is real, simulated, or unverified, newest entry at the top. |
 | `PATTERN_LEDGER.md` | Reusable patterns earned, each with implementation, tests, and the artifact that earned it. Also what is *not yet* earned, and why. |
 | `docs/NORTH_STAR_CANON.md` | Normative definition of all six systems. Generated — do not hand-edit. |
+| `docs/MODEL_GAPS.md` | What the six systems cannot express, found by independent profile authors. Generated from `data/model-gaps.ts`. **Not a backlog** — read it before proposing a model change, and add to it rather than fixing on sight. |
 | `docs/CANON_DIVERGENCES.md` | Where canon deliberately departs from the original brief. |
 
 `docs/STATUS.md` has a "Single recommended next fidelity gap" section near the **bottom** that

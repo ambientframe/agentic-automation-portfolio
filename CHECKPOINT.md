@@ -3,7 +3,53 @@
 > One per accepted package (Constitution §14). Repository truth is authoritative; this file
 > is an index, not a source. Append the new checkpoint above the previous one.
 
-## Current — No real company's name survives anywhere in the repository · 2026-08-28
+## Current — Thirteen limits found by people with no stake in the answer, finally written down · 2026-08-28
+
+**Verified state.** `npm run verify`: 78 files, **1494 passed / 1 skipped**, exit 0. `npm run
+build`: compiled, exit 0. $0 spent.
+
+**Proof claim earned.** `data/model-gaps.ts` records **13 limits of the six systems, found by 3
+independent profile authors**, and `docs/MODEL_GAPS.md` is generated from it. Eight are not
+specific to one trade. Every entry names a concrete case, what the model does today in its place,
+and the shape a fix would take.
+
+**These findings were being thrown away.** The authoring packet asks every profile author to
+report what the model could not express. Three agents did exactly that, working from the packet
+alone with no access to this repository's reasoning — and their findings arrived inside handback
+documents, got one summary line in a checkpoint, and otherwise existed nowhere in the tree. Under
+`COMMERCIAL_THESIS.md` §3 a retained negative result is a commercial asset, and **a limit found by
+somebody with no stake in the answer is the strongest form of that evidence available here.** It
+was being lost for want of a file to put it in.
+
+**Not a backlog, and the document says so twice.** Nothing here is scheduled. `CLAUDE.md` scope
+discipline requires the running system to produce the need before a capability is added, so
+several of these may never be built — and saying that is the point rather than a hedge.
+`CLAUDE.md`'s read-first table now points at it with the instruction to *add to it rather than fix
+on sight*.
+
+**Every entry carries a concrete case, and that is the load-bearing rule.** A gap stated
+abstractly ("the model lacks nuance") is unfalsifiable and unfixable. A gap stated as an instance
+— a completed tax return that may not legally be sent until a signed Form 8879 arrives — can be
+evaluated by a practitioner and either fixed or refused on the merits. The test enforces it.
+
+**Independence is enforced, not assumed.** One author reporting thirteen limits is an opinion;
+three independent authors converging on a model's boundaries is evidence about the model. A test
+fails if every gap collapses to a single author.
+
+**Falsification.** 4 mutations, all failed: a gap credited to a pre-rename slug that no longer
+exists, every gap collapsing to one author, a concrete case degraded to hand-waving, and the
+generated document going stale against the register. Restored and verified by SHA-256.
+
+**Maturity. Unchanged.** Writing down what the systems cannot do changes nothing about what they
+can.
+
+**Next package — and a decision that is yours.** `docs/MODEL_GAPS.md` is reachable only by reading
+the repository; **the site links no docs at all.** Whether the rendered artifact should expose
+developer documentation is a canon decision about its shape, not a refactor. If the answer is yes,
+this document and the fidelity ledger's published gaps are the two strongest candidates. The
+largest engineering prize remains `blocked-is-not-overdue`, now written down with its case.
+
+## Earlier — No real company's name survives anywhere in the repository · 2026-08-28
 
 **Verified state.** `npm run verify`: 77 files, **1461 passed / 1 skipped**, exit 0. `npm run
 build`: compiled, exit 0. Capture: 38 of 38. $0 spent.
