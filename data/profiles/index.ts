@@ -35,10 +35,22 @@ export interface GroundingSource {
   /** Where the claim came from. Must be retrievable by a reader, not a private note. */
   readonly url: string;
   /**
-   * What this source establishes about the vertical, in one sentence. A bare URL list can be
-   * padded with anything; naming the claim makes a citation that supports nothing visible.
+   * What we take this source to establish about the vertical. THIS IS INTERPRETATION, and it is
+   * the one part of a grounding source that nothing can mechanically check. A capture can show
+   * that a page said something at a moment in time; it cannot show that our reading of it is
+   * right. Keep the two separable so a reader can disagree with the reading without having to
+   * doubt the retrieval.
    */
   readonly establishes: string;
+  /**
+   * A VERBATIM excerpt from the source, chosen to be the material the claim above rests on.
+   *
+   * This is the half that IS checkable. `scripts/capture-grounding.ts` fetches the URL and
+   * refuses to write a capture unless this exact string appears in the retrieved text, so a
+   * fabricated citation dies at capture time rather than living in the register looking
+   * plausible. Keep it long enough to be distinctive and short enough to be a quotation.
+   */
+  readonly quote: string;
 }
 
 export interface RegisteredProfile {
@@ -87,18 +99,22 @@ export const REGISTERED_PROFILES: readonly RegisteredProfile[] = [
     groundingSources: [
       {
         url: 'https://www.rocketlane.com/blogs/professional-services-maturity-index-2026',
+        quote: 'Revenue per employee climbed 6% to $168k',
         establishes:
-          'The 2026 SPI Professional Services Maturity Benchmark, surveying 509 organisations, reports $168k revenue per employee and $210k per billable consultant. Kestrel implies $228.6k per head across 14 staff — above the all-staff average and near the per-billable figure, which is defensible for a small firm carrying little non-billable overhead and sits at the top of the $150k–$250k mid-market band.',
+          'INDUSTRY FACT: the 2026 SPI Professional Services Maturity Benchmark reports $168k revenue per employee across surveyed professional-services organisations. OUR CALIBRATION: Kestrel’s synthetic $228.6k per head sits above that all-staff figure, which we take to be a defensible assumption for a 14-person firm carrying little non-billable overhead. The source says nothing about Kestrel, which does not exist.',
       },
       {
         url: 'https://www.brightdefense.com/resources/soc-2-certification-cost/',
+        quote:
+          'A readiness assessment helps organizations pinpoint weaknesses, usually costing $5,000 to $20,000. Policy development and documentation may add another $5,000 to $15,000 if outsourced.',
         establishes:
-          'SOC 2 readiness and gap assessment runs $10k–$20k for Type 2, policy development $5k–$15k, and remediation consulting $10k–$30k, against total mid-size program costs of $60k–$100k. Kestrel’s $32k average engagement sits inside the $25k–$65k a bundled readiness-plus-policy-plus-remediation engagement would total.',
+          'INDUSTRY FACT: a SOC 2 readiness assessment runs $5k–$20k and policy development adds $5k–$15k when outsourced. OUR CALIBRATION: Kestrel’s synthetic $32k average engagement is assumed to bundle readiness, policy authoring and remediation, which the quoted components plus remediation would plausibly total. The source prices components, not Kestrel’s engagement.',
       },
       {
         url: 'https://sidechannel.com/blog/the-ultimate-guide-to-vciso-pricing-everything-you-need-to-know/',
+        quote: 'For most mid-market companies, vCISO pricing runs $3,000 to $12,000 per month.',
         establishes:
-          'vCISO retainers run $3,000–$12,000/month for mid-market companies and $1,500–$3,000 for smaller operations. Kestrel’s $3,200/month sits at the FLOOR of the mid-market band despite a stated mid-market segment — the one figure that reads low for the business described, recorded rather than raised.',
+          'INDUSTRY FACT: mid-market vCISO retainers run $3,000–$12,000 per month. OUR CALIBRATION: Kestrel’s synthetic $3,200/month sits at the very floor of that band while the profile claims a mid-market segment — a weak assumption we have chosen rather than a fact the source supports, and one flagged for recalibration.',
       },
     ],
   },

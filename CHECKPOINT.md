@@ -3,7 +3,55 @@
 > One per accepted package (Constitution §14). Repository truth is authoritative; this file
 > is an index, not a source. Append the new checkpoint above the previous one.
 
-## Current — The unknown was closed against a receiver we do not own · 2026-08-28
+## Current — A citation nobody opened now fails loudly · 2026-08-28
+
+**Verified state.** `npm run verify`: 75 files, 1212 passed / 1 skipped, exit 0. `npm run build`:
+compiled successfully, exit 0.
+
+**Proof claim earned.** Every grounding source in the register is backed by a retained capture
+proving the URL resolved, at a stated time, with a stated status, and that a stated **verbatim
+quote** was present in the text retrieved from it. Built before any Bot-authored citation is
+accepted, not retrofitted after.
+
+**The pattern is the split, and the boundary is preserved.** A grounding source now carries a
+verbatim `quote` beside its interpretive `establishes`. The quote is mechanically checkable. The
+interpretation is not checkable by anything, and the artifact says so in its own `doesNotProve`
+rather than letting a capture imply it blesses a reading. What this buys is inspectability: claim,
+source, exact material, and the moment it was observed are visible together, so a reader can
+reject the reading without doubting the retrieval.
+
+**The capture-time gate is the part that protects against fabrication**, and it was verified
+live rather than reasoned about. A quote absent from the page → refused. A URL that does not
+resolve → refused. Both wrote **nothing**; the artifact hash was unchanged after each. One
+unreachable source aborts the whole run, because a partial file would report the register as
+better evidenced than it is.
+
+**`claimSha256` closes the drift a capture would otherwise hide** — a claim edited after capture
+leaves genuine material that is no longer the material the claim rests on.
+
+**No live network in CI.** `scripts/capture-grounding.ts` is the only thing in the repository that
+fetches at runtime, and it runs deliberately. Everything downstream reads the artifact.
+
+**Falsification.** 13 assertions, each defending a link in the chain. 7 corruptions each
+separately confirmed to fail; 2 live capture-time refusals confirmed. All restored byte-for-byte,
+verified by MD5.
+
+**One wording correction applied while here, ahead of its package.** Kestrel's grounding notes
+implied sources had verified its figures. They have not and cannot: Kestrel does not exist. Each
+note now separates `INDUSTRY FACT` from `OUR CALIBRATION` and states that the source says nothing
+about Kestrel. The numbers themselves are untouched — that is the next package.
+
+**Maturity.** Unchanged. $0 spent.
+
+**Pattern earned.** #29 — retrieval can be proven, interpretation cannot, so separate them.
+
+**Next package.** Recalibrate Kestrel's retainer economics through this stronger standard: the
+$3,200/month figure sits at the floor of the mid-market band its own captured source names, and
+the 33-retainer count is high for 14 staff. Then, and only then, admit the Bot-authored profiles
+as grounded evidence — the packet now requires a verbatim quote per source, so their citations
+face this gate on arrival.
+
+## Earlier — The unknown was closed against a receiver we do not own · 2026-08-28
 
 **Verified state.** `npm run verify`: 74 files, 1199 passed / 1 skipped, exit 0. `npm run build`:
 compiled successfully, exit 0.

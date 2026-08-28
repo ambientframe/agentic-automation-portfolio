@@ -137,10 +137,31 @@ business from one escalating at 90, and the systems will behave differently as a
 
 A profile shown to a visitor must be recognisable to somebody who works in that industry. So:
 
-**Cite at least three retrievable sources, and for each, state in one sentence what it
-establishes.** Industry association surveys, trade publications, regulator guidance, vendor
-research, practitioner forums, published benchmarks. What you cannot do is invent plausible
-numbers and present them as characteristic of the trade.
+**Cite at least three retrievable sources. For each you must supply three things:**
+
+1. `url` — retrievable by anyone, not a private note
+2. `quote` — **a VERBATIM excerpt copied from the page**, at least 25 characters, being the exact
+   material your claim rests on
+3. `establishes` — what you take that material to mean
+
+Industry association surveys, trade publications, regulator guidance, vendor research,
+practitioner forums, published benchmarks. What you cannot do is invent plausible numbers and
+present them as characteristic of the trade.
+
+**The quote is not a formality, and it is checked mechanically.**
+`scripts/capture-grounding.ts` fetches every URL and refuses to write a capture unless your exact
+quote appears in the retrieved text. If any source fails, **nothing is written at all** — a
+partial capture would report the register as better evidenced than it is. So a citation you did
+not actually open will fail loudly, with your name on it, in front of a person.
+
+Copy the quote character-for-character. Do not paraphrase it, do not fix its punctuation, and do
+not stitch two sentences together that were not adjacent on the page.
+
+**What this does and does not establish.** A capture proves the URL resolved and that your quoted
+material was really there at that moment. It does not prove your `establishes` reading is
+correct — that stays interpretation, and a reader is expected to judge it. Which is precisely why
+the quote must be real: it is the only part of your citation anyone can check without repeating
+your research.
 
 Ground at least these:
 
@@ -197,7 +218,11 @@ filled in:
   role: 'DEMONSTRATION',
   note: '<one sentence: what this business is and why it is in the register>',
   groundingSources: [
-    { url: '<retrievable url>', establishes: '<one sentence: what this source establishes>' },
+    {
+      url: '<retrievable url>',
+      quote: '<VERBATIM excerpt copied from that page, 25+ chars — checked mechanically>',
+      establishes: '<what you take that material to mean — this part is interpretation>',
+    },
     // at least three
   ],
 },
