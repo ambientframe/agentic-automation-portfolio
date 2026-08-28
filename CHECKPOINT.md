@@ -3,7 +3,50 @@
 > One per accepted package (Constitution §14). Repository truth is authoritative; this file
 > is an index, not a source. Append the new checkpoint above the previous one.
 
-## Current — The name check stops being something someone has to remember · 2026-08-28
+## Current — Three profiles had never run anything, and now every profile runs everything · 2026-08-28
+
+**Verified state.** `npm run verify`: 76 files, **1446 passed / 1 skipped**, exit 0. Suite duration
+1.57s. `npm run build`: compiled, exit 0. $0 spent.
+
+**The finding, which is the package.** `stratum`, `ledgerline` and `formwork` were registered this
+morning as `DEMONSTRATION` profiles and had **never executed a single scenario.** The seam swap
+has two halves: a parametrized half over `ALL_PROFILES` (schema, consistency, all seventeen
+contract keys) and a scenario-execution half that was **hard-coded to `MERIDIAN`** — correct while
+Meridian was the only other profile, and silently wrong the moment three more were registered.
+This morning's checkpoint said all three "passed the seam swap". That was too strong, and the
+entry now carries the correction rather than being edited.
+
+**Contract-conformant is not execution-proven.** A profile can declare every key the engine demands
+and still drive it into a state no handler expects. The distinction is the entire retargetability
+claim, which `COMMERCIAL_THESIS.md` §5 names as the artifact's central commercial claim.
+
+**Both halves now derive from the register.** All 22 authored scenarios run under **every** profile
+they were not written for — four foreign profiles × 22 scenarios, each completing and replaying
+identically. Suite 1310 → 1446 for +1.57s total.
+
+**Coverage alone would have been decorative, and a mutation proved it.** Asserting only that a run
+reaches *a* lifecycle state cannot see a threshold change: three separate mutations to `stratum`'s
+thresholds — `confidenceFloor` to 0.999, `humanReviewTimeoutHours` to 0, `maxInformationQuestions`
+to 0 — **all survived it.** So the "load-bearing, not decorative" divergence assertion was
+parametrized too: each foreign profile must reach different final states from Kestrel in **at least
+three of the six systems**. All four clear it. A handler that read a profile and ignored it now
+fails, per profile, by name.
+
+**Falsification.** Copied all seventeen of Kestrel's threshold values into `stratum`: divergence
+collapsed and the assertion fired naming that profile specifically. Restored byte-for-byte and
+verified by SHA-256. This is the mutation that makes the new coverage worth having — new tests that
+pass on the first run prove nothing until they have been shown able to fail.
+
+**Maturity. Unchanged.** Every profile here is synthetic. This proves retargetability across
+authored businesses and says nothing about a real firm's messy inbound, which §6 requires be stated
+rather than blurred. No customer exists.
+
+**Next package.** The retargetability claim is now earned by execution and is **still asserted
+rather than shown** on the buyer surface: `app/page.tsx` says retargeting is "a data change rather
+than a rewrite" and no rendered surface references any profile but Kestrel. That is the same
+built-it-can't-see-it gap closed for remote verification, on the larger claim.
+
+## Earlier — The name check stops being something someone has to remember · 2026-08-28
 
 **Verified state.** `npm run verify`: 76 files, **1310 passed / 1 skipped**, exit 0. `npm run
 build`: compiled, exit 0. $0 spent.
@@ -107,9 +150,16 @@ successfully, exit 0. $0 spent.
 **Proof claim earned.** `stratum`, `ledgerline` and `formwork` are registered `DEMONSTRATION`
 profiles. Three independent Cursor agents, working from `docs/PROFILE_AUTHORING_PACKET.md` and
 nothing else, each authored a profile declaring exactly the seventeen `PROFILE_ENGINE_CONTRACT`
-keys, returning `[]` from `validateProfileConsistency`, and passing the seam swap **with no engine
-or handler change**. Pattern #26 amended rather than duplicated: the seam is now exercised by five
-profiles, three of them authored by agents that never read this repository's reasoning.
+keys and returning `[]` from `validateProfileConsistency` **with no engine or handler change**.
+Pattern #26 amended rather than duplicated: the seam is now exercised by five profiles, three of
+them authored by agents that never read this repository's reasoning.
+
+> **CORRECTED later the same day.** This entry originally said the three also "passed the seam
+> swap", which was too strong. They passed its *parametrized* half — schema, consistency, contract
+> completeness. The scenario-execution half was hard-coded to `MERIDIAN`, so all three were
+> registered as demonstrations having **never executed a single scenario**. Closed in the
+> `Current` entry; the overstatement is left visible here rather than edited away, because a
+> checkpoint that silently corrects itself is worth less than one that shows the correction.
 
 **The blocker was a channel, not a defect.** The three registration snippets had reached this
 repository only inside PDF-converted markdown, which split every `fi`/`fl` ligature (`profile` →

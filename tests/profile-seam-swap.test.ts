@@ -227,24 +227,56 @@ const EVERY_RUN = RUNNABLE_SYSTEMS.flatMap((runnable) =>
   runnable.scenarios.map((scenario) => [runnable.system.id, scenario.slug, runnable, scenario] as const),
 );
 
-describe('every authored scenario executes under the second profile', () => {
+/**
+ * EVERY PROFILE THE SCENARIOS WERE NOT WRITTEN FOR.
+ *
+ * This block ran against `MERIDIAN` alone until 2026-08-28, which was correct when Meridian was
+ * the only other profile and quietly wrong the moment three more were registered. Those three
+ * satisfied the schema, `validateProfileConsistency`, and all seventeen contract keys — and had
+ * **never executed a single scenario.** Contract-conformant is not execution-proven, and the
+ * difference is the whole retargetability claim: a profile can declare every key the engine
+ * demands and still put the engine into a state no handler expects.
+ *
+ * Derived from the register, never listed, for the same reason `PROFILES` is.
+ */
+const FOREIGN_PROFILES = ALL_PROFILES.filter((p) => p.id !== KESTREL.id);
+
+const EVERY_RUN_PER_FOREIGN_PROFILE = FOREIGN_PROFILES.flatMap((profile) =>
+  EVERY_RUN.map(
+    ([systemId, slug, runnable, scenario]) =>
+      [profile.id, systemId, slug, profile, runnable, scenario] as const,
+  ),
+);
+
+describe('every authored scenario executes under every profile it was not written for', () => {
   it('covers all six systems', () => {
     expect(new Set(EVERY_RUN.map(([systemId]) => systemId)).size).toBe(6);
   });
 
-  describe.each(EVERY_RUN)('%s / %s', (_systemId, _slug, runnable, scenario) => {
-    it('completes without the engine demanding anything the profile lacks', async () => {
-      const run = await runUnder(MERIDIAN, runnable, scenario);
-      expect(run.timeline.length).toBeGreaterThan(0);
-      expect(run.finalState.lifecycleState).toBeTruthy();
-    });
-
-    it('replays identically, so determinism does not depend on which profile is loaded', async () => {
-      const first = await runUnder(MERIDIAN, runnable, scenario);
-      const second = await runUnder(MERIDIAN, runnable, scenario);
-      expect(JSON.stringify(second)).toBe(JSON.stringify(first));
-    });
+  it('exercises more than one foreign profile, or the swap proves less than it claims', () => {
+    expect(
+      FOREIGN_PROFILES.length,
+      'only one profile other than Kestrel is registered. A single foreign profile can be ' +
+        'accommodated by accident; several cannot.',
+    ).toBeGreaterThan(1);
   });
+
+  describe.each(EVERY_RUN_PER_FOREIGN_PROFILE)(
+    '%s :: %s / %s',
+    (_profileId, _systemId, _slug, profile, runnable, scenario) => {
+      it('completes without the engine demanding anything the profile lacks', async () => {
+        const run = await runUnder(profile, runnable, scenario);
+        expect(run.timeline.length).toBeGreaterThan(0);
+        expect(run.finalState.lifecycleState).toBeTruthy();
+      });
+
+      it('replays identically, so determinism does not depend on which profile is loaded', async () => {
+        const first = await runUnder(profile, runnable, scenario);
+        const second = await runUnder(profile, runnable, scenario);
+        expect(JSON.stringify(second)).toBe(JSON.stringify(first));
+      });
+    },
+  );
 });
 
 /**
@@ -260,29 +292,33 @@ describe('every authored scenario executes under the second profile', () => {
  * Meridian escalates receivables at 30 days rather than 45, treats an 8% variance as
  * material rather than 12%, and waits 72 hours for a reply rather than 24.
  */
-describe('the profile is load-bearing, not decorative', () => {
-  it('changes outcomes across multiple systems, not just one path', async () => {
-    const divergences: string[] = [];
-    const divergentSystems = new Set<string>();
+describe.each(FOREIGN_PROFILES.map((p) => [p.id, p] as const))(
+  'the profile is load-bearing, not decorative — %s',
+  (profileId, profile) => {
+    it('changes outcomes across multiple systems, not just one path', async () => {
+      const divergences: string[] = [];
+      const divergentSystems = new Set<string>();
 
-    for (const [systemId, slug, runnable, scenario] of EVERY_RUN) {
-      const under = await runUnder(MERIDIAN, runnable, scenario);
-      const original = await runUnder(KESTREL, runnable, scenario);
-      if (under.finalState.lifecycleState !== original.finalState.lifecycleState) {
-        divergences.push(
-          `${systemId}/${slug}: ${original.finalState.lifecycleState} → ${under.finalState.lifecycleState}`,
-        );
-        divergentSystems.add(systemId);
+      for (const [systemId, slug, runnable, scenario] of EVERY_RUN) {
+        const under = await runUnder(profile, runnable, scenario);
+        const original = await runUnder(KESTREL, runnable, scenario);
+        if (under.finalState.lifecycleState !== original.finalState.lifecycleState) {
+          divergences.push(
+            `${systemId}/${slug}: ${original.finalState.lifecycleState} → ${under.finalState.lifecycleState}`,
+          );
+          divergentSystems.add(systemId);
+        }
       }
-    }
 
-    expect(
-      divergentSystems.size,
-      'thresholds changed outcomes in fewer than three systems. Either the handlers stopped ' +
-        `consulting the profile, or the two profiles have converged. Divergences seen: ${JSON.stringify(divergences, null, 2)}`,
-    ).toBeGreaterThanOrEqual(3);
-  });
-});
+      expect(
+        divergentSystems.size,
+        `${profileId}: thresholds changed outcomes in fewer than three systems. Either the ` +
+          'handlers stopped consulting the profile, or this profile has converged with Kestrel. ' +
+          `Divergences seen: ${JSON.stringify(divergences, null, 2)}`,
+      ).toBeGreaterThanOrEqual(3);
+    });
+  },
+);
 
 /**
  * THE AGGREGATE TEST ABOVE IS NOT TIGHT ENOUGH ON ITS OWN, and this exists because of it.
