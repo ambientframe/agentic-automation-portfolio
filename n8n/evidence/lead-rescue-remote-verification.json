@@ -1,0 +1,71 @@
+{
+  "schemaVersion": "lead-rescue-remote-verification-evidence-1",
+  "capturedAt": "2026-08-28T05:55:56.221Z",
+  "gitHead": "9e5c00f876679fcee60ab7fad36ae889d7f0c874",
+  "receiver": {
+    "kind": "third-party automation platform (n8n), reachable only over the public internet",
+    "origin": "https://ambientframes.app.n8n.cloud",
+    "onThisMachine": false,
+    "logWorkflow": "Lead Rescue — Delivery Log",
+    "lookupWorkflow": "Lead Rescue — Delivery Lookup",
+    "persistence": "An n8n data table named lead_rescue_deliveries, written by the receiver before it responds and readable only through the receiver. This application holds no credential for it and cannot write to or edit it."
+  },
+  "confirmable": {
+    "idempotencyKey": "notify:remote-verification-1787896554547:delivered",
+    "sendOutcome": {
+      "kind": "SUCCEEDED",
+      "externalId": "8"
+    },
+    "verifyOutcome": {
+      "kind": "CONFIRMED_EXECUTED",
+      "reason": "The receiver holds a record of this operation in its own execution log, recorded at 2026-08-27T22:55:54.863-07:00.",
+      "externalId": "8"
+    },
+    "rawReceiverAnswer": {
+      "httpStatus": 200,
+      "body": {
+        "idempotencyKey": "notify:remote-verification-1787896554547:delivered",
+        "found": true,
+        "recordedAt": "2026-08-27T22:55:54.863-07:00",
+        "n8nExecutionId": "8"
+      }
+    },
+    "establishes": "A delivery that genuinely crossed to the receiver can be independently confirmed afterwards by asking the receiver, and the confirmation carries the receiver’s own execution id rather than anything this application generated."
+  },
+  "absent": {
+    "idempotencyKey": "notify:remote-verification-1787896554547:never-sent",
+    "verifyOutcome": {
+      "kind": "STILL_UNKNOWN",
+      "reason": "The receiver holds no record of this operation. That is consistent with the request never arriving AND with it arriving and being lost before the record was written, so it is not evidence that nothing happened."
+    },
+    "rawReceiverAnswer": {
+      "httpStatus": 200,
+      "body": {
+        "idempotencyKey": "notify:remote-verification-1787896554547:never-sent",
+        "found": false,
+        "recordedAt": null,
+        "n8nExecutionId": null
+      }
+    },
+    "establishes": "A key the receiver has never seen returns STILL_UNKNOWN. The receiver answered plainly that it holds no record, and the executor still refused to convert that into a confirmed negative."
+  },
+  "standingGuarantee": {
+    "neverConfirmsANegative": true,
+    "observedKind": "STILL_UNKNOWN",
+    "why": "A receiver cannot prove it never received something. A request can be accepted at the socket and die before the first write to its log — precisely the failure that produces the OUTCOME_UNKNOWN being investigated. The receiver’s confident \"found: false\" is therefore not evidence of absence, and is not treated as any."
+  },
+  "unconfiguredLookup": {
+    "behaviour": "refused with AttemptUnavailableError: No lookup endpoint is configured for this receiver, so no independent verification is available. An OUTCOME_UNKNOWN cannot be narrowed on this path.",
+    "why": "With no lookup channel the boundary must return to refusing rather than guessing, so that a missing verification path can never be mistaken for a completed one."
+  },
+  "scopeStatement": "This evidence proves that an authorized Lead Rescue notification left this machine over HTTPS, was recorded by a third-party automation platform in storage this application cannot write to, and was then INDEPENDENTLY CONFIRMED by querying that platform for the operation’s idempotency key; and that a key never sent returns an honest unknown rather than a fabricated negative. It was produced by the application running on this machine against a live receiver, not by a stub.",
+  "doesNotProve": [
+    "It does not make Lead Rescue live for a client. No customer exists, no real business data was involved, every input was authored here, and the receiver forwards nothing to anyone.",
+    "It does not prove the notification reached a person. The receiver records deliveries and forwards nothing; no human recipient is configured anywhere on this path.",
+    "It does not prove exactly-once delivery across arbitrary crash and provider failure modes. It proves one confirmable delivery and one honest unknown.",
+    "It does not prove a negative can ever be confirmed on this path. It proves the opposite: the receiver cannot observe what it failed to record, so an absent row stays unknown by design.",
+    "It does not prove the DEPLOYED application does this. The crossing was made by the application running on this machine; the hosted build has no such endpoint configured.",
+    "It does not prove real classification. No model was called during this capture.",
+    "It does not prove durability of the receiver’s storage beyond the moment of capture. The lookup was performed seconds after the delivery."
+  ]
+}

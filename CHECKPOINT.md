@@ -3,7 +3,64 @@
 > One per accepted package (Constitution §14). Repository truth is authoritative; this file
 > is an index, not a source. Append the new checkpoint above the previous one.
 
-## Current — The firm on every screen is no longer ungrounded · 2026-08-27
+## Current — The unknown was closed against a receiver we do not own · 2026-08-28
+
+**Verified state.** `npm run verify`: 74 files, 1199 passed / 1 skipped, exit 0. `npm run build`:
+compiled successfully, exit 0.
+
+**Proof claim earned.** An `OUTCOME_UNKNOWN` can be narrowed by asking a third-party system this
+application holds no credential for, and the narrowing carries **that system's own execution id**
+rather than anything generated here. Previously code-complete and unproven; now exercised over the
+public internet against a live n8n instance.
+
+**What ran.** `scripts/remote-verification-proof.ts` drove the real `WebhookSideEffectExecutor`:
+
+| Step | Result |
+| --- | --- |
+| Send to the live receiver | `SUCCEEDED`, external id `8` |
+| Look up that key | `CONFIRMED_EXECUTED`, external id `8` — the id the receiver returned |
+| Look up a key never sent | `STILL_UNKNOWN` |
+| Verify with no lookup configured | refused with `AttemptUnavailableError` |
+
+**The asymmetry survived a live receiver.** n8n answered `found: false` for the never-sent key
+with HTTP 200 and complete confidence. The executor still returned `STILL_UNKNOWN`. That refusal
+is easy to hold against a stub and easy to lose against a provider that sounds certain, so the raw
+receiver body is retained beside the verdict and a test asserts the link between them.
+
+**Three recorded unknowns were settled by running it.** The `found` expression returns a real
+boolean; `alwaysOutputData` answers on a miss instead of hanging; the lowercase `idempotency-key`
+header is what reaches the receiver. All three had been published as unverified in the workflow
+files and are now corrected there.
+
+**Inertness was audited before activation, not after.** Every node in both workflows was checked
+against an allowlist and every parameter scanned for outbound URLs: four nodes each — inbound
+trigger, data-table write/read, field set, respond. No `httpRequest`, no mail/SMS/CRM node, no
+Code or executeCommand, no outbound URL. The only `http` match was `httpMethod` on the inbound
+trigger. Neither webhook requires a credential, so no credential boundary was crossed. Two
+pre-existing workflows were left untouched.
+
+**Falsification.** 13 evidence assertions, each checking a LINK — verdict ↔ raw receiver answer ↔
+key asked about — rather than the presence of a field. 6 deliberate corruptions of the artifact,
+each separately confirmed to fail it; artifact restored byte-for-byte and verified by MD5.
+
+**MATURITY: UNCHANGED. Lead Rescue remains `INTERACTIVE_PROTOTYPE`.** A public-HTTPS crossing into
+a third-party platform with independent read-back is stronger *integration and execution* proof
+than anything previously retained here. It is not client-liveness and must never be read as it: no
+customer exists, every input was authored here, nothing forwards to a person, and the deployed
+build has no lookup endpoint configured. The capture's own `doesNotProve` list says so first, and
+a test fails if that list is trimmed. $0 spent.
+
+**Pattern.** #27 updated from asserted to proven-live rather than a new entry — it is the same
+pattern, now carrying evidence.
+
+**Next package.** SELECTED, in order, per the owner: (1) the retained citation-capture gate, so
+grounding sources become inspectable evidence rather than a count and a sentence, built before any
+Bot-authored citation is accepted; (2) recalibrate Kestrel's retainer economics through that
+stronger standard; (3) only then admit the incoming profiles as grounded evidence. One smaller item
+sits outside that sequence: the fidelity ledger has no row for independent verification, so a
+capability that is now real is invisible on the buyer surface.
+
+## Earlier — The firm on every screen is no longer ungrounded · 2026-08-27
 
 **Verified state.** `npm run verify`: 73 files, 1186 passed / 1 skipped, exit 0. `npm run build`:
 compiled successfully, exit 0.
