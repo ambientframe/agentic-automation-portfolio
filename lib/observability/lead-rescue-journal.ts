@@ -9,6 +9,7 @@ import {
   type ObservationIntentStore,
 } from '@/lib/persistence/observation-intent-store';
 import { withObservationIntegrity } from './observation-integrity';
+import { DATA_ROOT } from '@/lib/config/data-root';
 
 /**
  * THE OBSERVABILITY COMPOSITION ROOT — deliberately outside `lib/engine/`.
@@ -33,7 +34,7 @@ import { withObservationIntegrity } from './observation-integrity';
  *
  * Gitignored (`.data/`) — runtime observability, never a fixture.
  */
-export const LEAD_RESCUE_JOURNAL_DIR = path.join(process.cwd(), '.data', 'lead-rescue-execution-journal');
+export const LEAD_RESCUE_JOURNAL_DIR = path.join(DATA_ROOT, 'lead-rescue-execution-journal');
 
 /**
  * A SIBLING DIRECTORY, not a subdirectory of the journal — deliberately. The whole purpose of
@@ -43,11 +44,7 @@ export const LEAD_RESCUE_JOURNAL_DIR = path.join(process.cwd(), '.data', 'lead-r
  * lost. Nesting it inside the journal would guarantee the accounting failed in lockstep with
  * the thing it accounts for, which is the one arrangement that cannot work.
  */
-export const LEAD_RESCUE_OBSERVATION_INTENT_DIR = path.join(
-  process.cwd(),
-  '.data',
-  'lead-rescue-observation-intents',
-);
+export const LEAD_RESCUE_OBSERVATION_INTENT_DIR = path.join(DATA_ROOT, 'lead-rescue-observation-intents');
 
 const leadRescueJournal = new FileExecutionJournal(LEAD_RESCUE_JOURNAL_DIR);
 

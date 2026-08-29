@@ -7,6 +7,7 @@ import { FileOperationClaimStore } from '@/lib/persistence/operation-claim-store
 import type { SendRequest, VerifyRequest, SideEffectExecutor } from '@/lib/ports/side-effect-executor';
 import type { ExecutionMode, SendOutcome, VerifyOutcome } from '@/lib/model/runtime';
 import { resolveLeadRescueSideEffectExecutor } from '@/lib/config/side-effect-executor-config';
+import { DATA_ROOT } from '@/lib/config/data-root';
 import { leadRescueJournalRecorder } from '@/lib/observability/lead-rescue-journal';
 import type { WaitResumeDeps } from './wait-resume';
 
@@ -58,7 +59,7 @@ class AlwaysSucceedsSimulatedExecutor implements SideEffectExecutor {
  *
  * Gitignored (`.data/`) — this is demo-runtime state, not a fixture.
  */
-export const LEAD_RESCUE_WAIT_STORE_PATH = path.join(process.cwd(), '.data', 'lead-rescue-wait-incidents.json');
+export const LEAD_RESCUE_WAIT_STORE_PATH = path.join(DATA_ROOT, 'lead-rescue-wait-incidents.json');
 
 export const leadRescueWaitStore = new FileWaitIncidentStore(LEAD_RESCUE_WAIT_STORE_PATH);
 
@@ -69,7 +70,7 @@ export const leadRescueWaitStore = new FileWaitIncidentStore(LEAD_RESCUE_WAIT_ST
  * on its own. A sibling directory to the incident store's file, same `.data/` durability
  * scope, same gitignore coverage.
  */
-export const LEAD_RESCUE_CLAIM_STORE_DIR = path.join(process.cwd(), '.data', 'lead-rescue-operation-claims');
+export const LEAD_RESCUE_CLAIM_STORE_DIR = path.join(DATA_ROOT, 'lead-rescue-operation-claims');
 
 export const leadRescueClaimStore = new FileOperationClaimStore(LEAD_RESCUE_CLAIM_STORE_DIR);
 
