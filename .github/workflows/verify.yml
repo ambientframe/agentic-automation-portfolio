@@ -33,6 +33,13 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Full history, not the default shallow clone. Several evidence tests assert that the
+          # commit recorded inside a retained runtime artifact exists in this repository — an
+          # artifact citing a commit that never existed is the fabrication those tests are
+          # there to catch. Under a depth-1 checkout `git cat-file` cannot find it, and the
+          # test fails for a reason that has nothing to do with the claim.
+          fetch-depth: 0
 
       - uses: actions/setup-node@v4
         with:

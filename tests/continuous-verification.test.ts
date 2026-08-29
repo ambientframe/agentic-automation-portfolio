@@ -124,6 +124,16 @@ describe('continuous verification', () => {
     it('keeps the generated types out of version control, so they cannot go stale in the tree', () => {
       expect(readFileSync(join(REPO, '.gitignore'), 'utf8')).toMatch(/^\/?\.next/m);
     });
+
+    it('checks out the full history the evidence tests need to resolve a recorded commit', () => {
+      // The second CI failure, and also right: a default depth-1 checkout has no history, so
+      // `git cat-file` cannot confirm that a retained artifact's `gitHead` is a commit that
+      // exists. Tolerating a shallow clone would have meant deleting the assertion that an
+      // artifact cannot cite a run that never happened, which is the assertion worth keeping.
+      expect(workflowInstructions(), 'The workflow clones shallow; evidence tests need history.').toMatch(
+        /fetch-depth:\s*0/,
+      );
+    });
   });
 
   it('states that a passing run is not an operational claim', () => {
