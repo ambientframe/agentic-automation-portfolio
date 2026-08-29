@@ -99,6 +99,33 @@ describe('continuous verification', () => {
     );
   });
 
+  describe('the gate has to pass in a checkout that has never been built', () => {
+    /**
+     * THE FIRST CI RUN FAILED, AND IT WAS RIGHT.
+     *
+     * `LayoutProps` and `PageProps` are globals Next generates into `.next/types`, which is
+     * gitignored. `npm run verify` therefore passed on this machine only because an earlier
+     * build had left them behind — and failed with five TS2304 errors on a clean checkout,
+     * which is precisely what the README tells a stranger to make. The claim "the suite is
+     * green" was false for everyone except the person who had already run it (GitHub Actions
+     * run 33239467523, the first push after the workflow landed).
+     *
+     * Fixed by generating the types as part of the gate rather than relying on a directory
+     * that may or may not exist. The wrong fix, guarded against below, is committing the
+     * generated types: a checked-in generated file goes stale silently, and `.gitignore` is
+     * what stops that.
+     */
+    it('generates the route types before typechecking, rather than assuming a previous build left them', () => {
+      const scripts = JSON.parse(readFileSync(join(REPO, 'package.json'), 'utf8')).scripts as Record<string, string>;
+      expect(scripts.typecheck, 'npm run typecheck assumes .next/types already exists.').toContain('next typegen');
+      expect(scripts.typecheck).toContain('tsc --noEmit');
+    });
+
+    it('keeps the generated types out of version control, so they cannot go stale in the tree', () => {
+      expect(readFileSync(join(REPO, '.gitignore'), 'utf8')).toMatch(/^\/?\.next/m);
+    });
+  });
+
   it('states that a passing run is not an operational claim', () => {
     // The one way a badge could mislead here: green means the gates passed, and this project
     // draws a hard line between proof maturity and operational maturity. The badge sits beside
