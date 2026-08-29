@@ -5,6 +5,8 @@ import './globals.css';
 import { KESTREL } from '@/data/profiles/kestrel/profile';
 import { ALL_SYSTEMS } from '@/data/systems';
 import { MATURITY_LEVELS } from '@/lib/model/system';
+import { deriveSourceHandover } from '@/lib/config/source-provenance';
+import { SourceHandover } from '@/components/source-handover';
 
 const inter = Inter({ variable: '--font-inter', subsets: ['latin'], display: 'swap' });
 const newsreader = Newsreader({ variable: '--font-newsreader', subsets: ['latin'], display: 'swap' });
@@ -105,6 +107,7 @@ function Colophon() {
           Every scenario here replays deterministically. Nothing reaches a real customer,
           provider, or third party.
         </p>
+        <SourceHandover handover={deriveSourceHandover(process.env)} />
         <div className="border-t rule pt-5 space-y-2">
           <p className="instrument" style={{ color: 'var(--ink-muted)' }}>
             {KESTREL.fictionalDisclosure}
@@ -121,3 +124,4 @@ function Colophon() {
     </footer>
   );
 }
+
