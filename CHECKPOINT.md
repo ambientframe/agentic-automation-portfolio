@@ -3,7 +3,37 @@
 > One per accepted package (Constitution §14). Repository truth is authoritative; this file
 > is an index, not a source. Append the new checkpoint above the previous one.
 
-## Current — The artifact hands over its own source, and its green is no longer self-reported · 2026-08-28
+## Current — Commercial strategy of record accepted; the CV1 build phase opens · 2026-08-29
+
+**What moved.** Release integrity closed (entries below), the capability exit gate met, and a
+live inspection (2026-08-29, desktop and 375px) found the design system sound — and found that
+`COMMERCIAL_THESIS.md` §9's "judge me on what you find" has no referent on the artifact: no
+author, no offer, no path from a favorable judgment to a conversation. The binding constraint is
+commercial completion; the keystone is the offer.
+
+**Strategy of record.** `COMMERCIAL_COMPLETION_PATCH.md`, accepted by the operator with four
+corrections, all incorporated: operating evidence and deliberate control tests carry separate
+provenance (`OPERATING`/`CONTROL`); the engagement is not optimized for this portfolio's need
+for social proof (publication is a separate, explicit permission that costs the client nothing
+to refuse); the fee is a falsifiable commercial bet, not doctrine; the first-client shortlist is
+ranked by credible access to the buying problem, not familiarity. Public identity defaults to
+the operator's full name and is finalized in CD1, reserved to the operator — along with contact,
+fee, and domain, all rendered from a single declaration module, unset until decided.
+
+**Dispatched.** `COMMERCIAL_V1_BUILD_BRIEF.md` for the builder: CP1 (commercial surfaces), CP2
+(operator's-log skeleton + capture apparatus), D1 (recorded design/access pass), opportunistic
+P2 — CP2b composes the log body from real evidence only. `docs/O1_OPERATOR_RUNBOOK.md` is
+committed **before** the session as a pre-registered protocol, deliberately: the log will cite
+a protocol that predates the run.
+
+**The freeze rule is now in force.** When the patch §7 gate passes — eight observable
+conditions — portfolio construction freezes (defect repairs only) and first-client acquisition
+becomes the binding constraint. The engineering scorecard resumes post-launch, first slot M2.
+
+**Next package.** CP1/CP2/D1 per the brief, in the builder's order; O1/O2 per the runbook once
+CP2's apparatus lands; CD1 decided by the operator in parallel. $0 spent.
+
+## Earlier — The artifact hands over its own source, and its green is no longer self-reported · 2026-08-28
 
 **Verified state.** `npm run verify`: 83 files, **1584 passed / 1 skipped**, exit 0. `npm run
 build`: exit 0. `main` @ `24354d8`, clean, pushed. **CI green on a clean checkout** (Actions run
