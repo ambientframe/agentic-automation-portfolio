@@ -38,6 +38,19 @@ function read(path: string): string {
   return readFileSync(path, 'utf8');
 }
 
+/**
+ * A remote image is not a frame.
+ *
+ * The walkthrough's committed frames are checked against the filesystem, which is the whole
+ * reason they are committed. A status badge is the opposite kind of thing — it is *supposed*
+ * to be fetched live, because a cached copy of a green badge would be a claim about a run that
+ * may no longer pass. The two cannot be held to one rule, so they are separated here rather
+ * than the local check being loosened to accommodate the remote one.
+ */
+function isRemote(href: string): boolean {
+  return /^[a-z][a-z0-9+.-]*:/i.test(href);
+}
+
 /** Every `![alt](path)` in a markdown file, resolved against that file's own directory. */
 function imageReferences(markdownPath: string): readonly { alt: string; href: string; resolved: string }[] {
   const source = read(markdownPath);
@@ -85,6 +98,11 @@ describe('the 90-second walkthrough', () => {
       }
     });
 
+    it('embeds nothing fetched from elsewhere, because surviving a dead link is the point', () => {
+      const remote = imageReferences(WALKTHROUGH_PATH).filter((frame) => isRemote(frame.href));
+      expect(remote.map((frame) => frame.href), 'docs/WALKTHROUGH.md embeds a remote image.').toEqual([]);
+    });
+
     it('gives every frame alt text, because half the point is a reader who cannot see it', () => {
       for (const frame of imageReferences(WALKTHROUGH_PATH)) {
         expect(frame.alt.trim().length, `A frame in docs/WALKTHROUGH.md has no alt text: ${frame.href}`).toBeGreaterThan(
@@ -98,8 +116,14 @@ describe('the 90-second walkthrough', () => {
     });
 
     it('references only frames that exist, from the README too', () => {
-      for (const frame of imageReferences(README_PATH)) {
+      for (const frame of imageReferences(README_PATH).filter((frame) => !isRemote(frame.href))) {
         expect(existsSync(frame.resolved), `README.md references a missing frame: ${frame.href}`).toBe(true);
+      }
+    });
+
+    it('fetches a remote image only over https, on a page whose subject is what can be trusted', () => {
+      for (const frame of imageReferences(README_PATH).filter((frame) => isRemote(frame.href))) {
+        expect(frame.href.startsWith('https://'), `README.md loads an image over plaintext: ${frame.href}`).toBe(true);
       }
     });
 

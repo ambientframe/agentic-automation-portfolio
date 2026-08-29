@@ -1,0 +1,51 @@
+# The gates a reader is told to run, run by something other than the person making the claim.
+#
+# Every other claim in this repository was built to be checked without trusting its author —
+# canon generated from the typed model, runtime artifacts that fail against a corrupted copy,
+# a walkthrough whose figures are recomputed. "The suite is green" was the exception: evidenced
+# only by a line in CHECKPOINT.md written by whoever ran it. This runs the same two commands
+# the README gives a reader, on every push, in a clean checkout, where the result is public.
+#
+# It deliberately sets NONE of the three environment variables CLAUDE.md gates on the owner's
+# explicit go-ahead — LEAD_RESCUE_DECISION_PROVIDER, RUN_LIVE_AI_EVAL,
+# LEAD_RESCUE_SIDE_EFFECT_EXECUTOR. Each bills money or sends real mail, and a push trigger
+# fires unattended. `tests/continuous-verification.test.ts` fails if one appears here.
+name: verify
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# Read-only: this workflow never writes to the repository, and the token's grant is the blast
+# radius of anything that goes wrong inside it.
+permissions:
+  contents: read
+
+concurrency:
+  group: verify-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      # From the lockfile: the run reflects this repository, not whatever the registry resolved
+      # to today.
+      - run: npm ci
+
+      # typecheck + lint + the full suite.
+      - run: npm run verify
+
+      # Every route prerenders and the engine executes at build time, so a run that diverges
+      # fails here rather than rendering a divergence to a visitor.
+      - run: npm run build

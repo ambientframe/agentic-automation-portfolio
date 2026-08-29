@@ -59,6 +59,13 @@ three wait/resume incidents reachable from `/lead-rescue`.
 
 ## Verify it
 
+[![verify](https://github.com/ambientframe/agentic-automation-portfolio/actions/workflows/verify.yml/badge.svg)](https://github.com/ambientframe/agentic-automation-portfolio/actions/workflows/verify.yml)
+
+That badge reports the two commands below, run on every push in a clean checkout by something
+other than the person making the claim. It is a statement about the **gates**, never about
+operation: a green run means the types, the lint rules, the suite, and the prerender all passed,
+and nothing here has run for a customer either way.
+
 ```bash
 npm run verify     # typecheck + lint + the full test suite
 npm run build      # every route prerenders — the engine executes at build time
