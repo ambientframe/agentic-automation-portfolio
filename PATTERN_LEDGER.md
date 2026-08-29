@@ -361,6 +361,32 @@
 - **Two mutations survived the first run and both were real test weaknesses.** The evidence assertion searched the whole decision for a substring, so deleting the dependency owner survived because the name appeared elsewhere — now asserted per labelled fact. And a gate could cite any policy that merely existed; `validateProfileConsistency` now rejects a gate sharing a policy with an operating parameter, because a threshold and a prohibition are different claims.
 - **Limits (recorded, not hidden):** only `DISPATCH` consults gates. The primitive is vertical-agnostic and any profile may declare a gate on any action, but no other handler reads them, so such a gate would be declared and unread. Gate evaluation is presence-of-fact only and cannot judge whether the recorded evidence is genuine; bounded AI judgment may propose the fact through the ordinary port, never waive the gate. The shared-policy rule catches a gate borrowing an existing policy and cannot catch a bespoke policy that is simply wrong about the gate.
 
+### 34. An artifact that cannot name the source it was built from says so
+- **Earned:** `c114934`, 2026-08-28
+- **Implementation:** `lib/config/source-provenance.ts` · `components/source-handover.tsx` · `app/layout.tsx` (colophon)
+- **Tests:** `tests/source-provenance.test.ts` (28); 13 mutations each separately confirmed to fail, restores verified by SHA-256.
+- **Runtime evidence:** the deployed page at `24354d8` renders `Built from commit 24354d8, recorded by the host that deployed it`, and all five published links return 200 unauthenticated.
+- **Establishes:** the surface links its own source pinned to the commit that produced it, and when the host records no commit it states that rather than showing a bare branch link. A `main` link on a build that cannot name itself is a claim that the tip of `main` is what shipped — usually false, and false in the direction that flatters.
+- **A declared commit and an observed one are different evidence.** The operator may supply a commit for a deploy that carries no git metadata; it renders as *declared*, never as recorded by the host. Same separation as provenance from verification everywhere else here.
+- **It ends with what it does not prove.** A commit id records which source was built, not that the bundle served to a reader was built from it — that needs a reproducible build, which this project does not have.
+- **A published URL is one declaration, checked against the remote.** Four copies of `path.join(process.cwd(), '.data')` is the defect this repository has already paid for; a hard-coded URL in a second source file now fails the suite, and the declared URL is compared against this checkout's own `origin` whenever one exists.
+- **One mutation survived the first run and was a real weakness.** The layout assertion matched the handover function's own name, so deleting the element from the colophon left the suite green. Repaired by rendering the extracted component and asserting the markup it emits.
+- **Reusable for 2–6:** it is site chrome, so every system inherits it the moment it renders a page.
+- **Limits (recorded, not hidden):** the repository URL is a declared constant, so a repository rename breaks the links until someone edits the module — the remote check catches it locally, nothing catches it in a deploy. Link targets are checked for existence on disk, never over the network.
+
+### 35. A gate only its author can run is an assertion, and a green local run is not a green cold one
+- **Earned:** `57ee89b` (workflow), `5478400` + `24354d8` (the two defects it found), 2026-08-28
+- **Implementation:** `.github/workflows/verify.yml` · `package.json` (`typecheck` generates route types)
+- **Tests:** `tests/continuous-verification.test.ts` (11); 8 mutations each separately confirmed to fail, restores verified by SHA-256.
+- **Runtime evidence:** GitHub Actions runs `33239467523` (failed: TS2304 ×5), `33239577428` (failed: shallow clone), `33239652646` (success) — public, and reachable from the README badge.
+- **Establishes:** every other claim here was built to be checked without trusting its author, and "the suite is green" was the exception — evidenced by a line in `CHECKPOINT.md` written by whoever ran it. The same two commands the README gives a reader now run on every push in a clean checkout, where the result is public.
+- **It found a real one immediately, and that is the point.** `LayoutProps` and `PageProps` are Next globals generated into the gitignored `.next/types`. `npm run verify` passed on the author's machine only because an earlier build had left them behind, and failed with five errors on a fresh clone — which is exactly what the README instructs a stranger to make. **The claim was true for one person and false for everyone who checked it.** Fixed in the gate rather than in CI, so the README's instruction is what became correct.
+- **The second failure was also right.** A depth-1 checkout has no history, so the evidence tests could not resolve the commit a retained artifact records. Tolerating that would have meant deleting the assertion that an artifact cannot cite a run that never happened; the checkout fetches history instead, and a test pins the setting.
+- **The workflow opens no spend or blast-radius gate,** and a test fails if one appears: a push trigger fires unattended, which is the worst place in this repository to start billing or sending.
+- **The badge states what green does not mean.** It is a claim about the gates and never about operation; a status tick is precisely the kind of green that quietly collapses the two maturity axes.
+- **Reusable for 2–6:** repository-wide from the first run.
+- **Limits (recorded, not hidden):** it proves the gates pass on a clean checkout, not that the deployment matches the commit that passed them. Nothing here runs the live probes.
+
 ## NOT YET EARNED
 
 | Candidate | Why not |

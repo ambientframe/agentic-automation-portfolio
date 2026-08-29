@@ -3,7 +3,48 @@
 > One per accepted package (Constitution §14). Repository truth is authoritative; this file
 > is an index, not a source. Append the new checkpoint above the previous one.
 
-## Current — The artifact a stranger reaches is now the artifact that was built · 2026-08-28
+## Current — The artifact hands over its own source, and its green is no longer self-reported · 2026-08-28
+
+**Verified state.** `npm run verify`: 83 files, **1584 passed / 1 skipped**, exit 0. `npm run
+build`: exit 0. `main` @ `24354d8`, clean, pushed. **CI green on a clean checkout** (Actions run
+`33239652646`). **The live site serves `24354d8` and says so.** $0 spent.
+
+**R5 — the site links its own source.** `COMMERCIAL_THESIS.md` §9 is one sentence — the work is
+open and you can check it yourself — and the repository URL appeared in **no file in this
+repository**. The README pointed at the site; nothing pointed back. The colophon now carries five
+links on every page (repository, walkthrough, `STATUS.md`, `MODEL_GAPS.md`, README), each pinned
+to the commit that built the page, all verified 200 unauthenticated. Where the host records no
+commit the page **says so** instead of showing a bare `main` link that reads as though `main` is
+what shipped; a commit an operator declares renders as *declared*, never as observed. 28 tests,
+13 mutations — one survived and was a real weakness: the layout assertion matched the handover
+function's own name, so deleting the element left the suite green.
+
+**R6 — and it found the defect in its first run.** "The suite is green" was the one claim here
+evidenced only by its author. A workflow now runs the same two commands the README gives a
+reader, on every push, in a clean checkout. Run `33239467523` **failed**: `LayoutProps` and
+`PageProps` are Next globals generated into the gitignored `.next/types`, so `npm run verify`
+passed locally only because an earlier build had left them behind. **The claim was true for one
+person and false for everyone who checked it.** Fixed in the gate, not in CI, so the README's own
+instruction became correct. Run `33239577428` failed next on a shallow clone — the evidence tests
+could not resolve a retained artifact's recorded commit — fixed by fetching history rather than by
+deleting the assertion.
+
+**The deploy trap is gone, and not by the predicted route.** Three consecutive git-triggered
+deployments reached `READY`/`PROMOTED` in about a minute, authored `cmschafrath@gmail.com` — the
+address the audit recorded as the cause of five `BLOCKED` deployments. The CLI-archive workaround
+is no longer needed. `[unverified — verify by: checking vercel.com/account for the address; the
+block is observably cleared, the reason is not established.]`
+
+**What this does not do.** A commit id records what was built, not that the bundle served to a
+reader was built from it, and the page says so. CI proves the gates pass on a clean checkout, not
+that the deployment matches the commit that passed them.
+
+**Next package.** O1/O2 from the audit sequence: the operator drives the live instance himself and
+publishes a first-hand account of meeting one published limit. `COMMERCIAL_THESIS.md` §4a makes it
+a required package rather than polish, every release-integrity precondition is now met, and the
+live write path is confirmed working (POST → 200, case readable, console starts empty).
+
+## Earlier — The artifact a stranger reaches is now the artifact that was built · 2026-08-28
 
 **Verified state.** `npm run verify`: 81 files, **1543 passed / 1 skipped**, exit 0. `npm run
 build`: exit 0. $0 spent. **A remote exists**: `github.com/ambientframe/agentic-automation-portfolio`,
