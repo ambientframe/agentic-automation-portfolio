@@ -3,7 +3,41 @@
 > One per accepted package (Constitution §14). Repository truth is authoritative; this file
 > is an index, not a source. Append the new checkpoint above the previous one.
 
-## Current — Blocked is not overdue, and the engine can finally tell them apart · 2026-08-28
+## Current — The artifact a stranger reaches is now the artifact that was built · 2026-08-28
+
+**Verified state.** `npm run verify`: 81 files, **1543 passed / 1 skipped**, exit 0. `npm run
+build`: exit 0. $0 spent. **A remote exists**: `github.com/ambientframe/agentic-automation-portfolio`,
+all history pushed. **The live site serves current `main` content**, verified by probe.
+
+**The defect class was release integrity, not capability.** An external audit (brief and report
+held outside the repository, like the handbacks) verified four conditions: no git remote of any
+kind; the deployment 44 commits stale; this machine's `.data/` bundled into it, so the public
+console rendered Aug-26 fault-injection history as the hosted system's own; and every hosted
+write path returning a bare 500 — `process.cwd()` is read-only on the serverless runtime, and
+the page invites exactly those writes. The last was **verified live before fixing** (POST → 500,
+count unchanged) and **after** (POST → 200, case parked, read back; console starts empty;
+integrity `NO_KNOWN_LOSS`, 0 alerts).
+
+**Two packages, both mutation-checked.** `PORTFOLIO_DATA_ROOT` — every store root from one pure
+resolution, failing closed on a relative value (`lib/config/data-root.ts`, 3 mutations caught).
+`.vercelignore` + a persistence-row limit **derived from the resolved root** — a configured root
+states that hosted state survives requests, not platform recycling — plus the same truth in
+README, operator console, and wait page (2 mutations caught).
+
+**Deploys are git-linked now.** Tonight's five BLOCKED deployments shared one cause, found in the
+deployment API, not the CLI: the commit author email (`cmschafrath@gmail.com`) is unknown to the
+Vercel team. Repo-local `user.email` now matches the Vercel account; the durable alternative is
+adding the old address at vercel.com/account, then reverting.
+
+**What this does not do.** Hosted state is ephemeral and the surface says so; durability proof
+remains the retained local process-death artifact. §8's exit gate was scored on evidence and is
+**met** — Lead Rescue loses default priority.
+
+**Next package.** R5 from the audit sequence: link the artifact to its own evidence — repo ↔
+site ↔ walkthrough — the open canon decision about the artifact's shape, now unblocked because
+a public repository URL exists for a page to point at.
+
+## Earlier — Blocked is not overdue, and the engine can finally tell them apart · 2026-08-28
 
 **Verified state.** `npm run verify`: 80 files, **1535 passed / 1 skipped**, exit 0, no lint
 warnings. `npm run build`: compiled, exit 0. $0 spent.
