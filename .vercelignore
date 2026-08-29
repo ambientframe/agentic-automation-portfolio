@@ -1,0 +1,7 @@
+# Runtime state must never ship with a deployment. `.data/` is this machine's demo-runtime
+# store (wait incidents, operation claims, the execution journal, observation intents); a
+# deployment that bundles it presents one developer machine's history as the hosted
+# instance's own — the exact "simulated reads as live" failure the maturity labels exist to
+# prevent. Verified live 2026-08-28: the deployed console served this checkout's Aug-26
+# fault-injection proof records as if the hosted system had produced them.
+.data

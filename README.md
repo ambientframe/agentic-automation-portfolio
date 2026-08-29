@@ -185,8 +185,9 @@ what is genuinely absent as of the current `STATUS.md`.
 - **No customer deployment.** The site is hosted so a visitor can reach it without a clone, but
   that is a demonstration, not operation. Nothing has run for a paying customer, no live trigger
   is connected to a real channel, there is no production scheduler, and there is no client data
-  of any kind. The hosted instance carries no runtime store, so its operator console starts
-  empty and fills only from use of the demo itself.
+  of any kind. The hosted instance ships no runtime store and writes demo state to ephemeral
+  platform storage, so its operator console starts empty, fills only from use of the demo
+  itself, and may reset when the platform recycles the instance.
 - **No real outbound customer messaging.** SMTP execution has run only against a
   purpose-built receiver bound to loopback with no relay. Wiring a routable provider is the
   highest-stakes remaining boundary and requires an explicit decision, not a config change.

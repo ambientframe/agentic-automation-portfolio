@@ -517,8 +517,9 @@ export function OperatorConsole() {
         <p className="instrument leading-relaxed prose-measure" style={{ color: 'var(--ink-muted)' }}>
           Unlike the incidents above, nothing here is a replay. Each button calls a route handler
           that re-reads the persisted case, applies exactly one event through the same engine, and
-          returns its own outcome — including refusals. Restarting the server changes nothing,
-          because the file on disk is the only place this state lives.
+          returns its own outcome — including refusals. No process holds this state: the store on
+          disk is the only place it lives, so its lifetime is that disk&apos;s lifetime — durable in
+          a local checkout, ephemeral platform storage on the hosted demo.
         </p>
         <p className="instrument leading-relaxed prose-measure" style={{ color: 'var(--warn)' }}>
           One exception, stated up front: the outbound message itself is a stand-in. Nothing leaves

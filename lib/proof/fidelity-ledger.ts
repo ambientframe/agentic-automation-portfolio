@@ -12,6 +12,7 @@ import {
   type SideEffectExecutorSelection,
 } from '@/lib/config/side-effect-executor-config';
 import { resolveOperatorAuth, type OperatorAuthResolution } from '@/lib/config/operator-auth-config';
+import { resolveDataRootSelection } from '@/lib/config/data-root';
 import {
   evidenceProvesIndependentVerification,
   evidenceProvesOrchestration,
@@ -392,6 +393,7 @@ export function deriveFidelityLedger({
    * in `lib/auth/lead-rescue-operator-runtime.ts` where exactly two functions can reach it.
    */
   const operatorAuth = resolveOperatorAuth(env, () => 'the fidelity ledger never reads a signing key');
+  const dataRoot = resolveDataRootSelection(env, process.cwd());
   const orchestrationProven = evidenceProvesOrchestration(evidence);
   const floor = numberParam(profile, 'confidenceFloor');
   const reviewWindow = numberParam(profile, 'humanReviewTimeoutHours');
@@ -435,7 +437,13 @@ export function deriveFidelityLedger({
         'A case held for review, ready to dispatch, or waiting on a deadline is written to a real file on disk with a temp-then-rename write, and is loaded back by a process that did not park it. Restarting the server loses nothing.',
       basis: 'lib/persistence/wait-incident-store.ts · tests/wait-incident-store.test.ts · tests/lead-rescue-wait-resume.test.ts',
       limit:
-        'A single JSON file, appropriate for a prototype. A deployment on an ephemeral filesystem would need a persistent volume behind the same interface.',
+        dataRoot.source === 'CONFIGURED'
+          ? // The one sentence that differs by deployment, derived rather than asserted: this
+            // build's root was pointed (PORTFOLIO_DATA_ROOT) at writable platform storage,
+            // which on the hosted demo is ephemeral. Saying "durable" without this bound would
+            // be the exact flattery the ledger exists to refuse.
+            'A single JSON file, appropriate for a prototype. This build routes its store root to configured platform storage (PORTFOLIO_DATA_ROOT): state survives across requests and process restarts on the same instance, and does not survive platform recycling — the console here starts empty and may reset between visits. The process-death durability proof was run against a local checkout, not this hosting.'
+          : 'A single JSON file, appropriate for a prototype. A deployment on an ephemeral filesystem would need a persistent volume behind the same interface.',
     },
     {
       id: 'http-operator-path',

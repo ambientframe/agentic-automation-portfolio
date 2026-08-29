@@ -556,3 +556,35 @@ describe('the failure register separates proven handling from designed handling'
     }
   });
 });
+
+/**
+ * The persistence row's limit is derived from the resolved store-root selection, because the
+ * truth it must state differs by deployment: a default root is the durable local checkout the
+ * wait/resume proofs ran against; a configured root is the hosted demo's ephemeral platform
+ * storage, where state survives requests but not platform recycling. One static sentence
+ * cannot be true in both places, and this page prerenders in both.
+ */
+describe('persistence row states the truth of the build it is in', () => {
+  const persistenceRow = (env: Record<string, string>) => {
+    const ledger = ledgerFor({ evidence: ABSENT, evaluation: NO_EVAL, env });
+    const row = ledger.rows.find((candidate) => candidate.id === 'persistence');
+    if (row === undefined) throw new Error('persistence row missing');
+    return row;
+  };
+
+  it('with a default root, does not claim configured platform storage', () => {
+    const row = persistenceRow({});
+    expect(row.limit).not.toMatch(/PORTFOLIO_DATA_ROOT/);
+    expect(row.limit).not.toMatch(/platform recycling/i);
+  });
+
+  it('with a configured root, names the ephemerality a visitor will actually experience', () => {
+    const row = persistenceRow({ PORTFOLIO_DATA_ROOT: '/tmp/.data' });
+    expect(row.limit).toMatch(/PORTFOLIO_DATA_ROOT/);
+    expect(row.limit).toMatch(/does not survive platform recycling/i);
+    // The mechanism's durability claim must stay bounded, not silently withdrawn: the row
+    // still names what the store genuinely does under a configured root.
+    expect(row.limit).toMatch(/survives across requests and process restarts/i);
+    expect(row.status).toBe('REAL');
+  });
+});

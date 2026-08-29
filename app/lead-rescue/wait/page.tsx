@@ -633,7 +633,7 @@ export default function LeadRescueWaitPage() {
               <li>· &ldquo;Simulate past deadline &amp; check&rdquo; is the one control that does not use the real clock — it supplies a timestamp just past the deadline instead, through the identical check path a genuine hours-later check would take. The &ldquo;OVERDUE&rdquo; badge itself IS the real clock, compared against the real deadline, on every page load.</li>
               <li>· The offer despatch and every escalation notification (prospect-response or attention) are simulated sends — a deterministic, always-succeeds stand-in. Nothing leaves this process, and no real prospect, owner, or provider is involved.</li>
               <li>· No scheduler exists anywhere in this build — an overdue condition is only ever detected when a check is explicitly run (a button click here, or a script hitting the same route). A production deployment would run the identical check on a real interval; this demo does not simulate that interval, only the check itself.</li>
-              <li>· This demo store is a single JSON file, adequate for a prototype; a production deployment on an ephemeral filesystem would need a persistent volume behind the same `WaitIncidentStore` interface, unchanged.</li>
+              <li>· This demo store is a single JSON file, adequate for a prototype; a production deployment on an ephemeral filesystem would need a persistent volume behind the same `WaitIncidentStore` interface, unchanged. The hosted demo runs on exactly such an ephemeral filesystem, so its state may reset between visits — the durability proof is the retained local process-death artifact, not this hosting.</li>
             </ul>
           </div>
         </div>
