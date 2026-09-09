@@ -238,7 +238,7 @@ function evaluationRow(
    */
   const safety =
     unsafeMisclassifiedCount === 0
-      ? ' Every incorrect case still routed to a person rather than to an action: the capture records no unsafe misclassification.'
+      ? ' The capture records no unsafe misclassification by its own count; the corpus run scored classifier outputs and did not exercise the routing that follows them.'
       : unsafeMisclassifiedCount !== null && unsafeMisclassifiedCount > 0
         ? ` The capture records ${unsafeMisclassifiedCount} unsafe misclassification(s).`
         : '';

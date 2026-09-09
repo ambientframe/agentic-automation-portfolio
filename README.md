@@ -34,9 +34,10 @@ fictional. **Reachable is a demonstration surface; it is not operation.**
 
 Lead Rescue's live classification evaluation is a **retained negative result**: all 9 frozen
 corpus cases ran against the real model and scored **6/9 (66.7%)** against a declared floor
-of 75%. No label, threshold, prompt, or model setting was altered to soften it. Every miss
-routed to a person rather than to an action, so the failure is one of accuracy and never of
-safety. See [STATUS.md](docs/STATUS.md).
+of 75%. No label, threshold, prompt, or model setting was altered to soften it. The run scored
+the classifier's outputs against four declared thresholds; it did not exercise the routing that
+follows a classification, so it says nothing about how a miss would have been handled. See
+[STATUS.md](docs/STATUS.md).
 
 ## Run it
 

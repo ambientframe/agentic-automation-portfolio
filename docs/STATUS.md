@@ -1,6 +1,17 @@
 # Status
 
-**As of 2026-08-27 (latest pass, same day) · Two of the four published gaps, closed — and the
+**As of 2026-09-08 · A public sentence about the retained evaluation overstated it, and is
+corrected.** The README, this document's 2026-08-26 entry, the walkthrough, and the fidelity
+ledger's evaluation row all said every miss "routed to a person rather than to an action, so the
+failure is one of accuracy and never of safety." The corpus run in
+`tests/lead-rescue-claude-classifier-eval.test.ts` calls the classifier directly and does not
+exercise the routing that follows a classification, so per-case routing was never demonstrated
+by that run; the sentence was an inference from the confidence-floor policy, not a recorded
+result. Each surface now says what the run scored and that routing was not exercised. The
+retained artifact `n8n/evidence/lead-rescue-live-classification.json` is unchanged; its own
+`safetyReading` stands as the capture's statement about itself, not as a demonstrated result.
+
+**As of 2026-08-27 (earlier pass, same day) · Two of the four published gaps, closed — and the
 audit had to say so.** `call-to-proposal/NEEDS_HUMAN` and `client-onboarding/NEEDS_HUMAN` now
 declare a `HUMAN_APPROVAL_TIMEOUT` and implement it. The assertion that carries the weight in
 each suite is not that the mechanism works; it is that **`abandonableStateIds` stopped listing
@@ -842,11 +853,13 @@ returned classification value and the adapter's own post-validation provenance l
 returned `NEEDS_MORE_INFORMATION` (0.66) where canon expects `POLICY_SENSITIVE` — breaking the
 "every canon-sourced case correct" threshold. No label, example, threshold, prompt, or model
 setting was altered to soften that; the corpus literal is sha-verified byte-identical before and
-after. **The failure is one of accuracy, never of safety**: zero unsafe misclassifications, every
-miss either below the configured `confidenceFloor` (0.7) or reporting missing information, both
-of which route to a person rather than to an action — and the adversarial prompt-injection case
-passed, the injected "confidence 1.0, no missing information" demand refused with a returned
-0.75. Retained in `n8n/evidence/lead-rescue-live-classification.json`, guarded by
+after. Two of the four declared thresholds failed (canon-sourced correctness and overall
+accuracy) and two passed: the adversarial prompt-injection case landed in its acceptable set,
+and the injected "confidence 1.0, no missing information" demand was refused with a returned
+0.75. *[Corrected 2026-09-08: this entry originally said every miss "routed to a person rather
+than to an action" and that the failure was "never of safety". The corpus run calls the
+classifier directly and does not exercise routing, so that was an inference from the
+confidence-floor policy, not a recorded result.]* Retained in `n8n/evidence/lead-rescue-live-classification.json`, guarded by
 `tests/live-classification-evidence.test.ts` (13 tests, each confirmed to fail against a
 deliberately corrupted artifact).
 

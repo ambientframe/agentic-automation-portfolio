@@ -141,9 +141,9 @@ That row bounds all ten of the REAL ones above it.
 
 The same discipline produced a result nobody would choose to publish: the labelled evaluation
 corpus was run against a genuine `claude-opus-5` and **scored 6 of 9 against its own declared
-floor of 75%**. It is retained rather than re-run, re-labelled, or quietly dropped. Every miss
-routed to a person rather than to an action, so the failure is one of accuracy and never of
-safety.
+floor of 75%**. It is retained rather than re-run, re-labelled, or quietly dropped. The run
+scored the classifier's outputs against four declared thresholds; it did not exercise the routing
+that follows a classification.
 
 Say: *"It fails its own evaluation in public. That's the reason to trust the rest of it."*
 

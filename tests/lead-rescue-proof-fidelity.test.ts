@@ -500,6 +500,8 @@ describe('the ledger reports a measured classifier even when the measurement fai
 
   it('offers no safety reassurance the capture did not record', () => {
     expect(evaluationRow(EVALUATED)?.whatIsTrue).toContain('no unsafe misclassification');
+    // The row must not narrate per-case routing: the corpus run never exercised it (corrected 2026-09-08).
+    expect(evaluationRow(EVALUATED)?.whatIsTrue).not.toContain('routed to a person');
 
     const silent = evaluationRow({ ...EVALUATED, unsafeMisclassifiedCount: null });
     expect(silent?.whatIsTrue).not.toContain('unsafe');
