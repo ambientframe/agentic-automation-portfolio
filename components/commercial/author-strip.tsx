@@ -1,7 +1,7 @@
 import { AUTHOR } from '@/lib/commercial/outward-copy';
 import { presentDeclaration, type CommercialDeclaration } from '@/lib/config/commercial-declaration';
 import type { SourceProvenance } from '@/lib/config/source-provenance';
-import { DraftMark, Sentence, UnsetFieldView } from '@/components/commercial/copy-chrome';
+import { Sentence, UnsetFieldView } from '@/components/commercial/copy-chrome';
 
 /**
  * WHO IS ACCOUNTABLE — provenance, not a founder story.
@@ -20,10 +20,7 @@ export function AuthorStrip({
 
   return (
     <section className="border-t border-b rule py-5 space-y-3" aria-label="Author">
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="label">Author</span>
-        <DraftMark />
-      </div>
+      <span className="label">Author</span>
       <p className="text-sm leading-relaxed">
         <span className="label mr-2">Public name</span>
         <UnsetFieldView field={presented.publicName} />

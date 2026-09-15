@@ -7,7 +7,7 @@ import {
 import type { CommercialDeclaration } from '@/lib/config/commercial-declaration';
 import type { SourceProvenance } from '@/lib/config/source-provenance';
 import { AuthorStrip } from '@/components/commercial/author-strip';
-import { CopyGradeNote, DraftMark, Sentence } from '@/components/commercial/copy-chrome';
+import { Sentence } from '@/components/commercial/copy-chrome';
 
 /**
  * BUSINESS-FIRST TOP OF THE FRONT DOOR.
@@ -25,10 +25,7 @@ export function FrontDoor({
   return (
     <div className="space-y-10">
       <section className="prose-measure space-y-4">
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="label">{FRONT_DOOR.kicker.text}</span>
-          <DraftMark />
-        </div>
+        <span className="label">{FRONT_DOOR.kicker.text}</span>
         <h1 className="display text-3xl sm:text-4xl">{FRONT_DOOR.headline.text}</h1>
         <Sentence
           sentence={FRONT_DOOR.problem}
@@ -42,7 +39,6 @@ export function FrontDoor({
           className="text-[0.9375rem] leading-relaxed"
           style={{ color: 'var(--ink-muted)' }}
         />
-        <CopyGradeNote />
       </section>
 
       <AuthorStrip declaration={declaration} provenance={provenance} />

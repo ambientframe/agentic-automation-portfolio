@@ -1,7 +1,7 @@
 import { COLOPHON_COPY, COMMERCIAL_ROUTES, ENGAGEMENT_OFFER_NAME } from '@/lib/commercial/outward-copy';
 import { presentDeclaration, type CommercialDeclaration } from '@/lib/config/commercial-declaration';
 import type { SourceProvenance } from '@/lib/config/source-provenance';
-import { DraftMark, Sentence, UnsetFieldView } from '@/components/commercial/copy-chrome';
+import { Sentence, UnsetFieldView } from '@/components/commercial/copy-chrome';
 
 /**
  * COLOPHON CONTACT — identity, offer, fee, and conversion, on every page.
@@ -20,10 +20,7 @@ export function ColophonContact({
 
   return (
     <section className="border-t rule pt-5 space-y-3" aria-label="Operator and offer">
-      <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-        <span className="label">Operator and offer</span>
-        <DraftMark />
-      </div>
+      <span className="label">Operator and offer</span>
       <dl className="instrument space-y-2">
         <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
           <dt className="label">Name</dt>

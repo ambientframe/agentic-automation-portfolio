@@ -13,7 +13,6 @@ import { OperatorsLogStub } from '@/components/commercial/operators-log-stub';
 
 import {
   COMMERCIAL_ROUTES,
-  COPY_GRADE_LABEL,
   ENGAGEMENT_ELEMENTS,
   ENGAGEMENT_OFFER_NAME,
   OUTWARD_SENTENCES,
@@ -74,10 +73,10 @@ describe('every outward sentence reaches markup', () => {
     }
   });
 
-  it('marks the copy as DRAFT on the surfaces a stranger reads', () => {
-    const markup = commercialSurfaces();
-    expect(visible(markup)).toContain(COPY_GRADE_LABEL);
-    expect(visible(markup)).toMatch(/draft copy/i);
+  it('renders no draft-approval chrome after operator approval', () => {
+    const text = visible(commercialSurfaces());
+    expect(text).not.toMatch(/draft copy/i);
+    expect(text).not.toMatch(/awaiting operator approval/i);
   });
 });
 

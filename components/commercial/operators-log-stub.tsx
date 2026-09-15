@@ -1,6 +1,6 @@
 import { COMMERCIAL_ROUTES, OPERATOR_LOG } from '@/lib/commercial/outward-copy';
 import { sourceUrl, type SourceProvenance } from '@/lib/config/source-provenance';
-import { CopyGradeNote, DraftMark, Sentence } from '@/components/commercial/copy-chrome';
+import { Sentence } from '@/components/commercial/copy-chrome';
 
 /**
  * CP1 STUB ONLY.
@@ -17,7 +17,6 @@ export function OperatorsLogStub({ provenance }: { readonly provenance: SourcePr
       <header className="prose-measure space-y-4">
         <div className="flex flex-wrap items-center gap-2">
           <span className="label">{OPERATOR_LOG.status.text}</span>
-          <DraftMark />
           <span
             className="badge"
             style={{ color: 'var(--warn)', background: 'var(--warn-bg)', borderColor: 'var(--warn)' }}
@@ -32,7 +31,6 @@ export function OperatorsLogStub({ provenance }: { readonly provenance: SourcePr
           className="text-[0.9375rem] leading-relaxed"
           style={{ color: 'var(--ink-muted)' }}
         />
-        <CopyGradeNote />
       </header>
 
       <section className="border rule rounded-sm p-5 space-y-3" style={{ background: 'var(--panel)' }}>

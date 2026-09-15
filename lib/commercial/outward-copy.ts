@@ -1,17 +1,19 @@
 /**
- * OUTWARD COMMERCIAL COPY — GRADE: DRAFT.
+ * OUTWARD COMMERCIAL COPY — OPERATOR APPROVED.
  *
- * `COMMERCIAL_V1_BUILD_BRIEF.md` ships new site copy as DRAFT until the operator approves it
- * in one batch. These sentences are the batch. They render with a visible draft mark. They
- * are not final, and they must not be presented as if they were.
+ * Christopher approved this batch as written on 2026-09-15. Approval changes the copy's
+ * status only. It does not declare any CD1 value; those remain explicit UNSET fields in
+ * `lib/config/commercial-declaration.ts`.
  *
  * Every sentence either resolves to a repository artifact (by path, existence-checked) or
- * carries a label: UNSET, DRAFT, NOT_CLAIMED, AWAITING_EVIDENCE, PROCESS, DIRECTION.
+ * carries a label: UNSET, NOT_CLAIMED, AWAITING_EVIDENCE, PROCESS, DIRECTION.
  * Nothing here invents a CD1 value. Nothing here uses team language.
  */
 
-export const COPY_GRADE = 'DRAFT' as const;
-export const COPY_GRADE_LABEL = 'Draft copy — awaiting operator approval';
+export const COPY_APPROVAL = {
+  status: 'OPERATOR_APPROVED',
+  approvedOn: '2026-09-15',
+} as const;
 
 export const COMMERCIAL_ROUTES = {
   home: '/',
@@ -28,7 +30,7 @@ export type ArtifactBacking = {
 
 export type LabelBacking = {
   readonly kind: 'LABEL';
-  readonly label: 'UNSET' | 'DRAFT' | 'NOT_CLAIMED' | 'AWAITING_EVIDENCE' | 'PROCESS' | 'DIRECTION';
+  readonly label: 'UNSET' | 'NOT_CLAIMED' | 'AWAITING_EVIDENCE' | 'PROCESS' | 'DIRECTION';
 };
 
 export type ClaimBacking = ArtifactBacking | LabelBacking;

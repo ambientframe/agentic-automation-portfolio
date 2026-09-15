@@ -10,13 +10,13 @@ import {
 import { presentDeclaration, type CommercialDeclaration } from '@/lib/config/commercial-declaration';
 import type { SourceProvenance } from '@/lib/config/source-provenance';
 import { AuthorStrip } from '@/components/commercial/author-strip';
-import { CopyGradeNote, DraftMark, Sentence, UnsetFieldView } from '@/components/commercial/copy-chrome';
+import { Sentence, UnsetFieldView } from '@/components/commercial/copy-chrome';
 
 /**
  * THE REVENUE LEAK AUDIT — all eight concreteness elements, the not-claimed list,
  * the after-email process, and the permission-based publication statement.
  *
- * Copy grade: DRAFT. CD1 slots render as visible unset.
+ * Copy is operator-approved. CD1 slots remain visibly unset.
  */
 export function EngagementSurface({
   declaration,
@@ -30,10 +30,7 @@ export function EngagementSurface({
   return (
     <div className="mx-auto max-w-6xl px-6 py-14 space-y-14">
       <header className="prose-measure space-y-4">
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="label">{ENGAGEMENT.kicker.text}</span>
-          <DraftMark />
-        </div>
+        <span className="label">{ENGAGEMENT.kicker.text}</span>
         <h1 className="display text-3xl sm:text-4xl">{ENGAGEMENT.headline.text}</h1>
         <Sentence
           sentence={ENGAGEMENT.lede}
@@ -46,7 +43,6 @@ export function EngagementSurface({
           className="text-[0.9375rem] leading-relaxed"
           style={{ color: 'var(--ink-muted)' }}
         />
-        <CopyGradeNote />
       </header>
 
       <AuthorStrip declaration={declaration} provenance={provenance} />

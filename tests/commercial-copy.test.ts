@@ -3,8 +3,7 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 import {
-  COPY_GRADE,
-  COPY_GRADE_LABEL,
+  COPY_APPROVAL,
   ENGAGEMENT_ELEMENTS,
   ENGAGEMENT_NOT_CLAIMED,
   ENGAGEMENT_OFFER_NAME,
@@ -25,10 +24,9 @@ import { ALL_SYSTEMS } from '@/data/systems';
 const REPO = process.cwd();
 
 describe('copy grade', () => {
-  it('ships as DRAFT until the operator approves the batch', () => {
-    expect(COPY_GRADE).toBe('DRAFT');
-    expect(COPY_GRADE_LABEL).toMatch(/draft/i);
-    expect(COPY_GRADE_LABEL).toMatch(/approval/i);
+  it('records the operator approval without changing any CD1 declaration', () => {
+    expect(COPY_APPROVAL.status).toBe('OPERATOR_APPROVED');
+    expect(COPY_APPROVAL.approvedOn).toBe('2026-09-15');
   });
 });
 
@@ -50,7 +48,7 @@ describe('the outward-sentence register', () => {
         expect(sentence.backing.path.trim().length, sentence.id).toBeGreaterThan(0);
         expect(sentence.backing.why.trim().length, sentence.id).toBeGreaterThan(0);
       } else {
-        expect(['UNSET', 'DRAFT', 'NOT_CLAIMED', 'AWAITING_EVIDENCE', 'PROCESS', 'DIRECTION']).toContain(
+        expect(['UNSET', 'NOT_CLAIMED', 'AWAITING_EVIDENCE', 'PROCESS', 'DIRECTION']).toContain(
           sentence.backing.label,
         );
       }
