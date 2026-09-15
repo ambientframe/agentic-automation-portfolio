@@ -1,0 +1,88 @@
+{
+  "schemaVersion": 1,
+  "status": "PASS",
+  "recordedAt": "2026-09-15T23:01:00Z",
+  "testedLocalCommit": "1caa6c637768462da6916380ab930eaad4431f05",
+  "testedCodeTree": "f928669a1dc32f14a23c8a0db99b1e9b5e750914",
+  "server": {
+    "command": "npm run start -- --hostname 0.0.0.0 --port 43821",
+    "build": "Next.js 16.3.2 production build"
+  },
+  "routes": [
+    "/",
+    "/engagement",
+    "/operator-log"
+  ],
+  "responsive": {
+    "viewports": [375, 768, 1440],
+    "checks": 9,
+    "http200": 9,
+    "horizontalOverflowFailures": 0,
+    "observedDocumentWidths": {
+      "375": 360,
+      "768": 752,
+      "1440": 1425
+    }
+  },
+  "keyboardAndFocus": {
+    "method": "Playwright keyboard Tab events against the production build, eight sequential focus targets per route",
+    "targetsChecked": 24,
+    "visibleTargets": 24,
+    "focusVisibleMatches": 24,
+    "solidOutlineTargets": 24,
+    "firstTargetsByRoute": {
+      "/": [
+        "Portfolio Flight Simulator",
+        "Revenue Leak Audit",
+        "Operator’s log",
+        "I evaluate systems"
+      ],
+      "/engagement": [
+        "Portfolio Flight Simulator",
+        "Revenue Leak Audit",
+        "Operator’s log",
+        "I evaluate systems"
+      ],
+      "/operator-log": [
+        "Portfolio Flight Simulator",
+        "Revenue Leak Audit",
+        "Operator’s log",
+        "I evaluate systems"
+      ]
+    },
+    "activation": {
+      "input": "Tab, Tab, Enter from /",
+      "focused": "Revenue Leak Audit",
+      "resultPath": "/engagement",
+      "resultTitle": "Revenue Leak Audit — engagement",
+      "result": "PASS"
+    }
+  },
+  "contrast": {
+    "method": "Computed foreground and nearest opaque ancestor background; CSS Lab converted through D50 XYZ and Bradford-adapted to D65; WCAG relative-luminance ratio",
+    "threshold": 4.5,
+    "light": {
+      "/": { "samples": 332, "minimumRatio": 4.97, "failures": 0 },
+      "/engagement": { "samples": 156, "minimumRatio": 4.59, "failures": 0 },
+      "/operator-log": { "samples": 127, "minimumRatio": 4.59, "failures": 0 }
+    },
+    "dark": {
+      "/": { "samples": 332, "minimumRatio": 5.42, "failures": 0 },
+      "/engagement": { "samples": 156, "minimumRatio": 4.93, "failures": 0 },
+      "/operator-log": { "samples": 127, "minimumRatio": 4.93, "failures": 0 }
+    }
+  },
+  "consoleErrors": 0,
+  "cd1": {
+    "publicName": "UNSET",
+    "engagementFee": "UNSET",
+    "contactEmail": "UNSET",
+    "publicDomain": "UNSET"
+  },
+  "doesNotProve": [
+    "A screen-reader pass on a specific operating system.",
+    "The unperformed O1 operating session.",
+    "A real email conversion path.",
+    "A deployed build or live traffic."
+  ]
+}
