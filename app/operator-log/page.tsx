@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { OperatorsLogStub } from '@/components/commercial/operators-log-stub';
+import { OperatorsLogSkeleton } from '@/components/commercial/operators-log-stub';
 import { resolveSourceProvenance } from '@/lib/config/source-provenance';
 
 export const metadata: Metadata = {
@@ -9,5 +9,5 @@ export const metadata: Metadata = {
 };
 
 export default function OperatorLogPage() {
-  return <OperatorsLogStub provenance={resolveSourceProvenance(process.env)} />;
+  return <OperatorsLogSkeleton provenance={resolveSourceProvenance(process.env)} />;
 }

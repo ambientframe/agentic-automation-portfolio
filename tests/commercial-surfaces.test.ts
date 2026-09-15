@@ -9,7 +9,7 @@ import { ColophonContact, CommercialNav } from '@/components/commercial/colophon
 import { EngagementSurface } from '@/components/commercial/engagement-surface';
 import { FrontDoor } from '@/components/commercial/front-door';
 import { MaturityLegend } from '@/components/commercial/maturity-legend';
-import { OperatorsLogStub } from '@/components/commercial/operators-log-stub';
+import { OperatorsLogSkeleton } from '@/components/commercial/operators-log-stub';
 
 import {
   COMMERCIAL_ROUTES,
@@ -49,7 +49,7 @@ function commercialSurfaces(declaration: CommercialDeclaration = COMMERCIAL_DECL
   return [
     html(createElement(FrontDoor, { declaration, provenance: PROVENANCE })),
     html(createElement(EngagementSurface, { declaration, provenance: PROVENANCE })),
-    html(createElement(OperatorsLogStub, { provenance: PROVENANCE })),
+    html(createElement(OperatorsLogSkeleton, { provenance: PROVENANCE })),
     html(createElement(AuthorStrip, { declaration, provenance: PROVENANCE })),
     html(createElement(ColophonContact, { declaration, provenance: PROVENANCE })),
     html(createElement(CommercialNav)),
@@ -150,9 +150,9 @@ describe('engagement page', () => {
   });
 });
 
-describe('operator’s log stub', () => {
+describe('operator’s log skeleton', () => {
   it('announces awaiting-evidence and does not compose a session', () => {
-    const markup = html(createElement(OperatorsLogStub, { provenance: PROVENANCE }));
+    const markup = html(createElement(OperatorsLogSkeleton, { provenance: PROVENANCE }));
     const text = visible(markup);
     expect(text).toMatch(/awaiting evidence/i);
     expect(text).toMatch(/has not happened yet/i);
@@ -202,6 +202,6 @@ describe('chrome that makes name, offer, and fee reachable from any page', () =>
     const engagement = readFileSync(join(REPO, 'app/engagement/page.tsx'), 'utf8');
     const log = readFileSync(join(REPO, 'app/operator-log/page.tsx'), 'utf8');
     expect(engagement).toContain('<EngagementSurface');
-    expect(log).toContain('<OperatorsLogStub');
+    expect(log).toContain('<OperatorsLogSkeleton');
   });
 });

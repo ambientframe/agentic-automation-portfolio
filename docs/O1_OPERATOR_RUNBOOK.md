@@ -28,18 +28,29 @@ The distinction survives into the evidence bundle and the public log. Do not blu
 1. Run locally from repo `HEAD` per the README's cold-run instructions. The local store journals
    durable records that go straight into the evidence bundle, and the run doubles as a live
    exercise of the README's own promise. Record: commit id, date, start time.
-2. Notes file open at `docs/evidence/o1/NOTES.md`; screenshot tool ready. Timestamp every entry.
+2. Run `npm run evidence:o1 -- prepare` once. It creates the empty
+   `docs/evidence/o1/{NOTES.md,MANIFEST.md,screenshots/,records/}` structure and refuses to
+   overwrite an existing bundle. Open `NOTES.md`; keep the screenshot tool ready. Timestamp
+   every entry.
 3. Select an operator principal whose authority ceiling is **mid-ladder, not the top** — Session
    B needs a ceiling that can genuinely be exceeded.
-   `[apparatus: CP2 — confirm the principal roster and each ceiling in the console]`
+   Confirm the full **Principal roster and authority ceilings** panel on
+   `/operator-log`; it is derived from the same profile and identity registry returned by
+   `GET /api/lead-rescue/operator-session`, not duplicated in this runbook. Record the selected
+   principal and displayed ceiling in `NOTES.md`.
 
 ## Session A — the operating run (60–90 min, everything labeled `OPERATING`)
 
 1. Operate the system the way the business would, through the surfaces the pages invite: drive
    the enquiry lifecycle in the simulator, and work the waiting queue in the operator console at
    `/lead-rescue/wait` — review each surfaced case, decide, record.
-   `[apparatus: CP2 — confirm the exact drive path for a full park → wait → resume cycle on the
-   local instance]`
+   Exact full-cycle path for Session A: run `/simulator/reply-window-elapses` through its
+   authored park → wait → resume sequence. Then exercise the file-backed path at
+   `/lead-rescue/wait`: **Start a case needing human review** → choose the acting principal
+   and **Submit decision** → confirm `BOOKING_READY` → **Despatch offer (simulated)** → confirm
+   `WAITING_FOR_REPLY` → **Check** against the real clock → inspect the journal beneath the
+   case. A before-deadline check must leave it waiting. Do **not** use “Simulate past deadline”
+   in Session A; that control is labeled and captured only as `CONTROL`.
 2. **Per decision point, capture:** timestamp · screenshot · what the system did · what you did
    · your immediate reaction, verbatim.
 3. **Cover at least:** one park → wait → resume cycle; one duplicate or classification
@@ -68,7 +79,11 @@ Take an explicit break first, or run it as a separate sitting.
 ## Post-run, same day (~30–45 min)
 
 Expand the contemporaneous notes while fresh — do not rewrite them; annotate them. Then assemble
-the bundle.
+the bundle. Run `npm run evidence:o1 -- snapshot` once to copy the execution journal, wait
+incident store, and any available claim/observation records into `records/` with hashes and a
+generated manifest. It fails if the required runtime sources are absent or a prior snapshot
+exists. Finish with `npm run evidence:o1 -- verify`; a missing `OPERATING` or `CONTROL` note,
+either screenshot prefix, runtime snapshot, or manifest entry is a failure.
 
 ## Evidence bundle manifest (`docs/evidence/o1/`)
 
@@ -76,7 +91,7 @@ the bundle.
 |---|---|
 | `NOTES.md` | Timestamped, every entry labeled `OPERATING` or `CONTROL` |
 | `screenshots/` | Numbered in capture order, prefixed `a-` / `b-` by session |
-| journal + store records | Preserved from the local run `[apparatus: CP2 — the mechanism]` |
+| journal + store records | One-time copy under `records/` from `npm run evidence:o1 -- snapshot`, with SHA-256 hashes in `runtime-snapshot.json` |
 | `MANIFEST.md` | One line per artifact: what it is, which session, what it evidences |
 
 **Handoff:** the bundle is CP2b's only input. The builder composes the log's sections 3–5 from
