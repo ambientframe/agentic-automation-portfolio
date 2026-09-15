@@ -1,0 +1,56 @@
+{
+  "schemaVersion": 1,
+  "recordedAt": "2026-09-15T23:12:20Z",
+  "verifiedCommit": "dd80e64c47ed795716d7b5ab2eb728f6406d041a",
+  "branch": "cursor/cp1-commercial-surfaces-2d34",
+  "packages": {
+    "CP2": {
+      "result": "PASS",
+      "detail": "Seven-section operator-log skeleton renders evidence-dependent sections as AWAITING_EVIDENCE. Prepare, snapshot, and verify capture mechanics completed a temporary dry run and deleted its artifacts."
+    },
+    "D1": {
+      "result": "PASS",
+      "artifact": "docs/evidence/d1/accessibility-pass.json",
+      "detail": "Keyboard, focus visibility, light/dark contrast, and 375/768/1440 responsive checks passed on all commercial routes."
+    },
+    "P2": {
+      "result": "PASS",
+      "detail": "Every currently declared gatesAction resolves to a named constant consulted in a closedGatesFor handler call."
+    }
+  },
+  "verification": [
+    {
+      "command": "npm run verify",
+      "result": "PASS",
+      "detail": "Typecheck and lint passed; 92 test files passed; 1640 tests passed; 1 skipped."
+    },
+    {
+      "command": "npm run build",
+      "result": "PASS",
+      "detail": "Next.js 16.3.2 production build generated 41 static pages and retained the commercial routes."
+    },
+    {
+      "command": "GET /, /engagement, /operator-log, /lead-rescue/wait",
+      "result": "PASS",
+      "detail": "All four routes returned HTTP 200 from the production build."
+    },
+    {
+      "command": "mutation: contactEmail declared href returns null",
+      "result": "CAUGHT",
+      "detail": "Declaration and rendered-surface suites failed on the missing mailto. Source restored byte-for-byte to git blob 2a09f12d57f8963a414fb4252778fdf1265c312b."
+    }
+  ],
+  "cd1": {
+    "publicName": "UNSET",
+    "engagementFee": "UNSET",
+    "contactEmail": "UNSET",
+    "publicDomain": "UNSET"
+  },
+  "doesNotProve": [
+    "The O1 operating or control sessions occurred.",
+    "The operator-log evidence body exists.",
+    "A real email conversion path works.",
+    "The branch is merged or deployed.",
+    "A customer has used or paid for the Revenue Leak Audit."
+  ]
+}
