@@ -5,8 +5,21 @@ import './globals.css';
 import { KESTREL } from '@/data/profiles/kestrel/profile';
 import { ALL_SYSTEMS } from '@/data/systems';
 import { MATURITY_LEVELS } from '@/lib/model/system';
-import { deriveSourceHandover } from '@/lib/config/source-provenance';
+import {
+  deriveSourceHandover,
+  resolveSourceProvenance,
+  type SourceProvenance,
+} from '@/lib/config/source-provenance';
+import {
+  COMMERCIAL_DECLARATION,
+  type CommercialDeclaration,
+} from '@/lib/config/commercial-declaration';
 import { SourceHandover } from '@/components/source-handover';
+import {
+  ColophonContact,
+  CommercialNav,
+} from '@/components/commercial/colophon-contact';
+import { MaturityLegend } from '@/components/commercial/maturity-legend';
 
 const inter = Inter({ variable: '--font-inter', subsets: ['latin'], display: 'swap' });
 const newsreader = Newsreader({ variable: '--font-newsreader', subsets: ['latin'], display: 'swap' });
@@ -24,6 +37,8 @@ export const metadata: Metadata = {
 };
 
 export default function RootLayout({ children }: LayoutProps<'/'>) {
+  const provenance = resolveSourceProvenance(process.env);
+
   return (
     <html
       lang="en"
@@ -32,8 +47,9 @@ export default function RootLayout({ children }: LayoutProps<'/'>) {
       <body className="min-h-full flex flex-col">
         <SimulationBanner />
         <Masthead />
+        <CommercialNav />
         <main className="flex-1">{children}</main>
-        <Colophon />
+        <Colophon declaration={COMMERCIAL_DECLARATION} provenance={provenance} />
       </body>
     </html>
   );
@@ -99,7 +115,13 @@ function Masthead() {
 }
 
 /** Ft5 · Statement. Closes the page with the one thing that matters, then the meta line. */
-function Colophon() {
+function Colophon({
+  declaration,
+  provenance,
+}: {
+  readonly declaration: CommercialDeclaration;
+  readonly provenance: SourceProvenance;
+}) {
   return (
     <footer className="border-t rule mt-24">
       <div className="mx-auto max-w-6xl px-6 py-12 space-y-6">
@@ -108,6 +130,8 @@ function Colophon() {
           provider, or third party.
         </p>
         <SourceHandover handover={deriveSourceHandover(process.env)} />
+        <ColophonContact declaration={declaration} provenance={provenance} />
+        <MaturityLegend provenance={provenance} compact />
         <div className="border-t rule pt-5 space-y-2">
           <p className="instrument" style={{ color: 'var(--ink-muted)' }}>
             {KESTREL.fictionalDisclosure}
@@ -124,4 +148,3 @@ function Colophon() {
     </footer>
   );
 }
-

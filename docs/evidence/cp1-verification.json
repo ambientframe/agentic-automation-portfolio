@@ -1,0 +1,45 @@
+{
+  "schemaVersion": 1,
+  "package": "CP1",
+  "recordedAt": "2026-09-15T21:52:23Z",
+  "baseCommit": "a91892311fec91250964bd647e7cf0da96881cb6",
+  "branch": "cursor/cp1-commercial-surfaces-2d34",
+  "copyGrade": "DRAFT",
+  "cd1": {
+    "publicName": "UNSET",
+    "engagementFee": "UNSET",
+    "contactEmail": "UNSET",
+    "publicDomain": "UNSET"
+  },
+  "verification": [
+    {
+      "command": "npm run verify",
+      "result": "PASS",
+      "detail": "86 test files passed; 1625 tests passed; 1 skipped; typecheck and lint passed."
+    },
+    {
+      "command": "npm run build",
+      "result": "PASS",
+      "detail": "Next.js 16.3.2 production build compiled and prerendered /, /engagement, and /operator-log."
+    },
+    {
+      "command": "mutation: contactEmail declared href returns null",
+      "result": "CAUGHT",
+      "detail": "commercial-declaration and commercial-surfaces suites failed on the missing mailto; source was restored before this record was written."
+    }
+  ],
+  "surfaces": [
+    "/",
+    "/engagement",
+    "/operator-log"
+  ],
+  "doesNotProve": [
+    "Outward copy is operator-approved.",
+    "CD1 public name, fee, contact email, or public domain is decided.",
+    "A real email conversion path works.",
+    "The operator has completed O1.",
+    "The operator's log contains operating evidence.",
+    "The branch is deployed or serving live traffic.",
+    "A customer has used or paid for the Revenue Leak Audit."
+  ]
+}
