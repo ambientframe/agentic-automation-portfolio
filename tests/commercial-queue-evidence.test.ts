@@ -22,7 +22,8 @@ const evidence = JSON.parse(
 
 function issues(record: QueueEvidence): readonly string[] {
   const found: string[] = [];
-  for (const name of ['CP2', 'D1', 'P2']) {
+  if (record.packages.CP2?.result !== 'PASS_WITH_DECLARED_LIMIT') found.push('CP2');
+  for (const name of ['D1', 'P2']) {
     if (record.packages[name]?.result !== 'PASS') found.push(name);
   }
   if (record.verification.length < 4) found.push('verification coverage');

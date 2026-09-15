@@ -24,6 +24,8 @@ describe('CP2 runbook apparatus', () => {
     expect(runbook).toContain('npm run evidence:o1 -- verify');
     expect(runbook).toContain('Start a case needing human review');
     expect(runbook).toContain('Despatch offer (simulated)');
+    expect(runbook).toContain('ATTENTION_BLOCKED is not reachable');
+    expect(runbook).toContain('Do not fabricate it');
   });
 
   it('exposes the capture command without adding a provider or external write', () => {

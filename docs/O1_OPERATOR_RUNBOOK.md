@@ -70,9 +70,12 @@ Take an explicit break first, or run it as a separate sitting.
    trusting this system with someone else's business."*
 2. As the mid-ladder principal, drive a case to an action **above** your ceiling, and attempt
    it.
-3. **Capture:** the refusal itself; the routing/escalation that follows; the
-   `ATTENTION_BLOCKED` state and its two-clock rendering (blocked, not overdue); the journal
-   record behind each.
+3. **Capture:** the refusal itself, the routing/escalation that follows, and the journal record
+   behind each. Apparatus finding (2026-09-15): `ATTENTION_BLOCKED is not reachable` on this
+   Kestrel operator surface because Kestrel declares no `externalGates`; that state is exercised
+   only by the Ashcombe engine test in `tests/external-gate-dispatch.test.ts`. **Do not fabricate it**
+   and do not relabel that test as O1 operating evidence. The pre-registered two-clock capture
+   remains explicitly unfulfilled until a real compatible surface exists.
 4. **If the safeguard fails, capture harder.** A failed safeguard is published per thesis §3 —
    a retained negative result is an asset — and repaired as gate-breaking work.
 

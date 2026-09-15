@@ -5,8 +5,8 @@
   "branch": "cursor/cp1-commercial-surfaces-2d34",
   "packages": {
     "CP2": {
-      "result": "PASS",
-      "detail": "Seven-section operator-log skeleton renders evidence-dependent sections as AWAITING_EVIDENCE. Prepare, snapshot, and verify capture mechanics completed a temporary dry run and deleted its artifacts."
+      "result": "PASS_WITH_DECLARED_LIMIT",
+      "detail": "Seven-section operator-log skeleton renders evidence-dependent sections as AWAITING_EVIDENCE. Prepare, snapshot, and verify capture mechanics completed a temporary dry run and deleted its artifacts. The Kestrel surface cannot produce Ashcombe's ATTENTION_BLOCKED state; the runbook now forbids fabricating or relabeling it as O1 evidence."
     },
     "D1": {
       "result": "PASS",
@@ -49,6 +49,7 @@
   "doesNotProve": [
     "The O1 operating or control sessions occurred.",
     "The operator-log evidence body exists.",
+    "ATTENTION_BLOCKED was captured through the Kestrel operator surface.",
     "A real email conversion path works.",
     "The branch is merged or deployed.",
     "A customer has used or paid for the Revenue Leak Audit."
